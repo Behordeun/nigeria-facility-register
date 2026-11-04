@@ -1,0 +1,30 @@
+# Data licensing
+
+The code in this repository is MIT (see LICENSE). The data is not, and the
+terms differ by artifact. Read this before reusing anything under data/.
+
+## Derived artifacts built from CC BY sources
+
+The facility authority layer, version-drift tables, and the LGA coverage table
+are Produced Works derived from GRID3 NGA Health Facilities v2.0 and v3.0 and
+the geoBoundaries 774-LGA frame, all CC BY. These derived artifacts are released
+under Creative Commons Attribution 4.0 International (CC BY 4.0). Attribution per
+data/ATTRIBUTION.md is required.
+
+## The ESPEN NTD summary (non-commercial)
+
+The per-state soil-transmitted-helminths burden summary is derived from ESPEN
+(WHO/AFRO) data, which is published under CC BY-NC-SA 3.0 IGO. That license is
+NON-COMMERCIAL and share-alike. The derived summary here inherits those terms:
+you may copy, redistribute and adapt it for non-commercial purposes with
+attribution, under the same or an equivalent license. It must not be used in a
+commercial product without written permission from WHO/ESPEN.
+
+## Raw inputs are not redistributed
+
+The raw GRID3 geopackages and the raw ESPEN tables are not committed. Fetch them
+from their sources (data/sources.yml). This keeps the repository lean and avoids
+re-hosting a non-commercial upstream dataset.
+
+This is an engineering reading of the published terms, not legal advice. Confirm
+the ESPEN terms directly before any commercial use.

@@ -1,0 +1,22 @@
+# Raw third-party inputs: fetched, never committed (large, and one is NC)
+data/raw/
+
+# Build artifacts: the DuckDB database and dbt targets rebuild from bronze
+build/
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

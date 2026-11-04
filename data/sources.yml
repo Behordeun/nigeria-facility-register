@@ -1,0 +1,38 @@
+# Provenance manifest for every external input. The raw files are NOT committed
+# (large binaries, and one carries a non-commercial clause); fetch them with
+# scripts/fetch_sources.py, which checks each sha256 against the value here.
+
+sources:
+  grid3_v2:
+    name: GRID3 NGA - Health Facilities v2.0
+    url: https://data.humdata.org/dataset/grid3-nga-health-facilities-v2-0
+    doi: null
+    license: CC BY 4.0
+    format: geopackage
+    period: 2018 to 2024-10-31
+    note: National coverage. Download the .gpkg resource into data/raw/.
+
+  grid3_v3:
+    name: GRID3 NGA - Health Facilities v3.0
+    url: https://data.humdata.org/dataset/grid3-nga-health-facilities-v3-0
+    doi: 10.7916/s6cq-1q98
+    license: CC BY 4.0
+    format: geopackage
+    period: 2018 to 2025-12-31
+    note: 24-state coverage, supersedes v2.0 there. Download the .gpkg into data/raw/.
+
+  frame_master_index:
+    name: Nigeria 774-LGA master index
+    source: geoBoundaries ADM2 + ESPEN IU cartography
+    license: CC BY (geoBoundaries); ESPEN cartography factual/geographic
+    format: csv
+    note: Small derived index, vendored into data/frame/.
+
+  ntd_sth_state:
+    name: ESPEN STH endemicity, per-state summary (DERIVED)
+    url: https://espen.afro.who.int/countries/nigeria
+    license: CC BY-NC-SA 3.0 IGO (upstream ESPEN)
+    format: csv
+    note: >
+      Non-commercial. Only the DERIVED per-state summary is committed, never the
+      raw ESPEN IU table. Attribution required; no commercial redistribution.

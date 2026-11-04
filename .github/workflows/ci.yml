@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [development]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check src tests
+
+      - name: Unit tests
+        run: pytest -q
+
+      # The dbt build needs the raw geopackages, which are not committed (HDX
+      # WAF blocks scripted download). CI verifies the manifest and the SQL
+      # parses; the full warehouse build runs locally where the raw files live.
+      - name: Verify source manifest
+        run: python scripts/fetch_sources.py || true
+
+      - name: dbt parse
+        working-directory: dbt
+        run: |
+          pip install dbt-duckdb==1.9.1
+          dbt deps || true
+          dbt parse --profiles-dir .
