@@ -14,6 +14,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - CI running lint, unit tests and a dbt parse.
 - Data contract for the published marts: DATA_CONTRACT.md documents the grain, keys, column types, nullability, value domains, the "missing is not zero" rule, and freshness/versioning. Enforced by dbt model contracts plus tests, including a 774-LGA row-count check and a composite (state, canonical_lga) uniqueness check on the coverage mart.
 - Committed sample fixture (two states) so CI loads it and runs the full dbt build, proving the contract on every PR rather than only parsing. Toolchain pinned to Python 3.12 with a uv lockfile and dbt-duckdb 1.9.6.
+- Dagster refresh pipeline: assets for the source load and the dbt build, a weekly schedule, and a sensor that rebuilds only when a new GRID3 vintage lands in data/raw/. Dagster is an optional install (the orchestration extra).
 - Licensing split: AGPL-3.0-or-later code, CC BY derived artifacts, non-commercial terms carried for the derived ESPEN summary. Raw inputs fetched, not committed.
 - LGA alias crosswalk mapping facility-source LGA spellings and former names to the canonical frame name, loaded and applied in the mart so a known variant joins instead of reporting zero.
 - Coverage reporting to SonarCloud: pytest-cov emits coverage.xml, a sonar-project.properties uploads it, and CI runs the scan pinned to a commit SHA. Coverage reflects the unit-tested library code; the I/O loader and removed prototype scripts are not counted.
