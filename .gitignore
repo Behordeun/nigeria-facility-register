@@ -21,12 +21,15 @@ venv/
 .idea/
 .vscode/
 .history/
+.codacy
 
 # Internal working notes: kept local, never committed. The SPEC holds prior-art
 # framing and decision history that does not belong in a public repo.
 *.local.md
 docs/SPEC.local.md
 
+# Internal archives: superseded drafts kept locally for reference
+archives/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
