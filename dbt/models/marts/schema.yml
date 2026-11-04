@@ -1,0 +1,37 @@
+version: 2
+
+models:
+  - name: stg_facilities_authority
+    description: Version-aware authoritative facility layer (v3.0 where covered, v2.0 elsewhere).
+    columns:
+      - name: facility_id
+        description: Source id, globalid for v2.0 or unique_id for v3.0. Unique within the layer.
+        tests:
+          - not_null
+          - unique
+      - name: source_version
+        tests:
+          - not_null
+          - accepted_values:
+              values: ['v2.0', 'v3.0']
+      - name: facility_status
+        tests:
+          - accepted_values:
+              values: ['current', 'stale-awaiting-v3']
+
+  - name: lga_coverage_burden
+    description: Per-LGA facility coverage vs NTD burden, one row per LGA.
+    columns:
+      - name: canonical_lga
+        description: Canonical LGA name from the 774-LGA frame.
+        tests:
+          - not_null
+      - name: facilities
+        description: Facility count from the authority layer. 0 may be a name-join miss, not a true absence.
+        tests:
+          - not_null
+      - name: priority_high_burden_thin_coverage
+        tests:
+          - not_null
+          - accepted_values:
+              values: [true, false]

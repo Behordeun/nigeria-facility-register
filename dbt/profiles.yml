@@ -1,0 +1,9 @@
+# Local dbt-duckdb profile. The database file is created under build/ and is
+# gitignored; the pipeline rebuilds it from the source files on every run.
+nfr:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "../build/nfr.duckdb"
+      threads: 4

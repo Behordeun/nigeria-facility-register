@@ -1,13 +1,14 @@
 """
-Load raw inputs into the DuckDB bronze layer.
+Load source inputs into DuckDB as the `raw` schema dbt reads from.
 
-Bronze is immutable: each table is dropped and recreated wholesale from its
-source file, never edited in place, so a reload is idempotent and safe to retry.
-Source files are fetched separately (see scripts/fetch_sources.py) and their
-provenance is pinned in data/sources.yml.
+Each table is dropped and recreated wholesale from its source file, never edited
+in place, so a reload is idempotent and safe to retry. The authoritative copies
+live upstream (HDX, ESPEN); these tables are only the local read surface. Source
+files are fetched separately (see scripts/fetch_sources.py) and their provenance
+is pinned in data/sources.yml.
 
 Usage:
-    python -m nfr.load_bronze --db build/nfr.duckdb --frame data/frame
+    python -m nfr.load_sources --db build/nfr.duckdb --frame data/frame
 """
 from __future__ import annotations
 

@@ -3,13 +3,13 @@
 PY ?= .venv/bin/python
 DB ?= build/nfr.duckdb
 
-.PHONY: help setup fetch bronze build test lint clean
+.PHONY: help setup fetch load build test lint clean
 
 help:
 	@echo "setup   install the package and dev deps into .venv"
-	@echo "fetch   check raw inputs are present (download manually from HDX)"
-	@echo "bronze  load raw inputs into the DuckDB bronze layer"
-	@echo "build   run the dbt silver + gold models"
+	@echo "fetch   check source inputs are present (download manually from HDX)"
+	@echo "load    load source inputs into DuckDB (the raw schema)"
+	@echo "build   run the dbt staging + marts models"
 	@echo "test    unit tests + dbt tests"
 	@echo "lint    ruff"
 	@echo "clean   remove build artifacts"
@@ -21,10 +21,10 @@ setup:
 fetch:
 	$(PY) scripts/fetch_sources.py --verify
 
-bronze:
-	$(PY) -m nfr.load_bronze --db $(DB)
+load:
+	$(PY) -m nfr.load_sources --db $(DB)
 
-build: bronze
+build: load
 	cd dbt && ../$(PY) -m dbt build --profiles-dir .
 
 test:

@@ -1,0 +1,21 @@
+version: 2
+
+sources:
+  - name: raw
+    description: >
+      Source inputs loaded into DuckDB as-is, one table per source vintage.
+      Loaded by nfr.load_sources: each table is dropped and recreated wholesale,
+      never edited in place, so a reload is idempotent. The authoritative copies
+      live upstream (HDX, ESPEN); these tables are just the local read surface.
+    tables:
+      - name: grid3_v2
+        description: GRID3 NGA Health Facilities v2.0 (national, to Oct 2024). CC BY 4.0.
+      - name: grid3_v3
+        description: GRID3 NGA Health Facilities v3.0 (24 states, to Dec 2025). CC BY 4.0.
+      - name: frame_master_index
+        description: 774-LGA master index (canonical LGA, state, ESPEN IU id). geoBoundaries CC BY.
+      - name: ntd_sth_state
+        description: >
+          ESPEN soil-transmitted-helminths endemicity, summarised per state
+          (derived). Upstream ESPEN is CC BY-NC-SA 3.0 IGO: derived summary only,
+          non-commercial.
