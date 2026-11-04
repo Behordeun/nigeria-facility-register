@@ -41,7 +41,8 @@ models:
           - type: not_null
         data_tests:
           - accepted_values:
-              values: ['v2.0', 'v3.0']
+              arguments:
+                values: ['v2.0', 'v3.0']
       - name: source_date
         data_type: date
         constraints:
@@ -52,4 +53,5 @@ models:
           - type: not_null
         data_tests:
           - accepted_values:
-              values: ['current', 'stale-awaiting-v3']
+              arguments:
+                values: ['current', 'stale-awaiting-v3']

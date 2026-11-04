@@ -38,10 +38,10 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 
 | Column | Type | Nullable | Domain / rule |
 |---|---|---|---|
-| `canonical_lga` | varchar | no | canonical LGA name from the 774-LGA frame |
+| `canonical_lga` | varchar | no | canonical LGA name; not unique alone, several recur across states (see key rule below) |
 | `state` | varchar | no | the LGA's state or FCT |
-| `espen_iu_id` | varchar | yes | the ESPEN IU id where the frame carries one |
-| `facilities` | integer | no | count in the authority layer; `0` means none matched, which may be a name-join miss, never asserted as a true absence |
+| `espen_iu_id` | bigint | yes | the ESPEN IU id where the frame carries one |
+| `facilities` | bigint | no | count in the authority layer; `0` means none matched, which may be a name-join miss, never asserted as a true absence |
 | `facility_source_version` | varchar | yes | `v2.0` or `v3.0`; null only if the LGA matched no facility |
 | `facility_status` | varchar | no | `current`, `stale-awaiting-v3`, or `unmatched` |
 | `sth_high_share_pct_state` | double | yes | state-level ESPEN STH high-prevalence share, broadcast to each LGA in the state; null where the state was not surveyed |
@@ -50,6 +50,7 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 
 Guarantees:
 - Exactly 774 rows, one per LGA. No LGA missing, none duplicated.
+- The key is `(state, canonical_lga)`, not `canonical_lga` alone. Six LGA names recur across states (Bassa, Ifelodun, Irepodun, Nasarawa, Obi, Surulere), so joining on the bare name would collide two distinct places. Always carry the state.
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts.
