@@ -1,7 +1,7 @@
 # Raw third-party inputs: fetched, never committed (large, and one is NC)
 data/raw/
 
-# Build artifacts: the DuckDB database and dbt targets rebuild from bronze
+# Build artifacts: the DuckDB database and dbt targets rebuild from the sources
 build/
 dbt/target/
 dbt/dbt_packages/
@@ -21,7 +21,6 @@ venv/
 .idea/
 .vscode/
 .history/
-.history
 
 # Internal working notes: kept local, never committed. The SPEC holds prior-art
 # framing and decision history that does not belong in a public repo.
