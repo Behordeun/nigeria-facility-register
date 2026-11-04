@@ -1,0 +1,9 @@
+# Normalise line endings so a CRLF file does not churn the diff on checkout.
+* text=auto eol=lf
+
+# Data files keep LF too; they are read by the pipeline, not edited by hand.
+*.csv text eol=lf
+*.json text eol=lf
+
+# Geopackages are binary; never touch them.
+*.gpkg binary
