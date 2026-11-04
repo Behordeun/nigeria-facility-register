@@ -3,7 +3,7 @@
 PY ?= .venv/bin/python
 DB ?= build/nfr.duckdb
 
-.PHONY: help setup fetch load build test lint clean
+.PHONY: help setup fetch load build test dagster lint clean
 
 help:
 	@echo "setup   install the package and dev deps into .venv"
@@ -11,6 +11,7 @@ help:
 	@echo "load    load source inputs into DuckDB (the raw schema)"
 	@echo "build   run the dbt staging + marts models"
 	@echo "test    unit tests + dbt tests"
+	@echo "dagster launch the Dagster dev UI for the refresh pipeline"
 	@echo "lint    ruff"
 	@echo "clean   remove build artifacts"
 
@@ -33,6 +34,9 @@ test:
 
 lint:
 	$(PY) -m ruff check src tests
+
+dagster:
+	$(PY) -m dagster dev -m nfr.orchestration.definitions
 
 clean:
 	rm -rf build dbt/target dbt/logs

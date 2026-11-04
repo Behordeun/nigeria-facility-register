@@ -1,0 +1,40 @@
+"""Unit tests for the refresh sensor's change-detection fingerprint.
+
+The sensor rebuilds only when the raw geopackages actually change, so the
+fingerprint must be stable for unchanged files and differ when a file appears or
+grows. Skipped when dagster is not installed (the orchestration extra), because
+the module imports dagster at the top.
+"""
+import pytest
+
+dagster = pytest.importorskip("dagster")
+
+from nfr.orchestration.definitions import fingerprint
+
+
+def test_stable_for_unchanged_files(tmp_path):
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
+    names = ["a.gpkg"]
+    first = fingerprint(tmp_path, names)
+    assert fingerprint(tmp_path, names) == first
+
+
+def test_changes_when_a_file_appears(tmp_path):
+    names = ["a.gpkg", "b.gpkg"]
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
+    before = fingerprint(tmp_path, names)
+    (tmp_path / "b.gpkg").write_bytes(b"y" * 100)
+    assert fingerprint(tmp_path, names) != before
+
+
+def test_changes_when_a_file_grows(tmp_path):
+    names = ["a.gpkg"]
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
+    before = fingerprint(tmp_path, names)
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 200)
+    assert fingerprint(tmp_path, names) != before
+
+
+def test_empty_dir_is_stable(tmp_path):
+    first = fingerprint(tmp_path, ["none.gpkg"])
+    assert fingerprint(tmp_path, ["none.gpkg"]) == first

@@ -25,6 +25,10 @@ dev = [
     "pytest-cov==7.0.0",
     "ruff==0.8.4",
 ]
+orchestration = [
+    "dagster==1.9.5",
+    "dagster-webserver==1.9.5",
+]
 
 [tool.ruff]
 line-length = 100
