@@ -44,6 +44,10 @@ The raw geopackages are fetched, not committed. HDX serves them behind a challen
 - Dropped and appeared facilities between versions are review queues, not verdicts.
 - NTD burden is state-level and broadcast to each LGA in the state, labelled as such.
 
+## Data contract
+
+The published marts carry a written, tested contract: column types are enforced by dbt model contracts, and the guarantees a type cannot express (grain, keys, "missing is not zero", value domains, freshness) are enforced by tests. See `docs/DATA_CONTRACT.md`.
+
 ## Licensing
 
 Code is AGPL-3.0-or-later (`LICENSE`): you may use, modify and self-host it, and a modified version offered as a network service must publish its source under the same license. Derived data artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summary carries the upstream CC BY-NC-SA 3.0 IGO non-commercial terms. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.
