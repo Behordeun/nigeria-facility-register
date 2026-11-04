@@ -25,6 +25,7 @@ import argparse
 from pathlib import Path
 
 import geopandas as gpd
+import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "sample"
@@ -32,6 +33,17 @@ OUT = ROOT / "data" / "sample"
 # States chosen so the fixture exercises v3-covered and v2-only paths.
 V3_STATE = "Bayelsa"      # v3.0 covers it: state_standard
 V2_STATE = "Ekiti"        # v3.0 does not cover it: lives only in v2.0
+
+
+def subset_states(df: pd.DataFrame, column: str, states: list[str]) -> pd.DataFrame:
+    """Return the rows whose trimmed state column is in `states`.
+
+    Pure and file-free so it can be unit-tested. Trimming matches the behaviour
+    the loader and marts rely on, so the fixture keys the same way the pipeline
+    does.
+    """
+    keep = df[column].astype(str).str.strip().isin(states)
+    return df[keep].copy()
 
 
 def main() -> None:
@@ -49,14 +61,14 @@ def main() -> None:
 
     # v2.0: keep both states (v2 is national, so it has Bayelsa and Ekiti).
     v2 = gpd.read_file(v2_path)
-    v2_sample = v2[v2["state"].astype(str).str.strip().isin([V3_STATE, V2_STATE])].copy()
+    v2_sample = subset_states(v2, "state", [V3_STATE, V2_STATE])
     v2_out = OUT / "nga_health_facilities_v2_0.gpkg"
     v2_sample.to_file(v2_out, driver="GPKG")
     print(f"v2 sample: {len(v2_sample)} rows ({V3_STATE} + {V2_STATE}) -> {v2_out}")
 
     # v3.0: keep only Bayelsa (Ekiti is not in v3, which is the point).
     v3 = gpd.read_file(v3_path)
-    v3_sample = v3[v3["state_standard"].astype(str).str.strip() == V3_STATE].copy()
+    v3_sample = subset_states(v3, "state_standard", [V3_STATE])
     v3_out = OUT / "grid3_nga_health_facilities_v3_0.gpkg"
     v3_sample.to_file(v3_out, driver="GPKG")
     print(f"v3 sample: {len(v3_sample)} rows ({V3_STATE} only) -> {v3_out}")
