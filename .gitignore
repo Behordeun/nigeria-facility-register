@@ -20,6 +20,8 @@ venv/
 .DS_Store
 .idea/
 .vscode/
+.history/
+.history
 
 # Internal working notes: kept local, never committed. The SPEC holds prior-art
 # framing and decision history that does not belong in a public repo.

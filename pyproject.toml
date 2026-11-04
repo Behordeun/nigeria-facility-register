@@ -4,8 +4,12 @@ version = "0.1.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [{ name = "Muhammad Abiodun Sulaiman" }]
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+    { name = "Muhammad Abiodun Sulaiman" },
+    { name = "Bolaji Oyeyemi" },
+    { name = "Hammed Sarafadeen" },
+]
 dependencies = [
     "duckdb==1.1.3",
     "geopandas==1.0.1",

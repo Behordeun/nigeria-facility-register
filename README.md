@@ -16,7 +16,7 @@ A loader reads each source file into DuckDB as a `raw` table. Staging builds the
 
 ## Layout
 
-```
+```text
 src/nfr/          Python: name keys, source loader, matchers
 dbt/              DuckDB models: staging (authority layer), marts (LGA coverage x burden)
 data/frame/       774-LGA index + centroids (CC BY)
@@ -28,7 +28,7 @@ tests/            unit tests for the join keys
 
 ## Run it
 
-```
+```bash
 make setup                     # venv + deps
 # download the two GRID3 geopackages into data/raw/ (see data/sources.yml)
 make fetch                     # verify they are present
@@ -46,4 +46,4 @@ The raw geopackages are fetched, not committed. HDX serves them behind a challen
 
 ## Licensing
 
-Code is MIT (`LICENSE`). Derived artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summary carries the upstream CC BY-NC-SA 3.0 IGO non-commercial terms. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.
+Code is AGPL-3.0-or-later (`LICENSE`): you may use, modify and self-host it, and a modified version offered as a network service must publish its source under the same license. Derived data artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summary carries the upstream CC BY-NC-SA 3.0 IGO non-commercial terms. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.
