@@ -19,6 +19,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+          pip install dbt-duckdb==1.9.6
 
       - name: Lint
         run: ruff check src tests
@@ -26,15 +27,15 @@ jobs:
       - name: Unit tests
         run: pytest -q
 
-      # The dbt build needs the raw geopackages, which are not committed (HDX
-      # WAF blocks scripted download). CI verifies the manifest and the SQL
-      # parses; the full warehouse build runs locally where the raw files live.
-      - name: Verify source manifest
-        run: python scripts/fetch_sources.py || true
+      # The committed sample fixture (data/sample/, two states) lets CI run the
+      # full transform without the WAF-gated production geopackages. This builds
+      # the staging and marts models and runs the dbt tests, so the enforced data
+      # contract is proven on every PR, not just parsed.
+      - name: Load sample fixture into DuckDB
+        run: python -m nfr.load_sources --db build/nfr.duckdb --raw data/sample
 
-      - name: dbt parse
+      - name: dbt build + test on the fixture
         working-directory: dbt
         run: |
-          pip install dbt-duckdb==1.9.1
           dbt deps || true
-          dbt parse --profiles-dir .
+          dbt build --profiles-dir .
