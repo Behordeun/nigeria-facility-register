@@ -7,9 +7,9 @@ the module imports dagster at the top.
 """
 import pytest
 
-dagster = pytest.importorskip("dagster")
+pytest.importorskip("dagster")  # the module imports dagster at top level
 
-from nfr.orchestration.definitions import fingerprint
+from nfr.orchestration.definitions import fingerprint  # noqa: E402
 
 
 def test_stable_for_unchanged_files(tmp_path):

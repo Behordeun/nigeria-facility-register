@@ -19,7 +19,6 @@ import subprocess
 from pathlib import Path
 
 from dagster import (
-    AssetExecutionContext,
     Definitions,
     ScheduleDefinition,
     SensorEvaluationContext,
@@ -37,7 +36,7 @@ RAW_GPKGS = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_
 
 
 @asset
-def raw_sources(context: AssetExecutionContext) -> None:
+def raw_sources(context) -> None:
     """Load the source files into DuckDB as the raw schema."""
     missing = [n for n in RAW_GPKGS if not (RAW / n).exists()]
     if missing:
@@ -53,7 +52,7 @@ def raw_sources(context: AssetExecutionContext) -> None:
 
 
 @asset(deps=[raw_sources])
-def dbt_models(context: AssetExecutionContext) -> None:
+def dbt_models(context) -> None:
     """Run the dbt staging and marts build, then the dbt tests."""
     subprocess.run(["dbt", "build", "--profiles-dir", "."], cwd=str(DBT_DIR), check=True)
 

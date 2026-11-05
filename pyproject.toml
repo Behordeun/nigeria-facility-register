@@ -40,16 +40,12 @@ addopts = "--cov=nfr --cov-report=xml --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["nfr"]
-# The CLI entry-point scripts run against the real geopackages and are exercised
-# end to end by the dbt build on the sample fixture in CI, not by pytest. They
-# are excluded from the unit-coverage figure so it reflects the library code the
-# unit tests actually cover (keys, fixture subsetting, the path guard), rather
-# than reporting a misleading number for integration-tested scripts.
+# I/O orchestration exercised end to end in CI (the dbt build, or a Dagster
+# run), not by unit tests. Their pure helpers are tested directly, so these are
+# excluded and the coverage figure reflects the unit-tested library code.
 omit = [
-    "src/nfr/build_authority_layer.py",
-    "src/nfr/diff_versions.py",
-    "src/nfr/match_v2_v3_spatial.py",
     "src/nfr/load_sources.py",
+    "src/nfr/orchestration/definitions.py",
 ]
 
 [build-system]

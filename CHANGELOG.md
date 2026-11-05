@@ -20,11 +20,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - Coverage reporting to SonarCloud: pytest-cov emits coverage.xml, a sonar-project.properties uploads it, and CI runs the scan pinned to a commit SHA. Coverage reflects the unit-tested library code; the I/O loader and removed prototype scripts are not counted.
 
 ### Fixed
+
 - The authority switch no longer drops every v2 fallback facility when the v3 source contains a null state, and canonicalises v2/v3 state-label aliases so a covered state is not duplicated or left with zero-count LGAs.
 - Added tests for exact frame-key coverage, facility_status/source_version consistency, and both authority versions being present, so a dropped LGA, a contradictory coverage state, or a fixture that loses a path is caught.
 - Source dates are the data vintage end dates, not publication dates, so freshness is never reported as a future date. The CSV loader parses deterministically, validates source paths resolve within the project, and loads all tables in one transaction.
 
 ### Removed
+
 - Three superseded prototype scripts (build_authority_layer, diff_versions, match_v2_v3_spatial) that nothing imported; the dbt models replace them.
 
 ### Notes
