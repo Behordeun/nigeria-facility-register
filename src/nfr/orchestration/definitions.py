@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from dagster import (
@@ -68,12 +69,15 @@ def dbt_models(context) -> None:
     )
 
 
-# Cap the job at one active run, so a scheduled, sensor, and manual launch cannot
-# overlap and race on the same DuckDB file.
+# Tag the job's runs with a concurrency key, so a scheduled, sensor, and manual
+# launch do not overlap and race on the shared DuckDB file and dbt output dirs.
+# The run coordinator serialises runs that share this key (configure the limit
+# to 1 for the "refresh_register" key in the instance's run-concurrency settings;
+# the tag is what makes that limit apply to every launch path).
 refresh_job = define_asset_job(
     "refresh_register",
     selection="*",
-    config={"execution": {"config": {"multiprocess": {"max_concurrent": 1}}}},
+    tags={"dagster/concurrency_key": "refresh_register"},
 )
 
 # Weekly, not daily: GRID3 releases are infrequent, so a weekly rebuild keeps the
@@ -117,22 +121,43 @@ def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
 def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     """Fire the refresh when a new GRID3 vintage appears in data/raw/.
 
-    Requires every raw input to be present before requesting a run, so a
-    partially-populated data/raw/ never triggers a build that would fail on the
-    missing file. Uses the content fingerprint as the cursor, so an unchanged
-    data/raw/ costs nothing and a newly dropped geopackage triggers exactly one
-    rebuild. The cursor is advanced only after the run is requested, so a tick
-    that cannot run (missing input) leaves the cursor untouched and retries on
-    the next tick without needing a new fingerprint.
+    Requires every raw input to be present and settled before requesting a run,
+    uses a content fingerprint so an unchanged data/raw/ is a no-op, and keys
+    each run so a failed refresh or a restored earlier vintage is not
+    deduplicated away. The cursor holds the last fingerprint acted on.
+
+    Known limit: the cursor advances when the run is REQUESTED, not when it
+    succeeds, so a run that fails after being requested is not re-fired by this
+    sensor on its own (re-run it from the Dagster UI, or re-drop the file). A
+    stricter success-gated cursor needs a run-status sensor, which is out of
+    scope here; the weekly schedule also re-attempts.
     """
     missing = [n for n in RAW_GPKGS if not (RAW / n).is_file()]
     if missing:
         return SensorResult(skip_reason=f"waiting for raw inputs: {', '.join(missing)}")
+
+    # Guard against a half-written file: a geopackage copied or downloaded
+    # straight to its final path changes between stat calls while it is still
+    # being written. Require the fingerprint to be stable across a short pause
+    # before acting, so the run is requested only once the files settle.
     fp = fingerprint()
+    time.sleep(2)
+    if fp != fingerprint():
+        return SensorResult(skip_reason="data/raw/ still changing; waiting for it to settle")
+
     if fp == (context.cursor or ""):
         return SensorResult(skip_reason="no new GRID3 vintage in data/raw/")
+
     from dagster import RunRequest
-    return SensorResult(run_requests=[RunRequest(run_key=fp)], cursor=fp)
+
+    # The run key carries the content fingerprint AND a short attempt suffix
+    # derived from the current time, so (a) a failed refresh can be re-requested
+    # for the same fingerprint instead of being deduplicated away, and (b) a
+    # restored earlier vintage still triggers a run rather than being suppressed
+    # by a reused key. The cursor stores only the fingerprint, so an unchanged
+    # directory is still a no-op.
+    run_key = f"{fp}-{int(time.time())}"
+    return SensorResult(run_requests=[RunRequest(run_key=run_key)], cursor=fp)
 
 
 defs = Definitions(
