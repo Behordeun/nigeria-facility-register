@@ -102,14 +102,24 @@ def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
     path-injectable so it can be tested without a Dagster context; an absent
     file contributes nothing.
     """
+    # Confine resolution to the directory being hashed: a listed name may not
+    # escape raw_dir via a symlink or a .. segment. This stops the sensor from
+    # reading bytes outside the watched directory (in production raw_dir is RAW,
+    # inside the project); a caller that passes its own raw_dir, such as a test,
+    # is still confined to that directory.
+    base = raw_dir.resolve()
     h = hashlib.sha256()
     for n in names or RAW_GPKGS:
         p = raw_dir / n
-        if p.exists():
-            h.update(n.encode())
-            with p.open("rb") as f:
-                for chunk in iter(lambda: f.read(1 << 20), b""):
-                    h.update(chunk)
+        if not p.exists():
+            continue
+        real = p.resolve()
+        if base != real and base not in real.parents:
+            raise ValueError(f"raw input {real} escapes the watched directory {base}")
+        h.update(n.encode())
+        with real.open("rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
     return h.hexdigest()[:16]
 
 

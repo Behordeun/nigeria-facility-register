@@ -53,3 +53,16 @@ def test_detects_same_size_same_mtime_content_change(tmp_path):
     f.write_bytes(b"BBBB")
     os.utime(f, (st.st_atime, st.st_mtime))
     assert fingerprint(tmp_path, ["a.gpkg"]) != before
+
+
+def test_rejects_a_symlink_escaping_the_watched_dir(tmp_path):
+    # A name inside the watched dir that symlinks outside it must be refused,
+    # so the sensor never hashes bytes beyond the directory it watches.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret").write_bytes(b"x")
+    watched = tmp_path / "raw"
+    watched.mkdir()
+    (watched / "a.gpkg").symlink_to(outside / "secret")
+    with pytest.raises(ValueError, match="escapes the watched directory"):
+        fingerprint(watched, ["a.gpkg"])

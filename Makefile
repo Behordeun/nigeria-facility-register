@@ -37,7 +37,7 @@ lint:
 
 dagster:
 	$(PY) -m pip install -e ".[dev,orchestration]"
-	$(PY) -m dagster dev -m nfr.orchestration.definitions
+	DAGSTER_HOME=$(CURDIR) $(PY) -m dagster dev -m nfr.orchestration.definitions
 
 clean:
 	rm -rf build dbt/target dbt/logs
