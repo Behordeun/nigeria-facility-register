@@ -123,9 +123,10 @@ def _stage(download: Path) -> tuple[str, Path]:
     tmp = Path(tmp_name)
     try:
         tmp.write_bytes(download.read_bytes())
-        # Readable by group/other (respecting umask), so a sensor/loader account
-        # other than the placing user can read the promoted file.
-        os.chmod(tmp, 0o644 & ~_umask())
+        # Readable by owner and group (respecting umask), so a sensor/loader
+        # account in the same group can read the promoted file without granting
+        # world-read access to the raw geopackages.
+        os.chmod(tmp, 0o640 & ~_umask())
         ok, reason = validate_geopackage(tmp)
         if not ok:
             raise SystemExit(f"refusing to place {name}: staged copy invalid ({reason})")
@@ -136,8 +137,11 @@ def _stage(download: Path) -> tuple[str, Path]:
 
 
 def _umask() -> int:
-    # Read the umask without permanently changing it.
-    current = os.umask(0)
+    # os.umask has no read-only form, so recover the current value by setting
+    # one and reading back what it returns, then restore it on the next line.
+    # The process umask is unchanged on return and no file is created while it
+    # is 0, so the transient value cannot affect any file's permissions.
+    current = os.umask(0)  # NOSONAR S2612 - value read then restored, no file created meanwhile
     os.umask(current)
     return current
 
