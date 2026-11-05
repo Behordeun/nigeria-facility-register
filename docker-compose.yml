@@ -93,9 +93,9 @@ services:
       # empty, so a deployment that forgets the .env cannot boot with a known
       # credential. Copy .env.example to .env and set real values first. The
       # username is not a credential, so it keeps a plain default.
-      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?set SUPERSET_SECRET_KEY in a .env file}
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?SUPERSET_SECRET_KEY is required; put it in a .env file}
       SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
-      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?set SUPERSET_ADMIN_PASSWORD in a .env file}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?SUPERSET_ADMIN_PASSWORD is required; put it in a .env file}
     volumes:
       # The live register, read-only: Superset reads it, never writes it.
       - build:/app/register:ro
