@@ -3,13 +3,14 @@
 PY ?= .venv/bin/python
 DB ?= build/nfr.duckdb
 
-.PHONY: help setup fetch load build test dagster lint clean
+.PHONY: help setup fetch load build sample test dagster lint clean
 
 help:
 	@echo "setup   install the package and dev deps into .venv"
 	@echo "fetch   check source inputs are present (download manually from HDX)"
 	@echo "load    load source inputs into DuckDB (the raw schema)"
-	@echo "build   run the dbt staging + marts models"
+	@echo "build   run the dbt staging + marts models (needs the real inputs in data/raw/)"
+	@echo "sample  run the whole transform on the committed sample fixture (no download)"
 	@echo "test    unit tests + dbt tests"
 	@echo "dagster launch the Dagster dev UI for the refresh pipeline"
 	@echo "lint    ruff"
@@ -25,12 +26,21 @@ fetch:
 load:
 	$(PY) -m nfr.load_sources --db $(DB)
 
+# -m dbt.cli.main, not -m dbt: dbt ships no dbt.__main__, so -m dbt fails with
+# "No module named dbt.__main__".
 build: load
-	cd dbt && ../$(PY) -m dbt build --profiles-dir .
+	cd dbt && ../$(PY) -m dbt.cli.main build --profiles-dir .
+
+# End-to-end on the committed two-state sample fixture, no external download.
+# Loads data/sample and builds with fixture_build so the fixture-only coverage
+# tests run. This is the same path CI uses to prove the transform on every PR.
+sample:
+	$(PY) -m nfr.load_sources --db $(DB) --raw data/sample
+	cd dbt && ../$(PY) -m dbt.cli.main build --profiles-dir . --vars 'fixture_build: true'
 
 test:
 	$(PY) -m pytest -q
-	cd dbt && ../$(PY) -m dbt test --profiles-dir . || true
+	cd dbt && ../$(PY) -m dbt.cli.main test --profiles-dir . || true
 
 lint:
 	$(PY) -m ruff check src tests
