@@ -97,9 +97,10 @@ def _stage(download: Path) -> tuple[str, Path]:
     Validating the copy, not the source, is what makes the placement safe
     against a download that changes while it is being read: whatever bytes
     actually landed in the temp file are the bytes that get promoted, and they
-    are re-checked here. The temp file is made group/other readable (minus
-    umask) so a loader or sensor running as a different account can read it once
-    promoted; mkstemp alone would leave it owner-only.
+    are re-checked here. The temp file is set to mode 0o640 (owner read/write,
+    group read, no world access) so a loader or sensor running as a different
+    account in the same group can read it once promoted, without exposing the
+    raw geopackages to every account; mkstemp alone would leave it owner-only.
     """
     download = download.expanduser()
     name = download.name
@@ -107,10 +108,9 @@ def _stage(download: Path) -> tuple[str, Path]:
         raise SystemExit(
             f"unexpected file name {name!r}; expected one of: {', '.join(sorted(EXPECTED))}"
         )
-    else:
-        ok, reason = validate_geopackage(download)
-        if not ok:
-            raise SystemExit(f"refusing to place {name}: {reason}")
+    ok, reason = validate_geopackage(download)
+    if not ok:
+        raise SystemExit(f"refusing to place {name}: {reason}")
 
     RAW.mkdir(parents=True, exist_ok=True)
     # Temp file in the SAME directory as the destination, so os.replace is a
@@ -123,10 +123,15 @@ def _stage(download: Path) -> tuple[str, Path]:
     tmp = Path(tmp_name)
     try:
         tmp.write_bytes(download.read_bytes())
-        # Readable by owner and group (respecting umask), so a sensor/loader
-        # account in the same group can read the promoted file without granting
-        # world-read access to the raw geopackages.
-        os.chmod(tmp, 0o640 & ~_umask())
+        # Set the mode to exactly 0o640: owner read/write, group read, no world
+        # access. os.chmod sets the bits directly and is NOT subject to the
+        # umask (umask only masks the mode at creation), so group-read is
+        # guaranteed here regardless of how restrictive the process umask is.
+        # Masking with the umask was both wrong (a umask like 0o040 would strip
+        # the group-read bit this fix exists to grant) and unnecessary. A
+        # sensor/loader account in the same group can read the promoted file;
+        # the raw geopackages are not world-readable.
+        os.chmod(tmp, 0o640)
         ok, reason = validate_geopackage(tmp)
         if not ok:
             raise SystemExit(f"refusing to place {name}: staged copy invalid ({reason})")
@@ -134,16 +139,6 @@ def _stage(download: Path) -> tuple[str, Path]:
         tmp.unlink(missing_ok=True)
         raise
     return name, tmp
-
-
-def _umask() -> int:
-    # os.umask has no read-only form, so recover the current value by setting
-    # one and reading back what it returns, then restore it on the next line.
-    # The process umask is unchanged on return and no file is created while it
-    # is 0, so the transient value cannot affect any file's permissions.
-    current = os.umask(0)  # NOSONAR S2612 - value read then restored, no file created meanwhile
-    os.umask(current)
-    return current
 
 
 def place_all(downloads: list[Path]) -> list[Path]:
