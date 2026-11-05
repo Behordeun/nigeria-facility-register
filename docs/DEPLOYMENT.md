@@ -56,6 +56,21 @@ new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
 materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
 placed.
 
+The orchestrated job always builds from the real inputs in `data/raw/`. It has
+no fixture mode, so `raw_sources` fails fast with a "missing raw inputs" message
+when `data/raw/` is empty rather than building an empty register. The committed
+two-state sample under `data/sample/` is for the local data build only: run it
+with `make sample`, which loads the sample into DuckDB and runs dbt with
+`fixture_build: true` in one step, never touching Dagster. The fixture vars
+lower the row-count floors to the sample's size; the Dagster job does not set
+them, so placing the sample in `data/raw/` and launching the job fails
+`assert_raw_row_counts_sane` on the production minimums. So a green fixture build
+does not make the Dagster job runnable, and the sample is not a shortcut for it:
+the job needs the real HDX geopackages in `data/raw/`. Because `data/raw/` is a
+read-only mount inside the containers, place those on the host with
+`scripts/fetch_sources.py --place`, where the daemon and webserver then see them
+through the mount with no restart.
+
 ## Security notes
 
 - The webserver is **unauthenticated**. Inside the container the process binds
