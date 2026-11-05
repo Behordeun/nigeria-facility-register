@@ -56,6 +56,10 @@ models:
         data_type: varchar
       - name: priority_high_burden_thin_coverage
         data_type: boolean
-        description: Derived flag; true where burden is high and coverage is thin.
+        description: >
+          Derived flag; true where STH burden is high and facility coverage is
+          thin (bottom tercile of non-zero counts). Never true for a
+          zero-facility LGA, since 0 may be a name-join miss, not a real absence.
+          See docs/DATA_CONTRACT.md.
         constraints:
           - type: not_null

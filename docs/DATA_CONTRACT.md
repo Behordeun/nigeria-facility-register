@@ -53,7 +53,7 @@ Guarantees:
 - The key is `(state, canonical_lga)`, not `canonical_lga` alone. Six LGA names recur across states (Bassa, Ifelodun, Irepodun, Nasarawa, Obi, Surulere), so joining on the bare name would collide two distinct places. Always carry the state.
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
-- The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts.
+- The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
 ## `lga_version_drift` (planned)
 
