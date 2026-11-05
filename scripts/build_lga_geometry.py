@@ -38,9 +38,11 @@ FRAME = ROOT / "data" / "frame"
 DEFAULT_OUT = FRAME / "nigeria_774_lga_boundaries.simplified.geojson"
 FRAME_INDEX = FRAME / "nigeria_master_lga_index.csv"
 SIMPLIFY_TOLERANCE = 0.01  # degrees; shared-arc (topology) tolerance, in sources.yml
-EXPECTED_FEATURES = 774
+EXPECTED_LGAS = 774
 KEEP_COLUMNS = ["shapeID", "shapeName"]
-POLYGON_TYPES = {"Polygon", "MultiPolygon"}
+# After exploding MultiPolygons the output is single Polygons only. The input to
+# the simplify step may still be either, so both are accepted before the explode.
+PRE_EXPLODE_POLYGON_TYPES = {"Polygon", "MultiPolygon"}
 
 
 def _frame_shape_ids() -> set[str]:
@@ -64,9 +66,9 @@ def build(source: Path, out: Path, tolerance: float) -> None:
         )
 
     gdf = gpd.read_file(source)
-    if len(gdf) != EXPECTED_FEATURES:
+    if len(gdf) != EXPECTED_LGAS:
         raise SystemExit(
-            f"expected {EXPECTED_FEATURES} boundary features, source has {len(gdf)}"
+            f"expected {EXPECTED_LGAS} boundary features, source has {len(gdf)}"
         )
     if missing_cols := [c for c in KEEP_COLUMNS if c not in gdf.columns]:
         raise SystemExit(f"source is missing required columns: {missing_cols}")
@@ -92,8 +94,9 @@ def build(source: Path, out: Path, tolerance: float) -> None:
 
     # Reject anything that cannot be drawn as an LGA area: an empty geometry or a
     # non-polygonal one (a line/point) would leave a blank LGA on the map, and
-    # is_valid alone accepts both.
-    bad_type = ~simplified.geometry.geom_type.isin(POLYGON_TYPES)
+    # is_valid alone accepts both. Polygon and MultiPolygon are both fine here;
+    # the explode below reduces MultiPolygons to single Polygons.
+    bad_type = ~simplified.geometry.geom_type.isin(PRE_EXPLODE_POLYGON_TYPES)
     empty = simplified.geometry.is_empty
     invalid = ~simplified.geometry.is_valid
     if bad_type.any() or empty.any() or invalid.any():
@@ -101,11 +104,31 @@ def build(source: Path, out: Path, tolerance: float) -> None:
             f"after simplify: {int(bad_type.sum())} non-polygonal, {int(empty.sum())} empty, "
             f"{int(invalid.sum())} invalid geometries; adjust the tolerance"
         )
-    if len(simplified) != EXPECTED_FEATURES:
+    if simplified["shapeID"].nunique() != EXPECTED_LGAS:
         raise SystemExit(
-            f"simplify changed the feature count to {len(simplified)}; expected "
-            f"{EXPECTED_FEATURES}"
+            f"simplify changed the LGA count to {simplified['shapeID'].nunique()}; "
+            f"expected {EXPECTED_LGAS}"
         )
+
+    # Explode MultiPolygons into one Polygon feature per part. A deck.gl polygon
+    # layer rejects a MultiPolygon ("invalid polygon"), so a coastal or riverine
+    # LGA with islands is split into several single-Polygon features that share
+    # its shapeID and shapeName. The output grain becomes one feature per polygon
+    # part; the 774 LGAs are preserved as distinct shapeIDs, the multipart ones
+    # spanning more than one feature. index_parts is dropped so the output
+    # carries no part index, only the kept columns.
+    exploded = simplified.explode(index_parts=False).reset_index(drop=True)
+    still_multi = ~exploded.geometry.geom_type.eq("Polygon")
+    if still_multi.any():
+        raise SystemExit(
+            f"after explode: {int(still_multi.sum())} features are not single Polygons"
+        )
+    if exploded["shapeID"].nunique() != EXPECTED_LGAS:
+        raise SystemExit(
+            f"explode changed the LGA count to {exploded['shapeID'].nunique()}; "
+            f"expected {EXPECTED_LGAS}"
+        )
+    simplified = exploded
 
     # Serialize with GeopandasGeoDataFrame.to_json (RFC 7946): this emits a plain
     # FeatureCollection with no driver-specific "name" member, so the artifact

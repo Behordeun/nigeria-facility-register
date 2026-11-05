@@ -1,10 +1,12 @@
 """Tests for the vendored LGA boundary artifact.
 
 The choropleth joins boundary polygons to the marts on shapeID, so the vendored
-file must have exactly the 774 LGAs, join 1:1 to the frame, carry valid
-polygonal geometry, and be genuinely simplified (not the raw full-precision
-download). geopandas is imported via importorskip so a missing optional geo
-stack skips these cleanly rather than erroring collection.
+file must cover exactly the 774 LGAs (as distinct shapeIDs; MultiPolygon LGAs are
+pre-split into one single-Polygon feature per part, so the feature count is a
+little above 774), join to the frame on shapeID, carry valid single-Polygon
+geometry, and be genuinely simplified (not the raw full-precision download).
+geopandas is imported via importorskip so a missing optional geo stack skips
+these cleanly rather than erroring collection.
 """
 from __future__ import annotations
 
@@ -41,12 +43,16 @@ def test_boundary_artifact_exists():
     assert BOUNDARIES.is_file(), "vendored LGA boundary geojson is missing"
 
 
-def test_boundaries_have_774_features_with_the_join_key():
+def test_boundaries_cover_774_lgas_with_the_join_key():
+    # MultiPolygon LGAs are pre-split into one feature per part, so the feature
+    # count exceeds 774 while the distinct shapeID count is exactly 774. Parts of
+    # one LGA repeat its shapeID, so shapeID is no longer unique per row; the LGA
+    # identity lives in the distinct shapeID set.
     gdf = gpd.read_file(BOUNDARIES)
-    assert len(gdf) == 774
     assert "shapeID" in gdf.columns
     assert gdf["shapeID"].notna().all()
-    assert gdf["shapeID"].is_unique
+    assert gdf["shapeID"].nunique() == 774
+    assert len(gdf) >= 774
 
 
 def test_boundaries_join_the_frame_one_to_one():
@@ -59,9 +65,12 @@ def test_boundaries_join_the_frame_one_to_one():
     )
 
 
-def test_boundary_geometry_is_polygonal_valid_and_nonempty():
+def test_boundary_geometry_is_single_polygon_valid_and_nonempty():
+    # After the explode every feature is a single Polygon, never a MultiPolygon:
+    # a deck.gl polygon layer rejects a MultiPolygon, which is the reason for the
+    # split.
     gdf = gpd.read_file(BOUNDARIES)
-    assert gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"]).all(), "non-polygonal geometry"
+    assert gdf.geometry.geom_type.eq("Polygon").all(), "expected single Polygons only"
     assert gdf.geometry.is_valid.all(), "invalid geometry"
     assert not gdf.geometry.is_empty.any(), "empty geometry"
 
