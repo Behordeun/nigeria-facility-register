@@ -39,8 +39,11 @@ sources:
       the choropleth. Derived from the geoBoundaries NGA ADM2 boundaries by
       topology-aware simplification (topojson shared-arc, tolerance 0.01), so
       adjacent LGAs keep matching borders with no slivers; keeps only shapeID and
-      shapeName; ~1 MB vs ~9 MB raw. Joins the master index 1:1 on shapeID
-      (774/774). CC BY 4.0 permits redistribution with attribution, so it is
+      shapeName; ~1 MB vs ~9 MB raw. MultiPolygons are exploded to one single
+      Polygon feature per part (a deck.gl polygon layer rejects MultiPolygons),
+      so the file is 800 features over the 774 LGAs, each LGA a distinct shapeID.
+      Joins the master index on shapeID, all 774 LGAs present. CC BY 4.0 permits
+      redistribution with attribution, so it is
       committed, not fetched. Regenerate with scripts/build_lga_geometry.py
       --source <raw geojson> (needs the dev extra for topojson).
 
