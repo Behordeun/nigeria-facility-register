@@ -33,6 +33,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - LGA alias crosswalk mapping facility-source LGA spellings and former names to the canonical frame name, loaded and applied in the mart so a known variant joins instead of reporting zero.
 - Coverage reporting to SonarCloud: pytest-cov emits coverage.xml, a sonar-project.properties uploads it, and CI runs the scan pinned to a commit SHA. Coverage reflects the unit-tested library code; the I/O loader and removed prototype scripts are not counted.
 
+### Changed
+
+- Upgraded the orchestration and transform stack to current, advisory-clear versions: Dagster 1.9.5 -> 1.13.5 (webserver matched), dbt-duckdb 1.9.6 -> 1.11.1, and a dbt-core >=1.12 floor (resolving dbt-core 1.12.6, dbt-adapters 1.24.5, dbt-common 1.39.0), which lifts the transitive caps so sqlparse reaches 0.6.1 and deepdiff reaches 8.6.2. The two bumps travel together because dbt-core 1.12 requires protobuf 6, which only the newer Dagster line allows. The code location validates, the unit tests pass, and the full dbt build stays green on both the fixture and the real national inputs. This clears the full set of dependency advisories the older pins carried: ReDoS and DoS paths in sqlparse, class-pollution and memory-exhaustion paths in deepdiff, a path-traversal path in dbt-common, and the two Dagster I/O-manager paths.
+
 ### Fixed
 
 - A placed raw file is set to exactly mode 0o640 (owner read/write, group read, no world), so a sensor or loader account in the same group can read it without exposing the raw geopackages to every account on the host. The mode is set with os.chmod directly, which is not subject to the process umask, so group-read is guaranteed even under a restrictive umask (a umask-masked chmod would have stripped it under e.g. 0o040). Resolves a SonarQube file-permissions finding; tests pin the mode across a range of umasks.

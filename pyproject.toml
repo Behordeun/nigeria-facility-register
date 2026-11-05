@@ -16,7 +16,15 @@ dependencies = [
     "pandas==2.2.3",
     "scipy==1.14.1",
     "pyyaml==6.0.2",
-    "dbt-duckdb==1.9.6",
+    "dbt-duckdb==1.11.1",
+    # dbt-core floor is a security floor: 1.12 is the first line whose
+    # constraints admit the patched sqlparse (0.6) and, through dbt-common, the
+    # patched deepdiff (8). 1.12 also requires protobuf 6, which is why the
+    # dagster bump below travels with it. Capped below 1.13: dbt-duckdb 1.11.1
+    # targets the 1.12 adapter generation, so the cap keeps 1.12.x patch
+    # upgrades available while blocking a jump to a dbt-core minor the pinned
+    # adapter was not built against.
+    "dbt-core>=1.12.0,<1.13",
 ]
 
 [project.optional-dependencies]
@@ -29,8 +37,8 @@ dev = [
     "topojson==2.2",
 ]
 orchestration = [
-    "dagster==1.9.5",
-    "dagster-webserver==1.9.5",
+    "dagster==1.13.5",
+    "dagster-webserver==1.13.5",
 ]
 
 [tool.ruff]
