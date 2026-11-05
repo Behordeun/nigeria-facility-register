@@ -38,6 +38,18 @@ x-dagster-common: &dagster-common
 services:
   webserver:
     <<: *dagster-common
+    # The process binds 0.0.0.0 INSIDE the container by necessity: Docker's
+    # published-port forwarding reaches a container over its bridge interface,
+    # not loopback, so a process bound to the container's 127.0.0.1 would be
+    # unreachable even through the host mapping. The UI is unauthenticated, so
+    # the guard is the host-side publish below plus the internal network:
+    #   - the port is published ONLY on the host's 127.0.0.1, so it is not
+    #     reachable from other hosts;
+    #   - the service sits on an internal bridge network, so another container
+    #     on a shared network is the only other thing that could reach it.
+    # SECURITY: never drop the "127.0.0.1:" prefix on the ports entry without
+    # putting an authenticating reverse proxy in front; that prefix is the only
+    # thing keeping the unauthenticated UI off every host interface.
     command:
       - uv
       - run
@@ -49,9 +61,9 @@ services:
       - -m
       - nfr.orchestration.definitions
     ports:
-      # Bind to localhost only: the UI is unauthenticated, so it must not be
-      # exposed on all interfaces. Front it with a reverse proxy + auth to expose.
       - "127.0.0.1:3000:3000"
+    networks:
+      - internal
     depends_on:
       - daemon
 
@@ -64,6 +76,14 @@ services:
       - run
       - -m
       - nfr.orchestration.definitions
+    networks:
+      - internal
+
+networks:
+  # A private bridge for the webserver and daemon; nothing outside this compose
+  # project is attached, so the only external reach to the UI is the host
+  # loopback publish on the webserver.
+  internal:
 
 volumes:
   dagster_home:

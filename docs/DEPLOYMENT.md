@@ -56,9 +56,17 @@ placed.
 
 ## Security notes
 
-- The webserver is **unauthenticated** and is bound to `127.0.0.1` on purpose.
-  To expose it, put an authenticating reverse proxy in front; do not change the
-  bind to `0.0.0.0` without one.
+- The webserver is **unauthenticated**. Inside the container the process binds
+  `0.0.0.0` because Docker's published-port forwarding reaches a container over
+  its bridge interface, not loopback, so a container-loopback bind would be
+  unreachable even through the host mapping. The UI is kept off other hosts by
+  publishing the port only on the host's `127.0.0.1` and putting both services
+  on a private bridge network. **Do not drop the `127.0.0.1:` prefix on the
+  webserver `ports:` entry** without putting an authenticating reverse proxy in
+  front; that prefix is the only thing keeping the UI off every host interface.
+- The base image is pinned to a SHA-256 digest, not just the floating tag, so a
+  rebuild is reproducible; refresh the digest deliberately (see the Dockerfile
+  comment) rather than letting the tag move.
 - `data/raw` is mounted read-only, so a container cannot alter the operator's
   placed inputs.
 

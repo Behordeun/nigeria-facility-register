@@ -5,8 +5,12 @@
 #
 # Built on the official uv image with Python 3.12 (matching CI's
 # `uv sync --frozen`), so the container resolves the exact pinned versions from
-# uv.lock and cannot drift from what CI tested.
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+# uv.lock and cannot drift from what CI tested. Pinned to a SHA-256 digest, not
+# just the floating python3.12-bookworm-slim tag, so a rebuild is byte-for-byte
+# reproducible and a mutated tag cannot swap in a different base. Refresh the
+# digest deliberately: docker pull ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+# && docker inspect --format='{{index .RepoDigests 0}}' that image.
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim@sha256:e5b65587bce7de595f299855d7385fe7fca39b8a74baa261ba1b7147afa78e58
 
 # dbt-duckdb shells out to no system tools, but geopandas/pyogrio need the GDAL
 # runtime libraries; install them before the Python deps.
