@@ -134,40 +134,50 @@ def raw_sources(context) -> None:
         )
 
     # Immutable per-run snapshot of the inputs; the loader reads from here.
+    # Everything after the snapshot is created runs under try/except, so ANY
+    # failure (a tag mismatch, the loader, the count read) clears the snapshot
+    # rather than leaving it under build/snapshots/ for a run that will not reach
+    # dbt_models' cleanup. dbt_models re-creates nothing: on a successful
+    # raw_sources the snapshot is left in place for it to read and then clear.
     snapshot_dir = _snapshot_dir(context.run_id)
     snapshot.create_snapshot(RAW, snapshot_dir, RAW_GEOPACKAGES)
-    snapshot_fp = fingerprint(snapshot_dir)
+    try:
+        snapshot_fp = fingerprint(snapshot_dir)
 
-    # If the sensor launched this run for a specific vintage, confirm the
-    # snapshot is that vintage. A mismatch means data/raw/ changed between the
-    # sensor fingerprinting it and this snapshot, so the launched vintage is no
-    # longer what is on disk; fail rather than publish the wrong bytes under the
-    # requested fingerprint. The next sensor tick will pick up the new vintage.
-    requested_fp = context.run.tags.get(VINTAGE_FP_TAG) if context.run else None
-    if requested_fp and requested_fp != snapshot_fp:
-        snapshot.clear_snapshot(snapshot_dir)
-        raise RuntimeError(
-            f"raw inputs changed since launch: run requested vintage {requested_fp} "
-            f"but data/raw/ now fingerprints as {snapshot_fp}. Not publishing; the next "
-            "sensor tick will build the current vintage."
+        # If the sensor launched this run for a specific vintage, confirm the
+        # snapshot is that vintage. A mismatch means data/raw/ changed between
+        # the sensor fingerprinting it and this snapshot, so the launched vintage
+        # is no longer on disk; fail rather than publish the wrong bytes under
+        # the requested fingerprint. The next sensor tick builds the new vintage.
+        requested_fp = context.run.tags.get(VINTAGE_FP_TAG) if context.run else None
+        if requested_fp and requested_fp != snapshot_fp:
+            raise RuntimeError(
+                f"raw inputs changed since launch: run requested vintage {requested_fp} "
+                f"but data/raw/ now fingerprints as {snapshot_fp}. Not publishing; the next "
+                "sensor tick will build the current vintage."
+            )
+
+        # Build into a run-scoped side file, never the live DB. A stale file from
+        # a crashed earlier run with this id is removed first so the load starts
+        # clean.
+        staging_db = _staging_db_path(context.run_id)
+        STAGING_DIR.mkdir(parents=True, exist_ok=True)
+        staging_db.unlink(missing_ok=True)
+
+        # Load from the SNAPSHOT (--raw), not the live directory. sys.executable,
+        # not a bare "python", so the subprocess runs this interpreter/venv.
+        subprocess.run(
+            [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db),
+             "--raw", str(snapshot_dir)],
+            cwd=str(ROOT), check=True,
         )
+        # raw_counts, not load_counts: the staging tables do not exist until
+        # dbt_models runs, so reading them here would fail a fresh refresh.
+        counts = metrics.raw_counts_from_path(str(staging_db))
+    except BaseException:
+        snapshot.clear_snapshot(snapshot_dir)
+        raise
 
-    # Build into a run-scoped side file, never the live DB. A stale file from a
-    # crashed earlier run with this id is removed first so the load starts clean.
-    staging_db = _staging_db_path(context.run_id)
-    STAGING_DIR.mkdir(parents=True, exist_ok=True)
-    staging_db.unlink(missing_ok=True)
-
-    # Load from the SNAPSHOT (--raw), not the live directory. sys.executable, not
-    # a bare "python", so the subprocess runs this interpreter and virtualenv.
-    subprocess.run(
-        [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db),
-         "--raw", str(snapshot_dir)],
-        cwd=str(ROOT), check=True,
-    )
-    # raw_counts, not load_counts: the staging tables do not exist until
-    # dbt_models runs, so reading them here would fail a fresh refresh.
-    counts = metrics.raw_counts_from_path(str(staging_db))
     context.add_output_metadata(
         {
             "staging_db": str(staging_db),

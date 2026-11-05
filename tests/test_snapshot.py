@@ -78,10 +78,51 @@ def test_clear_snapshot_is_safe_when_absent(tmp_path):
     snapshot.clear_snapshot(tmp_path / "never_made")
 
 
-def test_snapshot_fingerprint_matches_source(tmp_path):
+def test_snapshot_rejects_a_symlink_escaping_the_raw_dir(tmp_path):
+    # A name in the raw dir that symlinks to a file outside it must be refused,
+    # so external data is never copied into the snapshot and published.
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.gpkg").write_bytes(b"external")
+    src = tmp_path / "raw"
+    src.mkdir()
+    (src / "a.gpkg").write_bytes(b"AAAA")
+    (src / "b.gpkg").symlink_to(outside / "secret.gpkg")
+    with pytest.raises(ValueError, match="resolves outside"):
+        snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
+
+
+def test_clear_snapshot_does_not_raise_on_unlink_error(tmp_path, monkeypatch):
+    # After a successful promote the snapshot's cleanup must never fail the run;
+    # an unlink error is swallowed so a published refresh is not marked failed.
+    src = tmp_path / "raw"
+    _seed(src, {"a.gpkg": b"AAAA", "b.gpkg": b"BBBB"})
+    dest = snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
+
+    def boom(*a, **k):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(type(dest / "a.gpkg"), "unlink", boom)
+    # Must not raise despite the unlink failure.
+    snapshot.clear_snapshot(dest)
+
+
+def test_snapshot_bytes_match_source(tmp_path):
     # The asset verifies the snapshot fingerprint against the launch tag, so the
-    # snapshot must fingerprint identically to the source it copied. Uses the
-    # same fingerprint function the sensor and asset use.
+    # snapshot must be byte-identical to the source it copied. Checked directly
+    # on bytes so this runs without the optional orchestration extra (the
+    # fingerprint helper lives in the Dagster-importing module).
+    src = tmp_path / "raw"
+    _seed(src, {"a.gpkg": b"AAAA", "b.gpkg": b"BBBB"})
+    dest = snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
+    for name in NAMES:
+        assert (dest / name).read_bytes() == (src / name).read_bytes()
+
+
+def test_snapshot_fingerprint_matches_source(tmp_path):
+    # Bonus, when the orchestration extra is present: the same fingerprint
+    # function the sensor and asset use returns the same value for source and
+    # snapshot, so the tag verification in raw_sources is meaningful.
     pytest.importorskip("dagster")
     from nfr.orchestration.definitions import fingerprint
 
