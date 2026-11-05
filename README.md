@@ -28,6 +28,15 @@ tests/            unit tests for the join keys
 
 ## Run it
 
+Try it without any download, on the committed two-state sample:
+
+```bash
+make setup                     # venv + deps
+make sample                    # load data/sample + build staging + marts + run tests
+```
+
+Run the full national register from the real inputs:
+
 ```bash
 make setup                     # venv + deps
 # download the two GRID3 geopackages in a browser (links in data/sources.yml), then

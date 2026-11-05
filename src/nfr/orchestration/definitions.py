@@ -41,7 +41,7 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import metrics, publish
+from nfr.orchestration import metrics, publish, snapshot
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
@@ -51,6 +51,10 @@ RAW = ROOT / "data" / "raw"
 DB = ROOT / "build" / "nfr.duckdb"
 BUILD_DIR = ROOT / "build"
 STAGING_DIR = BUILD_DIR / "staging"
+# Per-run immutable copies of the raw inputs. A run snapshots the live data/raw/
+# here and loads from the snapshot, so a later change to data/raw/ cannot alter
+# what the run builds.
+SNAPSHOTS_DIR = BUILD_DIR / "snapshots"
 # The env var the dbt profile reads for its DuckDB path. The orchestrated run
 # sets it to the run-scoped side file; unset (a plain make build) it defaults to
 # the live DB inside profiles.yml.
@@ -79,6 +83,17 @@ def _staging_db_path(run_id: str) -> Path:
     safe = "".join(c for c in run_id if c.isalnum() or c in "-_") or "manual"
     return STAGING_DIR / f"nfr_{safe}.duckdb"
 
+
+def _snapshot_dir(run_id: str) -> Path:
+    """Run-scoped directory holding this run's immutable copy of the raw inputs.
+
+    Derived from the run id so two runs never share a snapshot; the loader reads
+    from here, not the live data/raw/, so a change to data/raw/ after the run
+    starts cannot alter what it builds.
+    """
+    safe = "".join(c for c in run_id if c.isalnum() or c in "-_") or "manual"
+    return SNAPSHOTS_DIR / safe
+
 # Advisory floors for the asset checks. A refresh below one of these is not
 # necessarily broken, but it is worth a human glance, so the checks warn rather
 # than fail the run. They are deliberately loose: the LGA resolve rate sits well
@@ -102,33 +117,72 @@ def _rate_meta(value: float | None) -> MetadataValue:
 
 @asset
 def raw_sources(context) -> None:
-    """Load the source files into DuckDB as the raw schema."""
+    """Snapshot the raw inputs, then load the snapshot into the run's DuckDB.
+
+    The live data/raw/ is copied into a run-scoped immutable snapshot and the
+    loader reads from the snapshot, so a change to data/raw/ after the run starts
+    cannot alter what this run builds. If the run was launched by the sensor for
+    a specific fingerprint (the VINTAGE_FP_TAG), the snapshot's fingerprint is
+    verified against it and the run fails fast if they differ, so a vintage that
+    changed between the sensor's check and this load is never published under the
+    old fingerprint.
+    """
     if missing := [n for n in RAW_GEOPACKAGES if not (RAW / n).exists()]:
         raise RuntimeError(
             f"missing raw inputs {missing}; fetch them with scripts/fetch_sources.py "
             "(HDX serves them behind a WAF, so the download is manual)"
         )
-    # Build into a run-scoped side file, never the live DB. A fresh side file is
-    # started here and dbt_models continues into the same one; only after the
-    # gate passes is it promoted onto the live path. A stale file from a crashed
-    # earlier run with this id is removed first so the load starts clean.
-    staging_db = _staging_db_path(context.run_id)
-    STAGING_DIR.mkdir(parents=True, exist_ok=True)
-    staging_db.unlink(missing_ok=True)
 
-    # sys.executable, not a bare "python", so the subprocess runs the same
-    # interpreter (and virtualenv) as the Dagster process, with the project
-    # dependencies available.
-    subprocess.run(
-        [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db)],
-        cwd=str(ROOT), check=True,
-    )
-    # raw_counts, not load_counts: the staging tables do not exist until
-    # dbt_models runs, so reading them here would fail a fresh refresh.
-    counts = metrics.raw_counts_from_path(str(staging_db))
+    # Immutable per-run snapshot of the inputs; the loader reads from here.
+    # Everything after the snapshot is created runs under try/except, so ANY
+    # failure (a tag mismatch, the loader, the count read) clears the snapshot
+    # rather than leaving it under build/snapshots/ for a run that will not reach
+    # dbt_models' cleanup. dbt_models re-creates nothing: on a successful
+    # raw_sources the snapshot is left in place for it to read and then clear.
+    snapshot_dir = _snapshot_dir(context.run_id)
+    snapshot.create_snapshot(RAW, snapshot_dir, RAW_GEOPACKAGES)
+    try:
+        snapshot_fp = fingerprint(snapshot_dir)
+
+        # If the sensor launched this run for a specific vintage, confirm the
+        # snapshot is that vintage. A mismatch means data/raw/ changed between
+        # the sensor fingerprinting it and this snapshot, so the launched vintage
+        # is no longer on disk; fail rather than publish the wrong bytes under
+        # the requested fingerprint. The next sensor tick builds the new vintage.
+        requested_fp = context.run.tags.get(VINTAGE_FP_TAG) if context.run else None
+        if requested_fp and requested_fp != snapshot_fp:
+            raise RuntimeError(
+                f"raw inputs changed since launch: run requested vintage {requested_fp} "
+                f"but data/raw/ now fingerprints as {snapshot_fp}. Not publishing; the next "
+                "sensor tick will build the current vintage."
+            )
+
+        # Build into a run-scoped side file, never the live DB. A stale file from
+        # a crashed earlier run with this id is removed first so the load starts
+        # clean.
+        staging_db = _staging_db_path(context.run_id)
+        STAGING_DIR.mkdir(parents=True, exist_ok=True)
+        staging_db.unlink(missing_ok=True)
+
+        # Load from the SNAPSHOT (--raw), not the live directory. sys.executable,
+        # not a bare "python", so the subprocess runs this interpreter/venv.
+        subprocess.run(
+            [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db),
+             "--raw", str(snapshot_dir)],
+            cwd=str(ROOT), check=True,
+        )
+        # raw_counts, not load_counts: the staging tables do not exist until
+        # dbt_models runs, so reading them here would fail a fresh refresh.
+        counts = metrics.raw_counts_from_path(str(staging_db))
+    except BaseException:
+        snapshot.clear_snapshot(snapshot_dir)
+        raise
+
     context.add_output_metadata(
         {
             "staging_db": str(staging_db),
+            "snapshot_dir": str(snapshot_dir),
+            "snapshot_fingerprint": snapshot_fp,
             "raw_v2_rows": counts["raw_v2_rows"],
             "raw_v3_rows": counts["raw_v3_rows"],
         }
@@ -178,11 +232,17 @@ def dbt_models(context) -> None:
             f"staging database {staging_db} is missing; raw_sources must run first"
         )
 
-    # Fingerprint the raw inputs this build is made from. raw_sources loaded from
-    # the same data/raw/, so this is the vintage being published; it is recorded
-    # in the side database before promotion so the live DB always knows which
-    # raw vintage it holds (the sensor reads this, not run history).
-    built_fingerprint = fingerprint()
+    # Fingerprint the SNAPSHOT this build is made from, not the live data/raw/:
+    # raw_sources loaded the snapshot, which is immutable for the run, so this is
+    # exactly the vintage being published even if data/raw/ has since changed. It
+    # is recorded in the side database before promotion so the live DB always
+    # knows which raw vintage it holds (the sensor reads this, not run history).
+    snapshot_dir = _snapshot_dir(context.run_id)
+    if not snapshot_dir.is_dir():
+        raise RuntimeError(
+            f"snapshot {snapshot_dir} is missing; raw_sources must run first"
+        )
+    built_fingerprint = fingerprint(snapshot_dir)
 
     try:
         # Build dbt against the SIDE database, not the live one: the profile
@@ -203,8 +263,9 @@ def dbt_models(context) -> None:
         m = metrics.collect_from_path(str(staging_db))
     except BaseException:
         # Any failure (dbt build, a test, the gate, a cancellation) discards the
-        # staged register and leaves the live DB untouched.
+        # staged register and the run's snapshot, and leaves the live DB untouched.
         staging_db.unlink(missing_ok=True)
+        snapshot.clear_snapshot(snapshot_dir)
         raise
 
     # Record the published vintage in the side DB BEFORE the rename, so the
@@ -230,6 +291,10 @@ def dbt_models(context) -> None:
             "carryover_rate": _rate_meta(m.carryover_rate),
         }
     )
+
+    # The snapshot has served its purpose (loaded and published); remove it so
+    # snapshots do not accumulate under build/snapshots/ run after run.
+    snapshot.clear_snapshot(snapshot_dir)
 
 
 @asset_check(asset=dbt_models, blocking=False)
