@@ -36,6 +36,7 @@ lint:
 	$(PY) -m ruff check src tests
 
 dagster:
+	$(PY) -m pip install -e ".[dev,orchestration]"
 	$(PY) -m dagster dev -m nfr.orchestration.definitions
 
 clean:

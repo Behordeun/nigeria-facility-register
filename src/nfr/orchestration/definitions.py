@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import hashlib
 import subprocess
+import sys
 from pathlib import Path
 
 from dagster import (
+    DefaultScheduleStatus,
+    DefaultSensorStatus,
     Definitions,
     ScheduleDefinition,
     SensorEvaluationContext,
@@ -44,8 +47,11 @@ def raw_sources(context) -> None:
             f"missing raw inputs {missing}; fetch them with scripts/fetch_sources.py "
             "(HDX serves them behind a WAF, so the download is manual)"
         )
+    # sys.executable, not a bare "python", so the subprocess runs the same
+    # interpreter (and virtualenv) as the Dagster process, with the project
+    # dependencies available.
     subprocess.run(
-        ["python", "-m", "nfr.load_sources", "--db", str(DB)],
+        [sys.executable, "-m", "nfr.load_sources", "--db", str(DB)],
         cwd=str(ROOT), check=True,
     )
     context.add_output_metadata({"db": str(DB)})
@@ -54,44 +60,74 @@ def raw_sources(context) -> None:
 @asset(deps=[raw_sources])
 def dbt_models(context) -> None:
     """Run the dbt staging and marts build, then the dbt tests."""
-    subprocess.run(["dbt", "build", "--profiles-dir", "."], cwd=str(DBT_DIR), check=True)
+    # Run dbt as a module of this interpreter, so it resolves to the dbt beside
+    # the virtualenv's Python rather than whatever is on the system PATH.
+    subprocess.run(
+        [sys.executable, "-m", "dbt", "build", "--profiles-dir", "."],
+        cwd=str(DBT_DIR), check=True,
+    )
 
 
-refresh_job = define_asset_job("refresh_register", selection="*")
+# Cap the job at one active run, so a scheduled, sensor, and manual launch cannot
+# overlap and race on the same DuckDB file.
+refresh_job = define_asset_job(
+    "refresh_register",
+    selection="*",
+    config={"execution": {"config": {"multiprocess": {"max_concurrent": 1}}}},
+)
 
 # Weekly, not daily: GRID3 releases are infrequent, so a weekly rebuild keeps the
-# marts current without spinning for no reason.
+# marts current without spinning for no reason. default_status RUNNING so the
+# schedule is active on load without a manual toggle.
 weekly_refresh = ScheduleDefinition(
     job=refresh_job,
     cron_schedule="0 6 * * 1",  # Monday 06:00
     name="weekly_refresh",
+    default_status=DefaultScheduleStatus.RUNNING,
 )
 
 
 def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
-    """Hash the raw geopackages so the sensor fires only on a genuine change.
+    """Hash the raw geopackage CONTENTS so the sensor fires only on a genuine
+    change.
 
-    Pure and path-injectable so it can be tested without a Dagster context.
-    An absent file contributes nothing, so the fingerprint changes when a file
-    appears, grows, or is replaced with a newer vintage.
+    Hashes each file's bytes in chunks, not its size and mtime: a replacement
+    vintage of identical byte length with a preserved whole-second mtime (a cp
+    --preserve, an rsync --times, filesystem rounding) would otherwise produce
+    the same fingerprint and the rebuild would be silently skipped. Pure and
+    path-injectable so it can be tested without a Dagster context; an absent
+    file contributes nothing.
     """
     h = hashlib.sha256()
     for n in names or RAW_GPKGS:
         p = raw_dir / n
         if p.exists():
             h.update(n.encode())
-            h.update(str(p.stat().st_size).encode())
-            h.update(str(int(p.stat().st_mtime)).encode())
+            with p.open("rb") as f:
+                for chunk in iter(lambda: f.read(1 << 20), b""):
+                    h.update(chunk)
     return h.hexdigest()[:16]
 
 
-@sensor(job=refresh_job, minimum_interval_seconds=3600)
+@sensor(
+    job=refresh_job,
+    minimum_interval_seconds=3600,
+    default_status=DefaultSensorStatus.RUNNING,
+)
 def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     """Fire the refresh when a new GRID3 vintage appears in data/raw/.
 
-    Uses the file fingerprint as the cursor, so an unchanged data/raw/ costs
-    nothing and a newly dropped geopackage triggers exactly one rebuild.
+    Requires every raw input to be present before requesting a run, so a
+    partially-populated data/raw/ never triggers a build that would fail on the
+    missing file. Uses the content fingerprint as the cursor, so an unchanged
+    data/raw/ costs nothing and a newly dropped geopackage triggers exactly one
+    rebuild. The cursor is advanced only after the run is requested, so a tick
+    that cannot run (missing input) leaves the cursor untouched and retries on
+    the next tick without needing a new fingerprint.
     """
+    missing = [n for n in RAW_GPKGS if not (RAW / n).is_file()]
+    if missing:
+        return SensorResult(skip_reason=f"waiting for raw inputs: {', '.join(missing)}")
     fp = fingerprint()
     if fp == (context.cursor or ""):
         return SensorResult(skip_reason="no new GRID3 vintage in data/raw/")

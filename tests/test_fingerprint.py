@@ -1,9 +1,10 @@
 """Unit tests for the refresh sensor's change-detection fingerprint.
 
 The sensor rebuilds only when the raw geopackages actually change, so the
-fingerprint must be stable for unchanged files and differ when a file appears or
-grows. Skipped when dagster is not installed (the orchestration extra), because
-the module imports dagster at the top.
+fingerprint must be stable for unchanged files and differ when a file appears,
+grows, or is replaced with different content (even at the same size and mtime).
+Skipped when dagster is not installed (the orchestration extra), because the
+module imports dagster at the top.
 """
 import pytest
 
@@ -38,3 +39,17 @@ def test_changes_when_a_file_grows(tmp_path):
 def test_empty_dir_is_stable(tmp_path):
     first = fingerprint(tmp_path, ["none.gpkg"])
     assert fingerprint(tmp_path, ["none.gpkg"]) == first
+
+
+def test_detects_same_size_same_mtime_content_change(tmp_path):
+    # A replacement vintage of identical byte length with a preserved mtime must
+    # still change the fingerprint; hashing content, not size+mtime, catches it.
+    import os
+
+    f = tmp_path / "a.gpkg"
+    f.write_bytes(b"AAAA")
+    st = f.stat()
+    before = fingerprint(tmp_path, ["a.gpkg"])
+    f.write_bytes(b"BBBB")
+    os.utime(f, (st.st_atime, st.st_mtime))
+    assert fingerprint(tmp_path, ["a.gpkg"]) != before
