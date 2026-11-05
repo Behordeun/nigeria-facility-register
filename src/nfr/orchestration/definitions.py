@@ -137,10 +137,18 @@ def _enforce_carryover_gate(db_path: str) -> float | None:
 
     con = duckdb.connect(db_path)
     try:
-        # Each statement is a fixed literal, so nothing is interpolated or
-        # concatenated into the SQL handed to execute().
-        for statement in GATE_DROP_STATEMENTS:
-            con.execute(statement)
+        # Drop the rejected tables in one transaction, so a failure partway
+        # through cannot leave some tables dropped and others still readable:
+        # either all three are gone or none are. Each statement is a fixed
+        # literal, so nothing is interpolated or concatenated into the SQL.
+        con.execute("begin transaction")
+        try:
+            for statement in GATE_DROP_STATEMENTS:
+                con.execute(statement)
+            con.execute("commit")
+        except Exception:
+            con.execute("rollback")
+            raise
     finally:
         con.close()
     shown = "undefined (no comparable v2.0 population)" if rate is None else f"{rate * 100:.1f}%"
@@ -226,11 +234,30 @@ def carryover_rate_check(context) -> AssetCheckResult:
     )
 
 
-# The hard carry-over gate is enforced inside the dbt_models asset
-# (_enforce_carryover_gate), not as a blocking asset check: a check downstream
-# of the terminal dbt_models asset would not fail the job, so the run would
-# report success while serving a broken lineage. The warn-severity checks above
-# stay as asset checks because their job is visibility, not stopping the run.
+@asset_check(asset=dbt_models, blocking=False)
+def carryover_gate_check(context) -> AssetCheckResult:
+    """Report the hard carry-over gate's verdict as an asset-check result.
+
+    The gate is ENFORCED inside the dbt_models asset (_enforce_carryover_gate),
+    which raises and fails the refresh job on a collapse, because a blocking
+    check downstream of the terminal dbt_models asset would not fail the job.
+    This check is the reporting half: on a completed build it records the gate
+    verdict against the hard floor, so the Dagster UI and any consumer that
+    reads asset-check results sees whether the gate passed, not only the warn
+    check. On a collapse the asset has already raised, so the run fails and no
+    result is recorded here, which is the correct signal. An undefined rate is
+    reported as failed, matching the enforcement.
+    """
+    rate = metrics.carryover_rate_from_path(str(DB))
+    passed = rate is not None and rate >= HARD_MIN_CARRYOVER_RATE
+    return AssetCheckResult(
+        passed=passed,
+        severity=AssetCheckSeverity.ERROR,
+        metadata={
+            "carryover_rate": _rate_meta(rate),
+            "hard_floor": _rate_meta(HARD_MIN_CARRYOVER_RATE),
+        },
+    )
 
 
 # Tag the job's runs with a concurrency key, so a scheduled, sensor, and manual
@@ -336,7 +363,7 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
 
 defs = Definitions(
     assets=[raw_sources, dbt_models],
-    asset_checks=[lga_resolve_rate_check, carryover_rate_check],
+    asset_checks=[lga_resolve_rate_check, carryover_rate_check, carryover_gate_check],
     jobs=[refresh_job],
     schedules=[weekly_refresh],
     sensors=[new_vintage_sensor],
