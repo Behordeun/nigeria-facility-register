@@ -30,13 +30,15 @@ tests/            unit tests for the join keys
 
 ```bash
 make setup                     # venv + deps
-# download the two GRID3 geopackages into data/raw/ (see data/sources.yml)
-make fetch                     # verify they are present
+# download the two GRID3 geopackages in a browser (links in data/sources.yml), then:
+python scripts/fetch_sources.py --place ~/Downloads/nga_health_facilities_v2_0.gpkg
+python scripts/fetch_sources.py --place ~/Downloads/grid3_nga_health_facilities_v3_0.gpkg
+make fetch                     # verify they are present and valid
 make build                     # load sources + dbt staging + marts
 make test                      # unit + dbt tests
 ```
 
-The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`.
+The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`. Place each download with `scripts/fetch_sources.py --place <file>`: it checks the file is a complete, readable geopackage and moves it into `data/raw/` with one atomic rename, so the loader and the refresh sensor never see a half-written file at the final path.
 
 ## Data honesty
 

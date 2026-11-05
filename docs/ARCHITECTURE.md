@@ -108,7 +108,7 @@ The carry-over gate fails the run when the match collapses. It is enforced insid
 
 ## Boundaries that hold
 
-- Raw third-party data is fetched, never committed. Derived outputs are Produced Works.
+- Raw third-party data is fetched, never committed. Derived outputs are Produced Works. A downloaded geopackage enters data/raw/ through `scripts/fetch_sources.py --place`, which validates it opens as a geopackage and moves it in with one atomic rename, so the loader and the new-vintage sensor never read a half-written file at the final path.
 - ESPEN content stays non-commercial; only the derived per-state summary ships.
 - Missing is not zero at every layer: a stale state, an unsurveyed IU, an unmatched LGA is an absence, never a measured zero.
 - Every published mart has a written, tested contract before it is called done.
