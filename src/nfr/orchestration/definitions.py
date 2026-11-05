@@ -52,6 +52,13 @@ RAW_GPKGS = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_
 MIN_LGA_RESOLVE_RATE = 0.80
 MIN_CARRYOVER_RATE = 0.60
 
+# Hard floor for the data-quality gate, far below the advisory warn floor above.
+# A carry-over this low is not variation, it is a broken match (a coordinate or
+# projection change, a key swap) producing a lineage that is almost all drops
+# and appearances. The gate check that reads it is BLOCKING: it fails the run so
+# the bad lineage is never served, where the warn check only flags a dip.
+HARD_MIN_CARRYOVER_RATE = 0.30
+
 
 def _rate_meta(value: float | None) -> MetadataValue:
     """Render a rate as a percentage for the Dagster UI, or n/a when undefined."""
@@ -147,6 +154,32 @@ def carryover_rate_check(context) -> AssetCheckResult:
         metadata={
             "carryover_rate": _rate_meta(rate),
             "floor": _rate_meta(MIN_CARRYOVER_RATE),
+        },
+    )
+
+
+@asset_check(asset=dbt_models, blocking=True)
+def carryover_gate_check(context) -> AssetCheckResult:
+    """Fail the run when the carry-over rate collapses past the hard floor.
+
+    This is the data-quality gate, not the advisory warn above: it is blocking,
+    so a run whose carry-over falls below the hard floor is stopped and the
+    broken lineage is never served. The floor sits far below any plausible
+    vintage, so tripping it means the spatial match is wrong (a coordinate or
+    projection change, a key swap), not that a vintage carried a little less.
+    Undefined (no v2.0 facilities in a covered state) is not a quality failure
+    and passes with a note; the dbt referential and row-count tests cover the
+    empty-input case.
+    """
+    rate = metrics.carryover_rate_from_path(str(DB))
+    if rate is None:
+        return AssetCheckResult(passed=True, metadata={"carryover_rate": _rate_meta(None)})
+    return AssetCheckResult(
+        passed=rate >= HARD_MIN_CARRYOVER_RATE,
+        severity=AssetCheckSeverity.ERROR,
+        metadata={
+            "carryover_rate": _rate_meta(rate),
+            "hard_floor": _rate_meta(HARD_MIN_CARRYOVER_RATE),
         },
     )
 
@@ -254,7 +287,7 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
 
 defs = Definitions(
     assets=[raw_sources, dbt_models],
-    asset_checks=[lga_resolve_rate_check, carryover_rate_check],
+    asset_checks=[lga_resolve_rate_check, carryover_rate_check, carryover_gate_check],
     jobs=[refresh_job],
     schedules=[weekly_refresh],
     sensors=[new_vintage_sensor],

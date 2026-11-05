@@ -96,6 +96,14 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | staging | authority layer, version lineage | one source version per state, unique facility id, crosswalk-resolved LGA |
 | marts | coverage-burden, version drift | one row per LGA, missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
+## Data-quality gate
+
+The gate is the layer that fails a build or a run, as distinct from the observability checks that only warn. Two kinds of failure are blocking.
+
+dbt tests fail the build on a structural fault: the raw inputs are within row-count bounds (the frame is exactly 774 LGAs, the facility and reference tables are non-empty), every LGA the version-drift mart resolves is a real frame LGA, and every state the NTD burden table and the alias crosswalk carry is a real frame state. The crosswalk check matters most, because the crosswalk is the one place a canonical LGA name is typed by hand, so a typo there would otherwise route a facility to an LGA that does not exist. All of these normalise the state label on both sides, so FCT is matched across the frame's "Federal Capital Territory" and the normalised "FCT" rather than failing as a false orphan.
+
+A blocking Dagster asset check fails the run when the carry-over rate collapses below a hard floor well under the advisory warn floor. A dip warns; a collapse (the spatial match broken by a coordinate or projection change, a key swap) blocks, so the broken lineage is never served. The warn and gate floors are ordered so a vintage warns before it ever blocks.
+
 ## Boundaries that hold
 
 - Raw third-party data is fetched, never committed. Derived outputs are Produced Works.
