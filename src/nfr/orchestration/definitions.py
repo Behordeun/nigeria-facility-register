@@ -15,12 +15,11 @@ automated.
 from __future__ import annotations
 
 import hashlib
+import os
 import subprocess
 import sys
 import time
 from pathlib import Path
-
-import duckdb
 
 from dagster import (
     AssetCheckResult,
@@ -42,9 +41,34 @@ from nfr.orchestration import metrics
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
+# The live, reader-facing database. A refresh never builds here directly: it
+# builds into a run-scoped side file under BUILD_DIR/staging and promotes that
+# file onto this path only after the whole build and the quality gate pass.
 DB = ROOT / "build" / "nfr.duckdb"
+BUILD_DIR = ROOT / "build"
+STAGING_DIR = BUILD_DIR / "staging"
+# The env var the dbt profile reads for its DuckDB path. The orchestrated run
+# sets it to the run-scoped side file; unset (a plain make build) it defaults to
+# the live DB inside profiles.yml.
+DBT_DB_ENV = "NFR_DUCKDB_PATH"
 DBT_DIR = ROOT / "dbt"
 RAW_GPKGS = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_0.gpkg"]
+
+
+def _staging_db_path(run_id: str) -> Path:
+    """Run-scoped side database both refresh assets build into.
+
+    Derived from the Dagster run id so a run never collides with the live DB or
+    with another run's side file. The run coordinator already serialises runs on
+    the refresh concurrency key, so at most one is building at a time; the
+    run-scoped name is belt-and-braces and keeps a crashed run's leftover file
+    identifiable.
+    """
+    # No interior dot in the stem: dbt-duckdb reads a path like nfr.<id>.duckdb
+    # as a catalog.schema reference and fails to bind. Separate with an
+    # underscore so the only dot is before the extension.
+    safe = "".join(c for c in run_id if c.isalnum() or c in "-_") or "manual"
+    return STAGING_DIR / f"nfr_{safe}.duckdb"
 
 # Advisory floors for the asset checks. A refresh below one of these is not
 # necessarily broken, but it is worth a human glance, so the checks warn rather
@@ -62,19 +86,6 @@ MIN_CARRYOVER_RATE = 0.60
 HARD_MIN_CARRYOVER_RATE = 0.30
 
 
-# The tables the gate removes when it rejects a build, each paired with its own
-# fully literal DROP statement. Nothing is built at runtime and no value is
-# interpolated or concatenated into SQL: the statement handed to execute() is a
-# compile-time constant, so there is no string-to-SQL path to audit at all. The
-# mart and lineage tables are the gate's output; dropping them on rejection
-# keeps a failed build from leaving readable results behind.
-GATE_DROP_STATEMENTS = (
-    'drop table if exists "lga_version_drift"',
-    'drop table if exists "lga_coverage_burden"',
-    'drop table if exists "stg_version_lineage"',
-)
-
-
 def _rate_meta(value: float | None) -> MetadataValue:
     """Render a rate as a percentage for the Dagster UI, or n/a when undefined."""
     return MetadataValue.text("n/a" if value is None else f"{value * 100:.1f}%")
@@ -89,73 +100,57 @@ def raw_sources(context) -> None:
             f"missing raw inputs {missing}; fetch them with scripts/fetch_sources.py "
             "(HDX serves them behind a WAF, so the download is manual)"
         )
+    # Build into a run-scoped side file, never the live DB. A fresh side file is
+    # started here and dbt_models continues into the same one; only after the
+    # gate passes is it promoted onto the live path. A stale file from a crashed
+    # earlier run with this id is removed first so the load starts clean.
+    staging_db = _staging_db_path(context.run_id)
+    STAGING_DIR.mkdir(parents=True, exist_ok=True)
+    staging_db.unlink(missing_ok=True)
+
     # sys.executable, not a bare "python", so the subprocess runs the same
     # interpreter (and virtualenv) as the Dagster process, with the project
     # dependencies available.
     subprocess.run(
-        [sys.executable, "-m", "nfr.load_sources", "--db", str(DB)],
+        [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db)],
         cwd=str(ROOT), check=True,
     )
     # raw_counts, not load_counts: the staging tables do not exist until
     # dbt_models runs, so reading them here would fail a fresh refresh.
-    counts = metrics.raw_counts_from_path(str(DB))
+    counts = metrics.raw_counts_from_path(str(staging_db))
     context.add_output_metadata(
         {
-            "db": str(DB),
+            "staging_db": str(staging_db),
             "raw_v2_rows": counts["raw_v2_rows"],
             "raw_v3_rows": counts["raw_v3_rows"],
         }
     )
 
 
-def _enforce_carryover_gate(db_path: str) -> float | None:
-    """Fail the refresh when the carry-over rate does not clear the hard floor.
+def _enforce_carryover_gate(db_path: str) -> float:
+    """Return the carry-over rate, or raise if it does not clear the hard floor.
 
-    Runs inside the dbt_models asset, after the build, so a failure raises and
-    the asset (and the whole refresh_register job) fails. A blocking asset check
-    would only block assets downstream of dbt_models, and dbt_models is terminal,
-    so the run would report success while serving a broken lineage. Enforcing it
-    here is what actually stops the run.
+    Runs inside the dbt_models asset against the run-scoped side database, before
+    that database is promoted onto the live path. Raising here fails the asset
+    and the whole refresh job, and the side file is never promoted, so a reader
+    of the live DB never sees the rejected lineage. The gate no longer drops
+    tables: the rejected register is a throwaway side file, discarded whole, not
+    the live database.
 
     A None rate is a failure, not a pass: by the time the gate runs on a real
     GRID3 load there is always a v2.0 population in the v3-covered states, so
     None means the lineage produced no comparable facilities at all (unusable
     input, a load that read rows but no usable ids or coordinates), which is
     exactly the malformed case the gate exists to stop.
-
-    On failure the mart and lineage tables are dropped from the canonical DB
-    before raising, so a reader pointed at the shared file never sees the
-    rejected lineage. This does not make the build fully transactional (the
-    tables exist during the build itself, before the gate runs), but it ensures
-    a gate rejection is never left readable; full staging-schema atomicity is
-    tracked separately.
     """
     rate = metrics.carryover_rate_from_path(db_path)
-    passed = rate is not None and rate >= HARD_MIN_CARRYOVER_RATE
-    if passed:
+    if rate is not None and rate >= HARD_MIN_CARRYOVER_RATE:
         return rate
-
-    con = duckdb.connect(db_path)
-    try:
-        # Drop the rejected tables in one transaction, so a failure partway
-        # through cannot leave some tables dropped and others still readable:
-        # either all three are gone or none are. Each statement is a fixed
-        # literal, so nothing is interpolated or concatenated into the SQL.
-        con.execute("begin transaction")
-        try:
-            for statement in GATE_DROP_STATEMENTS:
-                con.execute(statement)
-            con.execute("commit")
-        except Exception:
-            con.execute("rollback")
-            raise
-    finally:
-        con.close()
     shown = "undefined (no comparable v2.0 population)" if rate is None else f"{rate * 100:.1f}%"
     raise RuntimeError(
         f"data-quality gate failed: carry-over rate {shown} is below the hard floor "
-        f"{HARD_MIN_CARRYOVER_RATE * 100:.1f}%. The rejected marts were dropped and the "
-        "refresh is failed so the broken lineage is not served."
+        f"{HARD_MIN_CARRYOVER_RATE * 100:.1f}%. The staged register is discarded and the "
+        "refresh is failed, so the live register is left untouched."
     )
 
 
@@ -169,18 +164,45 @@ def dbt_models(context) -> None:
     asset would not. The dbt tests (referential integrity, row-count bounds)
     already fail the build inside `dbt build` above.
     """
-    # Run dbt as a module of this interpreter, so it resolves to the dbt beside
-    # the virtualenv's Python rather than whatever is on the system PATH.
-    subprocess.run(
-        [sys.executable, "-m", "dbt", "build", "--profiles-dir", "."],
-        cwd=str(DBT_DIR), check=True,
-    )
-    # Enforce the hard carry-over gate before reporting success. Raises (failing
-    # the job) and drops the rejected marts if the rate does not clear the floor.
-    _enforce_carryover_gate(str(DB))
-    m = metrics.collect_from_path(str(DB))
+    staging_db = _staging_db_path(context.run_id)
+    if not staging_db.is_file():
+        raise RuntimeError(
+            f"staging database {staging_db} is missing; raw_sources must run first"
+        )
+
+    try:
+        # Build dbt against the SIDE database, not the live one: the profile
+        # reads NFR_DUCKDB_PATH. dbt build runs the models and the data-quality
+        # tests, so a referential or row-count failure aborts here before any
+        # promote. sys.executable keeps the subprocess on this venv's dbt.
+        env = {**os.environ, DBT_DB_ENV: str(staging_db)}
+        # `python -m dbt.cli.main`, not `-m dbt`: dbt ships no dbt.__main__, so
+        # `-m dbt` fails with "No module named dbt.__main__". Running the cli
+        # module keeps the subprocess on this interpreter's venv dbt.
+        subprocess.run(
+            [sys.executable, "-m", "dbt.cli.main", "build", "--profiles-dir", "."],
+            cwd=str(DBT_DIR), check=True, env=env,
+        )
+        # Enforce the hard carry-over gate against the staged build. Raises if
+        # the rate does not clear the floor, so the side file is never promoted.
+        _enforce_carryover_gate(str(staging_db))
+        m = metrics.collect_from_path(str(staging_db))
+    except BaseException:
+        # Any failure (dbt build, a test, the gate, a cancellation) discards the
+        # staged register and leaves the live DB untouched.
+        staging_db.unlink(missing_ok=True)
+        raise
+
+    # Everything passed: promote the staged database onto the live path in one
+    # atomic rename. os.replace is atomic within a filesystem, so a reader of the
+    # live DB sees either the whole previous register or the whole new one, never
+    # a half-built or rejected mixture. Build and live sit under the same build/
+    # tree, so the rename stays on one filesystem.
+    os.replace(staging_db, DB)
     context.add_output_metadata(
         {
+            "db": str(DB),
+            "promoted_from": str(staging_db),
             "authority_rows": m.authority_rows,
             "lineage_rows": m.lineage_rows,
             "coverage_lga_resolve_rate": _rate_meta(m.coverage_lga_resolve_rate),
