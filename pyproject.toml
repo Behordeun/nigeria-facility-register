@@ -3,11 +3,11 @@ name = "nigeria-facility-register"
 version = "0.1.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.13"
 license = { text = "AGPL-3.0-or-later" }
 authors = [
     { name = "Muhammad Abiodun Sulaiman" },
-    { name = "Bolaji Oyeyemi" },
+    { name = "Bolaji Fatai  Oyeyemi" },
     { name = "Hammed Sarafadeen" },
 ]
 dependencies = [
@@ -16,7 +16,7 @@ dependencies = [
     "pandas==2.2.3",
     "scipy==1.14.1",
     "pyyaml==6.0.2",
-    "dbt-duckdb==1.9.1",
+    "dbt-duckdb==1.9.6",
 ]
 
 [project.optional-dependencies]

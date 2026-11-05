@@ -1,0 +1,57 @@
+version: 2
+
+models:
+  - name: stg_facilities_authority
+    description: >
+      Version-aware authoritative facility layer: v3.0 where it covers a state,
+      v2.0 everywhere else. One row per facility. See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: facility_id
+        data_type: varchar
+        description: Source id (globalid for v2.0, unique_id for v3.0). Unique across the layer.
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: lga
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: facility_name
+        data_type: varchar
+      - name: facility_level
+        data_type: varchar
+      - name: functional
+        data_type: varchar
+        description: Populated for v3.0 rows only; null for v2.0 (no such field).
+      - name: latitude
+        data_type: double
+      - name: longitude
+        data_type: double
+      - name: source_version
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['v2.0', 'v3.0']
+      - name: source_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: facility_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['current', 'stale-awaiting-v3']

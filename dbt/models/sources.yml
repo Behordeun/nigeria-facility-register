@@ -2,6 +2,7 @@ version: 2
 
 sources:
   - name: raw
+    schema: main
     description: >
       Source inputs loaded into DuckDB as-is, one table per source vintage.
       Loaded by nfr.load_sources: each table is dropped and recreated wholesale,

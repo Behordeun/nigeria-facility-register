@@ -1,37 +1,65 @@
 version: 2
 
 models:
-  - name: stg_facilities_authority
-    description: Version-aware authoritative facility layer (v3.0 where covered, v2.0 elsewhere).
-    columns:
-      - name: facility_id
-        description: Source id, globalid for v2.0 or unique_id for v3.0. Unique within the layer.
-        tests:
-          - not_null
-          - unique
-      - name: source_version
-        tests:
-          - not_null
-          - accepted_values:
-              values: ['v2.0', 'v3.0']
-      - name: facility_status
-        tests:
-          - accepted_values:
-              values: ['current', 'stale-awaiting-v3']
-
   - name: lga_coverage_burden
-    description: Per-LGA facility coverage vs NTD burden, one row per LGA.
+    description: >
+      Per-LGA facility coverage crossed with NTD burden. One row per LGA, all
+      774 present. See docs/DATA_CONTRACT.md for the full contract.
+    config:
+      contract:
+        enforced: true
     columns:
       - name: canonical_lga
-        description: Canonical LGA name from the 774-LGA frame.
-        tests:
-          - not_null
+        data_type: varchar
+        description: >
+          Canonical LGA name from the 774-LGA frame. Not unique on its own:
+          several LGA names recur across states (Obi in Benue and Nasarawa,
+          Surulere in Oyo and Lagos). The key is (state, canonical_lga).
+        constraints:
+          - type: not_null
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: espen_iu_id
+        data_type: bigint
+        description: ESPEN IU id where the frame carries one; null otherwise.
       - name: facilities
-        description: Facility count from the authority layer. 0 may be a name-join miss, not a true absence.
-        tests:
-          - not_null
-      - name: priority_high_burden_thin_coverage
-        tests:
-          - not_null
+        data_type: bigint
+        description: >
+          Count in the authority layer. 0 means none matched, which may be a
+          name-join miss; read with facility_status = 'unmatched' to tell a miss
+          from a real low count. Never asserted as a true absence.
+        constraints:
+          - type: not_null
+      - name: facility_source_version
+        data_type: varchar
+        description: v2.0 or v3.0; null only when the LGA matched no facility.
+        data_tests:
           - accepted_values:
-              values: [true, false]
+              arguments:
+                values: ['v2.0', 'v3.0']
+              config:
+                where: "facility_source_version is not null"
+      - name: facility_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['current', 'stale-awaiting-v3', 'unmatched']
+      - name: sth_high_share_pct_state
+        data_type: double
+        description: State-level ESPEN STH high-prevalence share, broadcast to each LGA in the state.
+      - name: sth_survey_years_state
+        data_type: varchar
+      - name: priority_high_burden_thin_coverage
+        data_type: boolean
+        description: >
+          Derived flag; true where STH burden is high and facility coverage is
+          thin (bottom tercile of non-zero counts). Never true for a
+          zero-facility LGA, since 0 may be a name-join miss, not a real absence.
+          See docs/DATA_CONTRACT.md.
+        constraints:
+          - type: not_null
