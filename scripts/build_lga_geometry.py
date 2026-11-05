@@ -7,14 +7,18 @@ this vendors a simplified boundary set joined to the frame on shapeID.
 
 The source is geoBoundaries Nigeria ADM2 (CC BY 4.0), which permits
 redistribution with attribution, so the output is committed, not fetched. It is
-simplified (Douglas-Peucker, topology-preserving) to keep the committed file
-around 1-1.5 MB instead of the ~9 MB raw geojson; LGA-resolution choropleths do
-not need full-precision coastlines. The simplification tolerance is recorded in
-data/sources.yml so the artifact is reproducible from the source.
+simplified on the shared TOPOLOGY, not polygon by polygon: adjacent LGAs share a
+border, and simplifying each polygon independently moves the two copies of a
+shared edge differently, leaving slivers and gaps between neighbours. topojson
+builds the arcs once, simplifies each arc once, and rebuilds the polygons, so a
+shared border stays a single simplified line and neighbours keep matching edges.
+This keeps the committed file around 1 MB instead of the ~9 MB raw geojson;
+LGA-resolution choropleths do not need full-precision coastlines. The tolerance
+is recorded in data/sources.yml so the artifact is reproducible from the source.
 
 This script is a one-off regeneration tool, not part of the pipeline: the output
 is committed and read directly. Re-run it only to refresh the boundaries or
-change the tolerance.
+change the tolerance. It needs the `topojson` package (pip install topojson).
 
 Usage:
     python scripts/build_lga_geometry.py \
@@ -23,40 +27,53 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
+import os
 import sys
+import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 FRAME = ROOT / "data" / "frame"
 DEFAULT_OUT = FRAME / "nigeria_774_lga_boundaries.simplified.geojson"
 FRAME_INDEX = FRAME / "nigeria_master_lga_index.csv"
-SIMPLIFY_TOLERANCE = 0.005  # degrees; recorded in data/sources.yml
+SIMPLIFY_TOLERANCE = 0.01  # degrees; shared-arc (topology) tolerance, in sources.yml
 EXPECTED_FEATURES = 774
 KEEP_COLUMNS = ["shapeID", "shapeName"]
+POLYGON_TYPES = {"Polygon", "MultiPolygon"}
 
 
 def _frame_shape_ids() -> set[str]:
-    import csv
-
+    # `is not None`, not truthiness: a blank shapeID ("") is a corrupt frame row,
+    # not an absent key, and must stay in the set so the 774/774 join check can
+    # catch it rather than silently dropping it.
     with open(FRAME_INDEX) as fh:
-        return {row["shapeID"] for row in csv.DictReader(fh) if row.get("shapeID")}
+        return {row["shapeID"] for row in csv.DictReader(fh) if row.get("shapeID") is not None}
 
 
 def build(source: Path, out: Path, tolerance: float) -> None:
     import geopandas as gpd
+    import topojson as tp
+
+    source = source.resolve()
+    out = out.resolve()
+    if source == out:
+        raise SystemExit(
+            f"refusing in-place build: --source and --out are the same file ({out}); "
+            "the source would be overwritten with only the simplified columns"
+        )
 
     gdf = gpd.read_file(source)
     if len(gdf) != EXPECTED_FEATURES:
         raise SystemExit(
             f"expected {EXPECTED_FEATURES} boundary features, source has {len(gdf)}"
         )
-    missing_cols = [c for c in KEEP_COLUMNS if c not in gdf.columns]
-    if missing_cols:
+    if missing_cols := [c for c in KEEP_COLUMNS if c not in gdf.columns]:
         raise SystemExit(f"source is missing required columns: {missing_cols}")
 
-    # Every boundary must join the frame on shapeID, or the choropleth would
-    # drop or mislabel LGAs. Check before writing, so a mismatched source fails
-    # here rather than silently shipping a partial map.
+    # Every boundary must join the frame on shapeID, or the choropleth would drop
+    # or mislabel LGAs. Check before writing, so a mismatched source fails here
+    # rather than silently shipping a partial map.
     frame_ids = _frame_shape_ids()
     src_ids = set(gdf["shapeID"])
     only_source = src_ids - frame_ids
@@ -67,18 +84,46 @@ def build(source: Path, out: Path, tolerance: float) -> None:
             f"{len(only_frame)} only in frame; expected an exact 774/774 match"
         )
 
-    simplified = gdf[KEEP_COLUMNS + ["geometry"]].copy()
-    simplified["geometry"] = simplified.geometry.simplify(
-        tolerance, preserve_topology=True
-    )
-    if not simplified.geometry.is_valid.all():
-        n_invalid = int((~simplified.geometry.is_valid).sum())
-        raise SystemExit(f"{n_invalid} geometries invalid after simplify; lower the tolerance")
+    # Topology-aware simplify: build arcs once, simplify shared arcs once, rebuild
+    # polygons, so adjacent LGAs keep matching borders (no slivers or gaps).
+    base = gdf[KEEP_COLUMNS + ["geometry"]].copy()
+    topo = tp.Topology(base, prequantize=False)
+    simplified = topo.toposimplify(tolerance).to_gdf()[KEEP_COLUMNS + ["geometry"]]
 
+    # Reject anything that cannot be drawn as an LGA area: an empty geometry or a
+    # non-polygonal one (a line/point) would leave a blank LGA on the map, and
+    # is_valid alone accepts both.
+    bad_type = ~simplified.geometry.geom_type.isin(POLYGON_TYPES)
+    empty = simplified.geometry.is_empty
+    invalid = ~simplified.geometry.is_valid
+    if bad_type.any() or empty.any() or invalid.any():
+        raise SystemExit(
+            f"after simplify: {int(bad_type.sum())} non-polygonal, {int(empty.sum())} empty, "
+            f"{int(invalid.sum())} invalid geometries; adjust the tolerance"
+        )
+    if len(simplified) != EXPECTED_FEATURES:
+        raise SystemExit(
+            f"simplify changed the feature count to {len(simplified)}; expected "
+            f"{EXPECTED_FEATURES}"
+        )
+
+    # Serialize with GeopandasGeoDataFrame.to_json (RFC 7946): this emits a plain
+    # FeatureCollection with no driver-specific "name" member, so the artifact
+    # never leaks a temp filename and the output is deterministic. Write to a
+    # temp file in the destination directory, then atomically replace the
+    # destination, so a failed or interrupted write never destroys the existing
+    # committed artifact and a reader never sees a partial file.
     out.parent.mkdir(parents=True, exist_ok=True)
-    if out.exists():
-        out.unlink()
-    simplified.to_file(out, driver="GeoJSON")
+    payload = simplified.to_json(drop_id=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(out.parent), prefix=f".{out.name}.", suffix=".part")
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+        os.replace(tmp, out)
+    except BaseException:
+        tmp.unlink(missing_ok=True)
+        raise
     size_kb = out.stat().st_size // 1024
     print(f"wrote {out} ({len(simplified)} features, {size_kb} KB, tol={tolerance})")
 

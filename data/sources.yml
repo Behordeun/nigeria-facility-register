@@ -37,11 +37,12 @@ sources:
     note: >
       Vendored into data/frame/nigeria_774_lga_boundaries.simplified.geojson for
       the choropleth. Derived from the geoBoundaries NGA ADM2 boundaries by
-      Douglas-Peucker simplification (topology-preserving, tolerance 0.005
-      degrees), keeping only shapeID and shapeName; ~1.5 MB vs ~9 MB raw. Joins
-      the master index 1:1 on shapeID (774/774). CC BY 4.0 permits
-      redistribution with attribution, so it is committed, not fetched.
-      Regenerate with scripts/build_lga_geometry.py --source <raw geojson>.
+      topology-aware simplification (topojson shared-arc, tolerance 0.01), so
+      adjacent LGAs keep matching borders with no slivers; keeps only shapeID and
+      shapeName; ~1 MB vs ~9 MB raw. Joins the master index 1:1 on shapeID
+      (774/774). CC BY 4.0 permits redistribution with attribution, so it is
+      committed, not fetched. Regenerate with scripts/build_lga_geometry.py
+      --source <raw geojson> (needs the dev extra for topojson).
 
   ntd_sth_state:
     name: ESPEN STH endemicity, per-state summary (DERIVED)
