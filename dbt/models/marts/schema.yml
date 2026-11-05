@@ -134,3 +134,46 @@ models:
                 values: ['exact-or-near', 'close', 'divergent']
               config:
                 where: "name_match_band is not null"
+
+  - name: lga_coverage_choropleth
+    description: >
+      lga_coverage_burden with each LGA's boundary polygon attached (as GeoJSON
+      text) for mapping. One row per LGA, all 774 present, each with geometry.
+      See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: canonical_lga
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: espen_iu_id
+        data_type: bigint
+      - name: facilities
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: facility_source_version
+        data_type: varchar
+      - name: facility_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: sth_high_share_pct_state
+        data_type: double
+      - name: sth_survey_years_state
+        data_type: varchar
+      - name: priority_high_burden_thin_coverage
+        data_type: boolean
+        constraints:
+          - type: not_null
+      - name: geometry_geojson
+        data_type: json
+        description: The LGA boundary polygon as GeoJSON text, from the vendored simplified geoBoundaries set.
+        constraints:
+          - type: not_null

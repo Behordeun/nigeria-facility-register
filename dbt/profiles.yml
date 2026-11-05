@@ -14,3 +14,8 @@ nfr:
       type: duckdb
       path: "{{ env_var('NFR_DUCKDB_PATH', '../build/nfr.duckdb') }}"
       threads: 4
+      # The spatial extension is needed by the choropleth model, which ST_Reads
+      # the vendored LGA boundary geojson. dbt-duckdb installs and loads it on
+      # connect, so no per-model hook is required.
+      extensions:
+        - spatial
