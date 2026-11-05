@@ -96,6 +96,11 @@ services:
       SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?SUPERSET_SECRET_KEY is required; put it in a .env file}
       SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
       SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?SUPERSET_ADMIN_PASSWORD is required; put it in a .env file}
+      # Mapbox token for the deck.gl basemap. Optional: without it the deck.gl
+      # map tiles do not load, but the data layer and every non-map chart work.
+      # Public token (pk.), kept in .env, never committed. Default empty so the
+      # stack still boots without one.
+      MAPBOX_API_KEY: ${MAPBOX_API_KEY:-}
     volumes:
       # The live register, read-only: Superset reads it, never writes it.
       - build:/app/register:ro
