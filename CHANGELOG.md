@@ -33,6 +33,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - LGA alias crosswalk mapping facility-source LGA spellings and former names to the canonical frame name, loaded and applied in the mart so a known variant joins instead of reporting zero.
 - Coverage reporting to SonarCloud: pytest-cov emits coverage.xml, a sonar-project.properties uploads it, and CI runs the scan pinned to a commit SHA. Coverage reflects the unit-tested library code; the I/O loader and removed prototype scripts are not counted.
 
+### Changed
+
+- Dagster pinned to 1.13.5 (from 1.9.5), with dagster-webserver matched. The orchestration definitions, sensor, schedule, and asset checks validate on the new version and the full dbt build stays green on the fixture; this clears two Dagster advisories (a SQL-injection path in dynamic partition keys and a local-file-inclusion path) that the older line carried.
+
 ### Fixed
 
 - A placed raw file is set to exactly mode 0o640 (owner read/write, group read, no world), so a sensor or loader account in the same group can read it without exposing the raw geopackages to every account on the host. The mode is set with os.chmod directly, which is not subject to the process umask, so group-read is guaranteed even under a restrictive umask (a umask-masked chmod would have stripped it under e.g. 0o040). Resolves a SonarQube file-permissions finding; tests pin the mode across a range of umasks.
