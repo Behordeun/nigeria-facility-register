@@ -55,3 +55,69 @@ models:
           - accepted_values:
               arguments:
                 values: ['current', 'stale-awaiting-v3']
+
+  - name: stg_version_lineage
+    description: >
+      Cross-version facility lineage: each v2.0 facility reconstructed against
+      v3.0 by a mutual nearest-neighbour match within 100 m on lat/lon, then
+      classified carried-over, dropped or appeared. One row per facility. Only
+      states v3.0 covers appear, so every row is a real comparison. See
+      docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: facility_id
+        data_type: varchar
+        description: >
+          The facility this lineage record is about: the v3 id for a
+          carried-over or appeared record, the v2 id for a dropped one. Unique
+          across the layer.
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: lineage_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['carried-over', 'dropped', 'appeared']
+      - name: state
+        data_type: varchar
+        description: Canonical state; always a v3.0-covered state.
+        constraints:
+          - type: not_null
+      - name: lga
+        data_type: varchar
+        description: Source LGA label (v3 side for matched/appeared, v2 side for dropped), not yet frame-resolved.
+      - name: v2_id
+        data_type: varchar
+        description: globalid of the v2.0 facility; null for an appeared record.
+      - name: v3_id
+        data_type: varchar
+        description: unique_id of the v3.0 facility; null for a dropped record.
+      - name: v2_name
+        data_type: varchar
+      - name: v3_name
+        data_type: varchar
+      - name: match_distance_m
+        data_type: double
+        description: Metres between the paired facilities; null unless carried-over.
+      - name: name_similarity
+        data_type: double
+        description: Jaro-Winkler similarity of the two names; null unless carried-over.
+      - name: name_match_band
+        data_type: varchar
+        description: >
+          Banded name_similarity for a carried-over pair: exact-or-near (>=0.92),
+          close (>=0.80), divergent (<0.80). Null unless carried-over. A
+          divergent band flags a carried-over facility renamed between versions.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['exact-or-near', 'close', 'divergent']
+              config:
+                where: "name_match_band is not null"

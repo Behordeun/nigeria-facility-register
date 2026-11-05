@@ -33,7 +33,7 @@ flowchart TD
 
     subgraph marts["marts (dbt, the product)"]
         COV["lga_coverage_burden<br/>coverage x NTD burden<br/>priority flag"]
-        LINM["lga_version_drift<br/>queryable lineage (planned)"]
+        LINM["lga_version_drift<br/>queryable lineage"]
     end
 
     G2 --> R2

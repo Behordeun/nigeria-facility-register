@@ -7,7 +7,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Added
 
 - Version-aware authoritative facility layer: v3.0 where it covers a state, v2.0 elsewhere, each row carrying its source version and current/stale status.
-- Spatial v2.0-to-v3.0 facility match, since the two GRID3 versions share no carry-over id. Produces carry-over, dropped and appeared sets as review queues.
+- Cross-version facility lineage as modelled, tested tables: a staging model (stg_version_lineage) that reconstructs each v2.0 facility against v3.0 by a mutual nearest-neighbour match within 100 m on lat/lon and classifies it carried-over, dropped or appeared with a match distance and a Jaro-Winkler name-similarity band, and a serving mart (lga_version_drift) that resolves the lineage against the canonical 774-LGA frame so it is queryable by LGA. Both carry enforced column contracts and tests: unique facility key, accepted status and name-band domains, a per-status field-shape check, a 100 m radius check on the built output, a grain-preservation check between staging and mart, and a fixture check that all three statuses are exercised.
 - Per-LGA mart joining facility coverage to ESPEN soil-transmitted-helminths burden on the 774-LGA frame.
 - DuckDB source loader and a two-stage dbt transform (staging, marts) with schema tests for the data contract.
 - Unit tests pinning the LGA and state name-normalisation keys.

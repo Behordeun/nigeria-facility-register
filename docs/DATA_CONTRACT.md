@@ -1,14 +1,15 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the one implemented serving mart (`lga_coverage_burden`) and the staging authority layer it is built on. The `lga_version_drift` mart is planned, not yet built, and its contract is marked as such below. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the two serving marts (`lga_coverage_burden` and `lga_version_drift`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
 | Table | Layer | Grain | Rows |
 | --- | --- | --- | --- |
 | `stg_facilities_authority` | staging | one facility | one per facility in the authoritative set |
+| `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
-| `lga_version_drift` | mart (planned) | one facility-lineage record | one per matched or unmatched facility |
+| `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
 
 ## `stg_facilities_authority`
 
@@ -32,6 +33,32 @@ Guarantees:
 
 - One source version per state. A state's facilities all come from v3.0 or all from v2.0, never a mix.
 - `facility_id` is unique. No facility is counted twice.
+
+## `stg_version_lineage`
+
+The cross-version facility lineage. Each v2.0 facility is reconstructed against v3.0 by a mutual nearest-neighbour match within 100 m on lat/lon, then classified. One row per facility, only for states v3.0 covers (a state still on v2.0 has no v3 to compare against, so it carries no lineage and is excluded).
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `facility_id` | varchar | no | unique; the `v3_id` for a carried-over or appeared record, the `v2_id` for a dropped one |
+| `lineage_status` | varchar | no | one of `carried-over`, `dropped`, `appeared` |
+| `state` | varchar | no | canonical state; always a v3.0-covered state |
+| `lga` | varchar | yes | source LGA label (v3 side for carried-over/appeared, v2 side for dropped); frame-resolved in the mart, not here |
+| `v2_id` | varchar | yes | `globalid` of the v2.0 facility; null for an appeared record |
+| `v3_id` | varchar | yes | `unique_id` of the v3.0 facility; null for a dropped record |
+| `v2_name` | varchar | yes | facility name on the v2.0 side |
+| `v3_name` | varchar | yes | facility name on the v3.0 side |
+| `match_distance_m` | double | yes | metres between the paired facilities; null unless carried-over |
+| `name_similarity` | double | yes | Jaro-Winkler similarity of the two names; null unless carried-over |
+| `name_match_band` | varchar | yes | banded `name_similarity`: `exact-or-near` (>=0.92), `close` (>=0.80), `divergent` (<0.80); null unless carried-over |
+
+Guarantees:
+
+- `facility_id` is unique. No facility appears in two lineage records.
+- The match is a single mutual claim. Each v3 facility is paired with its one nearest v2 and vice versa, so no facility is claimed twice.
+- A carried-over pair is always within 100 m. The radius ceiling holds in the built output, not just the model text.
+- Field shape follows status. A carried-over record carries both ids plus distance and similarity; a dropped record carries the v2 id only; an appeared record carries the v3 id only. The match fields are null for anything that did not match.
+- `dropped` and `appeared` are review candidates, not asserted facts. A drop may be a real closure or a sub-100 m move the match missed; an appearance may be genuinely new or a re-survey of the same site. Read them as the start of a reconciliation queue, never as a measured count of closures or openings.
 
 ## `lga_coverage_burden`
 
@@ -57,9 +84,32 @@ Guarantees:
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
-## `lga_version_drift` (planned)
+## `lga_version_drift`
 
-The v2-to-v3 facility lineage promoted from a CSV to a modelled, queryable table. Grain is one lineage record per facility, classified carried-over / dropped / appeared, with the match distance and name-similarity band. Full column spec lands with the lineage-mart branch.
+The `stg_version_lineage` records made queryable against the canonical 774-LGA frame: the same grain, one row per facility-lineage record, with the source LGA resolved through the alias crosswalk and joined to the frame so the lineage answers "what changed in this LGA between versions" without the caller re-doing the name reconciliation.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `facility_id` | varchar | no | unique; the `v3_id` for a carried-over or appeared record, the `v2_id` for a dropped one |
+| `lineage_status` | varchar | no | one of `carried-over`, `dropped`, `appeared` |
+| `canonical_lga` | varchar | yes | canonical LGA name from the frame; null when the source LGA label does not resolve to a frame LGA |
+| `state` | varchar | no | the frame's state where the LGA resolved, else the lineage state |
+| `espen_iu_id` | bigint | yes | ESPEN IU id from the frame where the LGA resolved and the frame carries one |
+| `v2_id` | varchar | yes | `globalid` of the v2.0 facility; null for an appeared record |
+| `v3_id` | varchar | yes | `unique_id` of the v3.0 facility; null for a dropped record |
+| `v2_name` | varchar | yes | facility name on the v2.0 side |
+| `v3_name` | varchar | yes | facility name on the v3.0 side |
+| `match_distance_m` | double | yes | metres between the paired facilities; null unless carried-over |
+| `name_similarity` | double | yes | Jaro-Winkler similarity of the two names; null unless carried-over |
+| `name_match_band` | varchar | yes | banded name similarity; null unless carried-over (see `stg_version_lineage`) |
+
+Guarantees:
+
+- One row per `stg_version_lineage` record, same `facility_id` set. The frame join never drops a lineage record or duplicates one.
+- `facility_id` is unique. No facility appears twice.
+- `canonical_lga` null means unresolved, not absent. The source carried an LGA label the crosswalk does not map to a frame LGA; read it as a reconciliation item, never as "this facility has no LGA".
+- The key is the facility, not the LGA. `canonical_lga` is not unique on its own (an LGA holds many facilities, and LGA names recur across states), so group by `(state, canonical_lga)` when rolling up and never treat the LGA name alone as a key.
+- The status semantics carry over from `stg_version_lineage`: `dropped` and `appeared` are review candidates, not measured closures or openings.
 
 ## The rule that spans every table
 

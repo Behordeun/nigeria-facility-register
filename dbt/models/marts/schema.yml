@@ -63,3 +63,68 @@ models:
           See docs/DATA_CONTRACT.md.
         constraints:
           - type: not_null
+
+  - name: lga_version_drift
+    description: >
+      The v2.0-to-v3.0 facility lineage made queryable against the canonical
+      774-LGA frame. One row per facility-lineage record. See
+      docs/DATA_CONTRACT.md for the full contract.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: facility_id
+        data_type: varchar
+        description: The facility this record is about (v3 id, or v2 id when dropped). Unique.
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: lineage_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['carried-over', 'dropped', 'appeared']
+      - name: canonical_lga
+        data_type: varchar
+        description: >
+          Canonical LGA name from the frame, resolved via the alias crosswalk.
+          Null when the source LGA label does not resolve to a frame LGA: an
+          unresolved label, not an absent one. Not unique on its own; the
+          natural key is the facility.
+      - name: state
+        data_type: varchar
+        description: Canonical state; the frame's state where resolved, else the lineage state.
+        constraints:
+          - type: not_null
+      - name: espen_iu_id
+        data_type: bigint
+        description: ESPEN IU id from the frame where the LGA resolved and the frame carries one.
+      - name: v2_id
+        data_type: varchar
+        description: globalid of the v2.0 facility; null for an appeared record.
+      - name: v3_id
+        data_type: varchar
+        description: unique_id of the v3.0 facility; null for a dropped record.
+      - name: v2_name
+        data_type: varchar
+      - name: v3_name
+        data_type: varchar
+      - name: match_distance_m
+        data_type: double
+        description: Metres between the paired facilities; null unless carried-over.
+      - name: name_similarity
+        data_type: double
+        description: Jaro-Winkler similarity of the two names; null unless carried-over.
+      - name: name_match_band
+        data_type: varchar
+        description: Banded name similarity; null unless carried-over. See stg_version_lineage.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['exact-or-near', 'close', 'divergent']
+              config:
+                where: "name_match_band is not null"
