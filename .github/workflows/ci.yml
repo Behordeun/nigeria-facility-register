@@ -50,8 +50,12 @@ jobs:
       - name: Load sample fixture into DuckDB
         run: uv run python -m nfr.load_sources --db build/nfr.duckdb --raw data/sample
 
+      # fixture_build=true enables the fixture-only coverage tests (e.g. that the
+      # sample exercises all three lineage statuses). Those tests are disabled by
+      # default so a real production refresh, which may legitimately contain only
+      # one or two statuses, is never rejected by them.
       - name: dbt build + test on the fixture
         working-directory: dbt
         run: |
           uv run dbt deps || true
-          uv run dbt build --profiles-dir .
+          uv run dbt build --profiles-dir . --vars 'fixture_build: true'

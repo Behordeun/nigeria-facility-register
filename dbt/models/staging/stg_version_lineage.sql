@@ -44,7 +44,8 @@ v2 as (
         latitude                            as v2_lat,
         longitude                           as v2_lon
     from {{ source('raw', 'grid3_v2') }}
-    where latitude is not null
+    where globalid is not null
+      and latitude is not null
       and longitude is not null
       and {{ norm_state('state') }} in (select state from v3_states)
 ),
@@ -58,7 +59,8 @@ v3 as (
         latitude                            as v3_lat,
         longitude                           as v3_lon
     from {{ source('raw', 'grid3_v3') }}
-    where latitude is not null
+    where unique_id is not null
+      and latitude is not null
       and longitude is not null
       and {{ norm_state('state_standard') }} is not null
       and trim(state_standard) <> ''
@@ -127,19 +129,20 @@ matched as (
     join v2_nearest m on n.v2_id = m.v2_id and n.v3_id = m.v2_best_v3
 ),
 
-matched_v2_ids as (select v2_id from matched),
-matched_v3_ids as (select v3_id from matched),
-
+-- A null-safe anti-join (not exists, never not in): a null in the matched set
+-- cannot turn the predicate unknown and silently empty the dropped/appeared
+-- sets. Source ids are also filtered non-null at the v2/v3 CTEs, so a row that
+-- cannot be keyed never reaches the classification.
 dropped as (
     select v2.v2_id, v2.state, v2.lga, v2.v2_name
     from v2
-    where v2.v2_id not in (select v2_id from matched_v2_ids)
+    where not exists (select 1 from matched m where m.v2_id = v2.v2_id)
 ),
 
 appeared as (
     select v3.v3_id, v3.state, v3.lga, v3.v3_name
     from v3
-    where v3.v3_id not in (select v3_id from matched_v3_ids)
+    where not exists (select 1 from matched m where m.v3_id = v3.v3_id)
 ),
 
 lineage as (
@@ -153,9 +156,11 @@ lineage as (
         v2_name,
         v3_name,
         cast(distance_m as double)          as match_distance_m,
-        jaro_winkler_similarity(
-            lower(coalesce(v2_name, '')), lower(coalesce(v3_name, ''))
-        )                                   as name_similarity
+        -- No coalesce to empty string: a null name must yield a null
+        -- similarity, not a spurious near-zero score that bands as 'divergent'.
+        -- jaro_winkler_similarity returns null when either argument is null.
+        jaro_winkler_similarity(lower(v2_name), lower(v3_name))
+                                            as name_similarity
     from matched
 
     union all

@@ -1,9 +1,15 @@
 -- CI proves the lineage classification only if the built output actually
--- contains all three outcomes. The accepted-values test permits any status to
--- be absent, so a fixture that happened to match every facility (or match none)
--- would pass without ever exercising the dropped or appeared branch. This fails
--- unless carried-over, dropped and appeared each appear at least once. Returns a
--- row only on failure.
+-- contains all three outcomes. This guards the committed sample fixture: it is
+-- shaped so carried-over, dropped and appeared each occur, and this fails if a
+-- future edit to the fixture stops exercising one branch.
+--
+-- It runs ONLY on the fixture build (var fixture_build=true, set in CI), never
+-- on a production refresh: a real vintage may legitimately contain only one or
+-- two statuses (an all-new state has only 'appeared'), and requiring all three
+-- there would reject a valid refresh. Disabled by default so production builds
+-- skip it entirely.
+{{ config(enabled=var('fixture_build', false)) }}
+
 with present as (
     select count(distinct lineage_status) as n_statuses
     from {{ ref('stg_version_lineage') }}

@@ -93,6 +93,7 @@ The `stg_version_lineage` records made queryable against the canonical 774-LGA f
 | `facility_id` | varchar | no | unique; the `v3_id` for a carried-over or appeared record, the `v2_id` for a dropped one |
 | `lineage_status` | varchar | no | one of `carried-over`, `dropped`, `appeared` |
 | `canonical_lga` | varchar | yes | canonical LGA name from the frame; null when the source LGA label does not resolve to a frame LGA |
+| `source_lga` | varchar | yes | the LGA label as it came from the source, before frame resolution; kept so a null `canonical_lga` still shows what needs reconciliation |
 | `state` | varchar | no | the frame's state where the LGA resolved, else the lineage state |
 | `espen_iu_id` | bigint | yes | ESPEN IU id from the frame where the LGA resolved and the frame carries one |
 | `v2_id` | varchar | yes | `globalid` of the v2.0 facility; null for an appeared record |
@@ -107,7 +108,7 @@ Guarantees:
 
 - One row per `stg_version_lineage` record, same `facility_id` set. The frame join never drops a lineage record or duplicates one.
 - `facility_id` is unique. No facility appears twice.
-- `canonical_lga` null means unresolved, not absent. The source carried an LGA label the crosswalk does not map to a frame LGA; read it as a reconciliation item, never as "this facility has no LGA".
+- `canonical_lga` null means unresolved, not absent. The source carried an LGA label the crosswalk does not map to a frame LGA; read it as a reconciliation item, never as "this facility has no LGA". The unresolved label is kept in `source_lga` so a null `canonical_lga` is still actionable.
 - The key is the facility, not the LGA. `canonical_lga` is not unique on its own (an LGA holds many facilities, and LGA names recur across states), so group by `(state, canonical_lga)` when rolling up and never treat the LGA name alone as a key.
 - The status semantics carry over from `stg_version_lineage`: `dropped` and `appeared` are review candidates, not measured closures or openings.
 
