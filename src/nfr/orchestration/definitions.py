@@ -74,7 +74,9 @@ def raw_sources(context) -> None:
         [sys.executable, "-m", "nfr.load_sources", "--db", str(DB)],
         cwd=str(ROOT), check=True,
     )
-    counts = metrics.load_counts_from_path(str(DB))
+    # raw_counts, not load_counts: the staging tables do not exist until
+    # dbt_models runs, so reading them here would fail a fresh refresh.
+    counts = metrics.raw_counts_from_path(str(DB))
     context.add_output_metadata(
         {
             "db": str(DB),

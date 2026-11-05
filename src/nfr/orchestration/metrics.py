@@ -50,11 +50,48 @@ def _rate(numerator: int, denominator: int) -> float | None:
     return numerator / denominator
 
 
-def load_counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
-    """Absolute row counts for the raw inputs and the modelled layers."""
+def _norm_state(col: str) -> str:
+    """SQL that canonicalises a state label, mirroring the norm_state dbt macro
+    and nfr.keys.norm_state.
+
+    The coverage mart carries the frame's state spelling (Federal Capital
+    Territory) while the authority layer carries the normalised form (FCT), so a
+    join or filter that compares the two raw drops FCT from both sides. Applying
+    this to both sides before comparing keeps FCT (and Nassarawa/Nasarawa) in the
+    counts. Keep the three in step: this macro, the Jinja macro, and the Python
+    helper.
+    """
+    c = f"trim({col})"
+    return (
+        "case "
+        f"when {c} in ('FCT, Abuja', 'Fct', 'Fct, Abuja', "
+        "'Federal Capital Territory', 'Abuja') then 'FCT' "
+        f"when {c} = 'Nassarawa' then 'Nasarawa' "
+        f"else {c} end"
+    )
+
+
+def raw_counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    """Row counts for the raw inputs only.
+
+    Read before dbt runs (by the raw_sources asset), so it must touch only the
+    raw tables the loader created; the staging tables do not exist yet and
+    querying them here would fail the refresh before dbt builds them.
+    """
     return {
         "raw_v2_rows": _scalar(con, "select count(*) from grid3_v2"),
         "raw_v3_rows": _scalar(con, "select count(*) from grid3_v3"),
+    }
+
+
+def load_counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    """Absolute row counts for the raw inputs and the modelled layers.
+
+    Reads the staging tables, so it is valid only after dbt has built them (the
+    dbt_models asset). Use raw_counts before the build.
+    """
+    return {
+        **raw_counts(con),
         "authority_rows": _scalar(con, "select count(*) from stg_facilities_authority"),
         "lineage_rows": _scalar(con, "select count(*) from stg_version_lineage"),
     }
@@ -73,14 +110,21 @@ def coverage_lga_resolve_rate(con: duckdb.DuckDBPyConnection) -> float | None:
     even when every loaded LGA matched. Scoping to loaded states makes the rate
     comparable across a two-state sample and a full national load.
     """
-    loaded_states = "(select distinct state from stg_facilities_authority)"
+    # Normalise the state on both sides before comparing: the coverage mart
+    # carries the frame spelling and the authority layer the normalised form, so
+    # a raw comparison would silently drop FCT from both counts.
+    loaded_states = (
+        f"(select distinct {_norm_state('state')} from stg_facilities_authority)"
+    )
+    cov_state = _norm_state("state")
     total = _scalar(
-        con, f"select count(*) from lga_coverage_burden where state in {loaded_states}"
+        con,
+        f"select count(*) from lga_coverage_burden where {cov_state} in {loaded_states}",
     )
     resolved = _scalar(
         con,
         "select count(*) from lga_coverage_burden "
-        f"where state in {loaded_states} and facility_status <> 'unmatched'",
+        f"where {cov_state} in {loaded_states} and facility_status <> 'unmatched'",
     )
     return _rate(resolved, total)
 
@@ -99,15 +143,34 @@ def drift_lga_resolve_rate(con: duckdb.DuckDBPyConnection) -> float | None:
 
 
 def carryover_rate(con: duckdb.DuckDBPyConnection) -> float | None:
-    """Carried-over over carried-over-plus-dropped (the v2.0 facilities that
-    could carry forward into v3.0)."""
+    """Carried-over facilities over the v2.0 facilities that could carry forward.
+
+    The denominator is every v2.0 facility in a v3-covered state, counted from
+    the raw table before the lineage model applies its id and coordinate guards,
+    NOT carried-over-plus-dropped read back from the lineage table. Those two are
+    equal only when no facility is filtered out: a vintage that loses the
+    globalid or the coordinates a facility needs to enter the match drops it from
+    both the carried and the dropped count, so carried/(carried+dropped) would
+    stay high and hide the loss. Measuring against the expected population makes
+    a facility lost to a bad load show up as a fall in the rate, which is what
+    the carry-over check is meant to catch.
+
+    A v3-covered state is one that appears in the raw v3 table; v2.0 facilities
+    outside those states are not comparable (they have no v3 to carry into) and
+    are excluded from the denominator.
+    """
     carried = _scalar(
         con, "select count(*) from stg_version_lineage where lineage_status = 'carried-over'"
     )
-    dropped = _scalar(
-        con, "select count(*) from stg_version_lineage where lineage_status = 'dropped'"
+    v3_states = (
+        f"(select distinct {_norm_state('state_standard')} from grid3_v3 "
+        "where state_standard is not null and trim(state_standard) <> '')"
     )
-    return _rate(carried, carried + dropped)
+    expected = _scalar(
+        con,
+        f"select count(*) from grid3_v2 where {_norm_state('state')} in {v3_states}",
+    )
+    return _rate(carried, expected)
 
 
 def collect(con: duckdb.DuckDBPyConnection) -> RunMetrics:
@@ -138,8 +201,13 @@ def collect_from_path(db_path: str) -> RunMetrics:
     return _with_connection(db_path, collect)
 
 
+def raw_counts_from_path(db_path: str) -> dict[str, int]:
+    """Open the DuckDB file read-only and read the raw-input counts (pre-dbt)."""
+    return _with_connection(db_path, raw_counts)
+
+
 def load_counts_from_path(db_path: str) -> dict[str, int]:
-    """Open the DuckDB file read-only and read the load counts."""
+    """Open the DuckDB file read-only and read the load counts (post-dbt)."""
     return _with_connection(db_path, load_counts)
 
 

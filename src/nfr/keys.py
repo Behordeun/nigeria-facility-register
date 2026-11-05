@@ -11,7 +11,9 @@ import re
 _STATE_FIX = {
     "FCT, Abuja": "FCT",
     "Fct": "FCT",
+    "Fct, Abuja": "FCT",
     "Federal Capital Territory": "FCT",
+    "Abuja": "FCT",
     "Nassarawa": "Nasarawa",
 }
 
