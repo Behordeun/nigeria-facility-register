@@ -25,6 +25,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- A placed raw file is set to exactly mode 0o640 (owner read/write, group read, no world), so a sensor or loader account in the same group can read it without exposing the raw geopackages to every account on the host. The mode is set with os.chmod directly, which is not subject to the process umask, so group-read is guaranteed even under a restrictive umask (a umask-masked chmod would have stripped it under e.g. 0o040). Resolves a SonarQube file-permissions finding; tests pin the mode across a range of umasks.
 - The Dagster dbt step runs `python -m dbt.cli.main`, not `python -m dbt`: dbt ships no `dbt.__main__`, so the old invocation would have failed every orchestrated refresh with "No module named dbt.__main__".
 - The authority switch no longer drops every v2 fallback facility when the v3 source contains a null state, and canonicalises v2/v3 state-label aliases so a covered state is not duplicated or left with zero-count LGAs.
 - Added tests for exact frame-key coverage, facility_status/source_version consistency, and both authority versions being present, so a dropped LGA, a contradictory coverage state, or a fixture that loses a path is caught.

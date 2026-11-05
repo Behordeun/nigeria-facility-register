@@ -128,6 +128,33 @@ def test_place_publishes_only_via_atomic_replace(tmp_path, monkeypatch):
     assert download.is_file()
 
 
+@pytest.mark.parametrize("set_umask", [0o000, 0o022, 0o027, 0o040, 0o077])
+def test_placed_file_is_exactly_group_readable_under_any_umask(tmp_path, monkeypatch, set_umask):
+    # The placed file must be exactly 0o640 (owner rw, group read, no world)
+    # regardless of the process umask: os.chmod sets the bits directly, so a
+    # restrictive umask like 0o040 or 0o077 must NOT strip the group-read bit
+    # the gate depends on. A 0o644 would expose it to the world; a umask-masked
+    # chmod would drop group-read under 0o040.
+    import os
+    import stat
+
+    raw = tmp_path / "raw"
+    monkeypatch.setattr(fetch_sources, "RAW", raw)
+    download = tmp_path / EXPECTED_NAME
+    download.write_bytes(SAMPLE_V2.read_bytes())
+
+    old = os.umask(set_umask)
+    try:
+        dest = fetch_sources.place(download)
+    finally:
+        os.umask(old)
+
+    mode = stat.S_IMODE(os.stat(dest).st_mode)
+    assert mode == 0o640, f"expected 0o640, got {oct(mode)} under umask {oct(set_umask)}"
+    assert mode & stat.S_IRGRP, "placed file must be group-readable"
+    assert not (mode & stat.S_IROTH), "placed file must not be world-readable"
+
+
 def test_place_all_lands_both_or_neither(tmp_path, monkeypatch):
     # A set place with one bad file must promote nothing, so the refresh never
     # sees one new file beside one old one.
