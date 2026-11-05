@@ -110,9 +110,15 @@ Bring it up with the rest of the stack (`docker compose up -d`), then at
    The `read_only` access mode matches the read-only mount and lets Superset
    open the file even while the daemon holds it.
 3. Add the two datasets from that connection: `lga_coverage_choropleth` and
-   `lga_version_drift`. The choropleth's `geometry_geojson` column feeds a
-   deck.gl Polygon / Geojson chart; colour by `facilities`,
-   `sth_high_share_pct_state`, or `priority_high_burden_thin_coverage`.
+   `lga_version_drift`. The choropleth's `geometry_feature` column feeds a
+   deck.gl Geojson chart (it carries the geometry and properties that layer
+   reads); colour by `facilities`, `sth_high_share_pct_state`, or
+   `priority_high_burden_thin_coverage`.
+
+The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a
+Mapbox public token (`pk...`) for the map background; without it the tiles do
+not load, though non-map charts and the data layer are unaffected. The token
+stays in the gitignored `.env`, never committed.
 
 Superset keeps its own metadata (users, charts, dashboards) in the
 `superset_home` volume; it is independent of the register and survives a
