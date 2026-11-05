@@ -9,6 +9,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,9 +22,9 @@ jobs:
         with:
           python-version: "3.12"
 
-      # Install from the committed lockfile (frozen) so CI uses the exact pinned
-      # versions, including dbt-duckdb 1.9.6, and transitive dependencies cannot
-      # drift between the lock and the run.
+      # Install from the committed lockfile (frozen) so CI uses the exact pinned,
+      # resolved versions (including dbt-duckdb 1.9.6) and transitive
+      # dependencies cannot drift between the lock and the run.
       - name: Install
         run: uv sync --frozen --extra dev
 
@@ -33,13 +35,13 @@ jobs:
         run: uv run pytest -q
 
       # Upload coverage to SonarCloud. pytest wrote coverage.xml (see pyproject).
-      # Needs the SONAR_TOKEN repo secret; and SonarCloud's Automatic Analysis
-      # must be OFF for this project, since CI-based analysis and automatic
-      # analysis cannot both run.
+      # Skipped when SONAR_TOKEN is absent (forks, or before the secret is set),
+      # so a missing credential does not fail the build. Pinned to a full commit
+      # SHA (the v4.2.1 release) so a moved tag cannot swap in unreviewed action
+      # code that would run with the token in its environment.
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v4
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: ${{ env.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@689fb39b34b9aa95ebc5f8f119343ddd51542402  # v4
 
       # The committed sample fixture (data/sample/, two states) lets CI run the
       # full transform without the WAF-gated production geopackages. This builds
