@@ -62,23 +62,17 @@ MIN_CARRYOVER_RATE = 0.60
 HARD_MIN_CARRYOVER_RATE = 0.30
 
 
-# The only tables the gate may remove when it rejects a build. Names are
-# validated against this set before being used as SQL identifiers, so the drop
-# statement can never carry an injected or unexpected name regardless of where
-# the value came from. Mirrors the allowlist pattern in nfr.load_sources.
-GATE_DROP_TABLES = ("lga_version_drift", "lga_coverage_burden", "stg_version_lineage")
-
-
-def _quoted_ident(table: str) -> str:
-    """Return a safe double-quoted SQL identifier for a known gate table.
-
-    Only names on the allowlist are accepted, so the identifier interpolated
-    into the DROP statement can never carry injected SQL. Mirrors
-    nfr.load_sources._quoted_ident.
-    """
-    if table not in GATE_DROP_TABLES:
-        raise ValueError(f"refusing to drop unknown table: {table!r}")
-    return '"' + table.replace('"', '""') + '"'
+# The tables the gate removes when it rejects a build, each paired with its own
+# fully literal DROP statement. Nothing is built at runtime and no value is
+# interpolated or concatenated into SQL: the statement handed to execute() is a
+# compile-time constant, so there is no string-to-SQL path to audit at all. The
+# mart and lineage tables are the gate's output; dropping them on rejection
+# keeps a failed build from leaving readable results behind.
+GATE_DROP_STATEMENTS = (
+    'drop table if exists "lga_version_drift"',
+    'drop table if exists "lga_coverage_burden"',
+    'drop table if exists "stg_version_lineage"',
+)
 
 
 def _rate_meta(value: float | None) -> MetadataValue:
@@ -143,12 +137,10 @@ def _enforce_carryover_gate(db_path: str) -> float | None:
 
     con = duckdb.connect(db_path)
     try:
-        # Each name is allowlist-validated and quoted by _quoted_ident before it
-        # reaches the statement, so the identifier is never raw interpolation of
-        # an outside value. DuckDB has no bind parameter for an identifier, so a
-        # validated quoted identifier is the safe construction here.
-        for table in GATE_DROP_TABLES:
-            con.execute("drop table if exists " + _quoted_ident(table))
+        # Each statement is a fixed literal, so nothing is interpolated or
+        # concatenated into the SQL handed to execute().
+        for statement in GATE_DROP_STATEMENTS:
+            con.execute(statement)
     finally:
         con.close()
     shown = "undefined (no comparable v2.0 population)" if rate is None else f"{rate * 100:.1f}%"

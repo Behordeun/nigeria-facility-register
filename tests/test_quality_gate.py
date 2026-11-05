@@ -83,10 +83,16 @@ def test_gate_fails_when_rate_is_undefined(tmp_path):
         d._enforce_carryover_gate(db)
 
 
-def test_quoted_ident_accepts_only_allowlisted_tables():
-    # The drop statement interpolates a table name, so the name must be
-    # allowlist-validated: a name off the list is refused, not quoted through.
-    for table in d.GATE_DROP_TABLES:
-        assert d._quoted_ident(table) == f'"{table}"'
-    with pytest.raises(ValueError, match="refusing to drop unknown table"):
-        d._quoted_ident("facilities; drop table users")
+def test_gate_drop_statements_are_fixed_literals():
+    # The gate drops its output tables with fully literal statements: no value
+    # is interpolated or concatenated into the SQL. This pins that the set
+    # targets exactly the three gate outputs and that each statement is a plain
+    # drop-if-exists with no placeholder or format field left in it.
+    targets = {"lga_version_drift", "lga_coverage_burden", "stg_version_lineage"}
+    seen = set()
+    for stmt in d.GATE_DROP_STATEMENTS:
+        assert stmt.startswith("drop table if exists ")
+        assert "{" not in stmt and "%" not in stmt
+        name = stmt.rsplit(" ", 1)[-1].strip('"')
+        seen.add(name)
+    assert seen == targets
