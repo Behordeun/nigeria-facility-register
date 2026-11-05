@@ -20,6 +20,8 @@ import sys
 import time
 from pathlib import Path
 
+import duckdb
+
 from dagster import (
     AssetCheckResult,
     AssetCheckSeverity,
@@ -93,15 +95,66 @@ def raw_sources(context) -> None:
     )
 
 
+def _enforce_carryover_gate(db_path: str) -> float | None:
+    """Fail the refresh when the carry-over rate does not clear the hard floor.
+
+    Runs inside the dbt_models asset, after the build, so a failure raises and
+    the asset (and the whole refresh_register job) fails. A blocking asset check
+    would only block assets downstream of dbt_models, and dbt_models is terminal,
+    so the run would report success while serving a broken lineage. Enforcing it
+    here is what actually stops the run.
+
+    A None rate is a failure, not a pass: by the time the gate runs on a real
+    GRID3 load there is always a v2.0 population in the v3-covered states, so
+    None means the lineage produced no comparable facilities at all (unusable
+    input, a load that read rows but no usable ids or coordinates), which is
+    exactly the malformed case the gate exists to stop.
+
+    On failure the mart and lineage tables are dropped from the canonical DB
+    before raising, so a reader pointed at the shared file never sees the
+    rejected lineage. This does not make the build fully transactional (the
+    tables exist during the build itself, before the gate runs), but it ensures
+    a gate rejection is never left readable; full staging-schema atomicity is
+    tracked separately.
+    """
+    rate = metrics.carryover_rate_from_path(db_path)
+    passed = rate is not None and rate >= HARD_MIN_CARRYOVER_RATE
+    if passed:
+        return rate
+
+    con = duckdb.connect(db_path)
+    try:
+        for table in ("lga_version_drift", "lga_coverage_burden", "stg_version_lineage"):
+            con.execute(f"drop table if exists {table}")
+    finally:
+        con.close()
+    shown = "undefined (no comparable v2.0 population)" if rate is None else f"{rate * 100:.1f}%"
+    raise RuntimeError(
+        f"data-quality gate failed: carry-over rate {shown} is below the hard floor "
+        f"{HARD_MIN_CARRYOVER_RATE * 100:.1f}%. The rejected marts were dropped and the "
+        "refresh is failed so the broken lineage is not served."
+    )
+
+
 @asset(deps=[raw_sources])
 def dbt_models(context) -> None:
-    """Run the dbt staging and marts build, then emit the run's metrics."""
+    """Run the dbt staging and marts build, enforce the quality gate, then emit
+    the run's metrics.
+
+    The hard carry-over gate runs here, not as a blocking asset check: raising
+    in the asset fails the refresh job, where a check downstream of a terminal
+    asset would not. The dbt tests (referential integrity, row-count bounds)
+    already fail the build inside `dbt build` above.
+    """
     # Run dbt as a module of this interpreter, so it resolves to the dbt beside
     # the virtualenv's Python rather than whatever is on the system PATH.
     subprocess.run(
         [sys.executable, "-m", "dbt", "build", "--profiles-dir", "."],
         cwd=str(DBT_DIR), check=True,
     )
+    # Enforce the hard carry-over gate before reporting success. Raises (failing
+    # the job) and drops the rejected marts if the rate does not clear the floor.
+    _enforce_carryover_gate(str(DB))
     m = metrics.collect_from_path(str(DB))
     context.add_output_metadata(
         {
@@ -158,30 +211,11 @@ def carryover_rate_check(context) -> AssetCheckResult:
     )
 
 
-@asset_check(asset=dbt_models, blocking=True)
-def carryover_gate_check(context) -> AssetCheckResult:
-    """Fail the run when the carry-over rate collapses past the hard floor.
-
-    This is the data-quality gate, not the advisory warn above: it is blocking,
-    so a run whose carry-over falls below the hard floor is stopped and the
-    broken lineage is never served. The floor sits far below any plausible
-    vintage, so tripping it means the spatial match is wrong (a coordinate or
-    projection change, a key swap), not that a vintage carried a little less.
-    Undefined (no v2.0 facilities in a covered state) is not a quality failure
-    and passes with a note; the dbt referential and row-count tests cover the
-    empty-input case.
-    """
-    rate = metrics.carryover_rate_from_path(str(DB))
-    if rate is None:
-        return AssetCheckResult(passed=True, metadata={"carryover_rate": _rate_meta(None)})
-    return AssetCheckResult(
-        passed=rate >= HARD_MIN_CARRYOVER_RATE,
-        severity=AssetCheckSeverity.ERROR,
-        metadata={
-            "carryover_rate": _rate_meta(rate),
-            "hard_floor": _rate_meta(HARD_MIN_CARRYOVER_RATE),
-        },
-    )
+# The hard carry-over gate is enforced inside the dbt_models asset
+# (_enforce_carryover_gate), not as a blocking asset check: a check downstream
+# of the terminal dbt_models asset would not fail the job, so the run would
+# report success while serving a broken lineage. The warn-severity checks above
+# stay as asset checks because their job is visibility, not stopping the run.
 
 
 # Tag the job's runs with a concurrency key, so a scheduled, sensor, and manual
@@ -287,7 +321,7 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
 
 defs = Definitions(
     assets=[raw_sources, dbt_models],
-    asset_checks=[lga_resolve_rate_check, carryover_rate_check, carryover_gate_check],
+    asset_checks=[lga_resolve_rate_check, carryover_rate_check],
     jobs=[refresh_job],
     schedules=[weekly_refresh],
     sensors=[new_vintage_sensor],
