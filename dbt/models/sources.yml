@@ -15,6 +15,11 @@ sources:
         description: GRID3 NGA Health Facilities v3.0 (24 states, to Dec 2025). CC BY 4.0.
       - name: frame_master_index
         description: 774-LGA master index (canonical LGA, state, ESPEN IU id). geoBoundaries CC BY.
+      - name: lga_alias_crosswalk
+        description: >
+          Maps facility-source LGA spellings and former names to the canonical
+          774-LGA frame name, so a known variant joins instead of showing a
+          false zero. Each row records the match type and a note.
       - name: ntd_sth_state
         description: >
           ESPEN soil-transmitted-helminths endemicity, summarised per state

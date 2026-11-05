@@ -1,11 +1,11 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the two serving marts and the staging authority layer they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the one implemented serving mart (`lga_coverage_burden`) and the staging authority layer it is built on. The `lga_version_drift` mart is planned, not yet built, and its contract is marked as such below. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
 | Table | Layer | Grain | Rows |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `stg_facilities_authority` | staging | one facility | one per facility in the authoritative set |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart (planned) | one facility-lineage record | one per matched or unmatched facility |
@@ -15,7 +15,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 The version-aware authoritative facility layer: v3.0 where it covers a state, v2.0 everywhere else.
 
 | Column | Type | Nullable | Domain / rule |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `facility_id` | varchar | no | unique across the table; `globalid` for v2.0 rows, `unique_id` for v3.0 |
 | `state` | varchar | no | a Nigerian state or FCT, normalised |
 | `lga` | varchar | no | facility-source LGA name (resolved against the frame in the mart, not here) |
@@ -29,6 +29,7 @@ The version-aware authoritative facility layer: v3.0 where it covers a state, v2
 | `facility_status` | varchar | no | one of `current`, `stale-awaiting-v3` |
 
 Guarantees:
+
 - One source version per state. A state's facilities all come from v3.0 or all from v2.0, never a mix.
 - `facility_id` is unique. No facility is counted twice.
 
@@ -37,7 +38,7 @@ Guarantees:
 Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 present.
 
 | Column | Type | Nullable | Domain / rule |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `canonical_lga` | varchar | no | canonical LGA name; not unique alone, several recur across states (see key rule below) |
 | `state` | varchar | no | the LGA's state or FCT |
 | `espen_iu_id` | bigint | yes | the ESPEN IU id where the frame carries one |
@@ -49,6 +50,7 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `priority_high_burden_thin_coverage` | boolean | no | true where burden is high and coverage is thin; see rule below |
 
 Guarantees:
+
 - Exactly 774 rows, one per LGA. No LGA missing, none duplicated.
 - The key is `(state, canonical_lga)`, not `canonical_lga` alone. Six LGA names recur across states (Bassa, Ifelodun, Irepodun, Nasarawa, Obi, Surulere), so joining on the bare name would collide two distinct places. Always carry the state.
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.

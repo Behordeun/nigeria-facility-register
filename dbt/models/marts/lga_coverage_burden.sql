@@ -1,15 +1,48 @@
 -- Mart: one row per LGA with facility coverage, NTD burden and the priority flag.
 -- Facility counts come from the version-aware authority layer, joined to the
--- canonical 774-LGA frame on a punctuation-normalised LGA name so hyphen and
--- spacing variants (akoko-edo vs akoko edo) do not split a real match.
--- NTD burden is state-level and broadcast to each LGA in the state, labelled so.
+-- canonical 774-LGA frame. The join keys on (canonical state, normalised LGA).
+--
+-- State is canonicalised with norm_state so a v2/v3 alias (FCT, Abuja vs FCT)
+-- does not leave a covered state unmatched. LGA names are punctuation-normalised
+-- (akoko-edo vs akoko edo), and a committed alias crosswalk first maps
+-- facility-source LGA spellings and former names to the canonical frame name
+-- (Municipal Area Council -> AMAC, Shomolu -> Somolu), so a known variant joins
+-- instead of showing a false zero.
 
-with norm as (
+with xwalk_raw as (
+    select state, facility_lga, canonical_lga
+    from {{ source('raw', 'lga_alias_crosswalk') }}
+),
+
+xwalk as (
+    select
+        {{ norm_state('state') }} as state_key,
+        facility_lga,
+        canonical_lga
+    from xwalk_raw
+),
+
+authority_keyed as (
     select
         *,
-        regexp_replace(lower(regexp_replace(lga, '[/\-\.]', ' ', 'g')), '\s+', ' ', 'g') as lga_key,
-        trim(state) as state_key
+        {{ norm_state('state') }} as state_key
     from {{ ref('stg_facilities_authority') }}
+),
+
+authority as (
+    select
+        a.*,
+        coalesce(x.canonical_lga, a.lga) as resolved_lga
+    from authority_keyed a
+    left join xwalk x
+      on a.state_key = x.state_key and a.lga = x.facility_lga
+),
+
+norm as (
+    select
+        *,
+        {{ norm_lga_key('resolved_lga') }} as lga_key
+    from authority
 ),
 
 fac as (
@@ -28,14 +61,14 @@ frame as (
         canonical_lga,
         state,
         espen_iu_id,
-        regexp_replace(lower(regexp_replace(canonical_lga, '[/\-\.]', ' ', 'g')), '\s+', ' ', 'g') as lga_key,
-        trim(state) as state_key
+        {{ norm_lga_key('canonical_lga') }} as lga_key,
+        {{ norm_state('state') }} as state_key
     from {{ source('raw', 'frame_master_index') }}
 ),
 
 ntd as (
     select
-        trim(state) as state_key,
+        {{ norm_state('state') }} as state_key,
         sth_high_share_pct,
         sth_survey_years
     from {{ source('raw', 'ntd_sth_state') }}
