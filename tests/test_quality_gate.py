@@ -81,3 +81,12 @@ def test_gate_fails_when_rate_is_undefined(tmp_path):
     db = _gate_db(tmp_path, v2_in_covered=0, carried=0)
     with pytest.raises(RuntimeError, match="data-quality gate failed"):
         d._enforce_carryover_gate(db)
+
+
+def test_quoted_ident_accepts_only_allowlisted_tables():
+    # The drop statement interpolates a table name, so the name must be
+    # allowlist-validated: a name off the list is refused, not quoted through.
+    for table in d.GATE_DROP_TABLES:
+        assert d._quoted_ident(table) == f'"{table}"'
+    with pytest.raises(ValueError, match="refusing to drop unknown table"):
+        d._quoted_ident("facilities; drop table users")
