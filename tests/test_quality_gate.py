@@ -1,4 +1,4 @@
-"""Unit tests for the data-quality gate thresholds.
+"""Unit tests for the data-quality gate and the atomic-publish staging path.
 
 The gate's blocking carry-over floor must sit below the advisory warn floor, or
 the blocking check would fire before (or together with) the warning and the two
@@ -25,8 +25,7 @@ def test_floors_are_fractions():
 
 def _gate_db(tmp_path, *, v2_in_covered: int, carried: int):
     """Build a DuckDB file the gate reads: a v3-covered state with v2_in_covered
-    v2 facilities and `carried` carried-over lineage rows, plus the two mart
-    tables the gate drops on failure."""
+    v2 facilities and `carried` carried-over lineage rows."""
     import duckdb
 
     p = tmp_path / "gate.duckdb"
@@ -42,40 +41,24 @@ def _gate_db(tmp_path, *, v2_in_covered: int, carried: int):
             "insert into stg_version_lineage values (?, 'carried-over')",
             [(f"f{i}",) for i in range(carried)],
         )
-    con.execute("create table lga_coverage_burden (x int)")
-    con.execute("create table lga_version_drift (x int)")
     con.close()
     return str(p)
 
 
-def test_gate_passes_and_leaves_tables_when_rate_clears_floor(tmp_path):
+def test_gate_returns_rate_when_it_clears_floor(tmp_path):
     # 9 carried of 10 expected = 0.9, well above the hard floor.
     db = _gate_db(tmp_path, v2_in_covered=10, carried=9)
-    rate = d._enforce_carryover_gate(db)
-    assert rate == pytest.approx(0.9)
-    import duckdb
-
-    con = duckdb.connect(db, read_only=True)
-    tables = {t[0] for t in con.sql("show tables").fetchall()}
-    con.close()
-    assert {"lga_coverage_burden", "lga_version_drift", "stg_version_lineage"} <= tables
+    assert d._enforce_carryover_gate(db) == pytest.approx(0.9)
 
 
-def test_gate_fails_and_drops_marts_when_rate_below_floor(tmp_path):
+def test_gate_raises_when_rate_below_floor(tmp_path):
     # 1 carried of 10 expected = 0.1, below the 0.30 hard floor.
     db = _gate_db(tmp_path, v2_in_covered=10, carried=1)
     with pytest.raises(RuntimeError, match="data-quality gate failed"):
         d._enforce_carryover_gate(db)
-    import duckdb
-
-    con = duckdb.connect(db, read_only=True)
-    tables = {t[0] for t in con.sql("show tables").fetchall()}
-    con.close()
-    # The rejected marts and lineage are dropped so no reader sees them.
-    assert not ({"lga_coverage_burden", "lga_version_drift", "stg_version_lineage"} & tables)
 
 
-def test_gate_fails_when_rate_is_undefined(tmp_path):
+def test_gate_raises_when_rate_is_undefined(tmp_path):
     # No v2 facilities in a covered state: rate is None, which must fail the
     # gate rather than pass as "nothing to check".
     db = _gate_db(tmp_path, v2_in_covered=0, carried=0)
@@ -83,16 +66,22 @@ def test_gate_fails_when_rate_is_undefined(tmp_path):
         d._enforce_carryover_gate(db)
 
 
-def test_gate_drop_statements_are_fixed_literals():
-    # The gate drops its output tables with fully literal statements: no value
-    # is interpolated or concatenated into the SQL. This pins that the set
-    # targets exactly the three gate outputs and that each statement is a plain
-    # drop-if-exists with no placeholder or format field left in it.
-    targets = {"lga_version_drift", "lga_coverage_burden", "stg_version_lineage"}
-    seen = set()
-    for stmt in d.GATE_DROP_STATEMENTS:
-        assert stmt.startswith("drop table if exists ")
-        assert "{" not in stmt and "%" not in stmt
-        name = stmt.rsplit(" ", 1)[-1].strip('"')
-        seen.add(name)
-    assert seen == targets
+def test_staging_db_path_has_a_single_dot_and_is_run_scoped():
+    # dbt-duckdb reads a path like nfr.<id>.duckdb as a catalog.schema
+    # reference, so the stem must carry no interior dot. Two different run ids
+    # must map to two different side files, and both must sit under STAGING_DIR.
+    a = d._staging_db_path("33e0370b-89fc-4e29")
+    b = d._staging_db_path("other-run-id")
+    assert a.name == "nfr_33e0370b-89fc-4e29.duckdb"
+    assert a.name.count(".") == 1
+    assert a != b
+    assert a.parent == d.STAGING_DIR
+
+
+def test_staging_db_path_sanitises_and_falls_back():
+    # A run id with path-unsafe characters is stripped to safe ones; an empty
+    # result falls back to a fixed name rather than producing a bare "nfr_.duckdb"
+    # that could collide or escape the staging dir.
+    assert d._staging_db_path("../../etc/passwd").name.startswith("nfr_")
+    assert "/" not in d._staging_db_path("../../etc/passwd").name
+    assert d._staging_db_path("").name == "nfr_manual.duckdb"

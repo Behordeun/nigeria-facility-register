@@ -6,6 +6,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- Atomic publish of the refresh. The loader and dbt build into a run-scoped side DuckDB file under build/staging/, the data-quality tests and the carry-over gate run against that side file, and it is promoted onto the live database with one atomic rename only after the whole build passes. A reader of the live database sees either the whole previous register or the whole new one, never a half-built, partially-tested or gate-rejected mixture; on any failure the side file is discarded and the live database is left untouched. The gate no longer drops tables in place, since the rejected register is a throwaway side file. The dbt profile path is now NFR_DUCKDB_PATH-overridable, defaulting to the live path so a plain make build is unchanged.
 - Version-aware authoritative facility layer: v3.0 where it covers a state, v2.0 elsewhere, each row carrying its source version and current/stale status.
 - Cross-version facility lineage as modelled, tested tables: a staging model (stg_version_lineage) that reconstructs each v2.0 facility against v3.0 by a mutual nearest-neighbour match within 100 m on lat/lon and classifies it carried-over, dropped or appeared with a match distance and a Jaro-Winkler name-similarity band, and a serving mart (lga_version_drift) that resolves the lineage against the canonical 774-LGA frame so it is queryable by LGA. Both carry enforced column contracts and tests: unique facility key, accepted status and name-band domains, a per-status field-shape check, a 100 m radius check on the built output, a grain-preservation check between staging and mart, and a fixture check that all three statuses are exercised.
 - Per-LGA mart joining facility coverage to ESPEN soil-transmitted-helminths burden on the 774-LGA frame.
@@ -23,6 +24,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Fixed
 
+- The Dagster dbt step runs `python -m dbt.cli.main`, not `python -m dbt`: dbt ships no `dbt.__main__`, so the old invocation would have failed every orchestrated refresh with "No module named dbt.__main__".
 - The authority switch no longer drops every v2 fallback facility when the v3 source contains a null state, and canonicalises v2/v3 state-label aliases so a covered state is not duplicated or left with zero-count LGAs.
 - Added tests for exact frame-key coverage, facility_status/source_version consistency, and both authority versions being present, so a dropped LGA, a contradictory coverage state, or a fixture that loses a path is caught.
 - Source dates are the data vintage end dates, not publication dates, so freshness is never reported as a future date. The CSV loader parses deterministically, validates source paths resolve within the project, and loads all tables in one transaction.
