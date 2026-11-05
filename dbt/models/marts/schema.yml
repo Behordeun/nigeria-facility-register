@@ -173,7 +173,12 @@ models:
         constraints:
           - type: not_null
       - name: geometry_geojson
-        data_type: json
-        description: The LGA boundary polygon as GeoJSON text, from the vendored simplified geoBoundaries set.
+        data_type: varchar
+        description: The LGA boundary polygon as a GeoJSON text string (a map layer reads it as a string and parses it; a json type returns a parsed object the layer cannot consume), from the vendored simplified geoBoundaries set.
+        constraints:
+          - type: not_null
+      - name: geometry_feature
+        data_type: varchar
+        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, and priority_high_burden_thin_coverage for colouring and tooltips.
         constraints:
           - type: not_null
