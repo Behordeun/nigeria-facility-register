@@ -10,6 +10,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
+| `lga_coverage_choropleth` | mart | one LGA, with geometry | exactly 774, each with a boundary polygon |
 
 ## `stg_facilities_authority`
 
@@ -111,6 +112,16 @@ Guarantees:
 - `canonical_lga` null means unresolved, not absent. The source carried an LGA label the crosswalk does not map to a frame LGA; read it as a reconciliation item, never as "this facility has no LGA". The unresolved label is kept in `source_lga` so a null `canonical_lga` is still actionable.
 - The key is the facility, not the LGA. `canonical_lga` is not unique on its own (an LGA holds many facilities, and LGA names recur across states), so group by `(state, canonical_lga)` when rolling up and never treat the LGA name alone as a key.
 - The status semantics carry over from `stg_version_lineage`: `dropped` and `appeared` are review candidates, not measured closures or openings.
+
+## `lga_coverage_choropleth`
+
+`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. Same grain and guarantees as the coverage mart (exactly 774 LGAs, one per LGA, the same coverage/burden/priority columns under the same rules), plus one column:
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `geometry_geojson` | json | no | the LGA boundary polygon as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`; every one of the 774 rows carries a polygon |
+
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`) are exactly as in `lga_coverage_burden` above. Geometry is never null: a missing polygon would be a hole in the map, so the build and a test fail rather than ship one.
 
 ## The rule that spans every table
 

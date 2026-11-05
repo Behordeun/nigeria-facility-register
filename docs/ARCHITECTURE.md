@@ -98,7 +98,7 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
 | staging | authority layer, version lineage | one source version per state, unique facility id, crosswalk-resolved LGA |
-| marts | coverage-burden, version drift | one row per LGA, missing is not zero, enforced column contract (DATA_CONTRACT.md) |
+| marts | coverage-burden, version drift, coverage-choropleth | one row per LGA, missing is not zero, enforced column contract (DATA_CONTRACT.md); the choropleth carries each LGA's boundary polygon for mapping |
 
 ## Data-quality gate
 
