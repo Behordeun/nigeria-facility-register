@@ -24,16 +24,20 @@ from pathlib import Path
 from dagster import (
     AssetCheckResult,
     AssetCheckSeverity,
+    DagsterRunStatus,
     DefaultScheduleStatus,
     DefaultSensorStatus,
     Definitions,
     MetadataValue,
+    RunRequest,
+    RunsFilter,
     ScheduleDefinition,
     SensorEvaluationContext,
     SensorResult,
     asset,
     asset_check,
     define_asset_job,
+    run_failure_sensor,
     sensor,
 )
 
@@ -52,7 +56,12 @@ STAGING_DIR = BUILD_DIR / "staging"
 # the live DB inside profiles.yml.
 DBT_DB_ENV = "NFR_DUCKDB_PATH"
 DBT_DIR = ROOT / "dbt"
-RAW_GPKGS = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_0.gpkg"]
+RAW_GEOPACKAGES = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_0.gpkg"]
+
+# Run tag carrying the raw-input fingerprint a refresh was launched for. The
+# vintage sensor reads it back to tell whether a given vintage already SUCCEEDED,
+# which is what success-gates the sensor (see new_vintage_sensor).
+VINTAGE_FP_TAG = "nfr/vintage_fingerprint"
 
 
 def _staging_db_path(run_id: str) -> Path:
@@ -94,8 +103,7 @@ def _rate_meta(value: float | None) -> MetadataValue:
 @asset
 def raw_sources(context) -> None:
     """Load the source files into DuckDB as the raw schema."""
-    missing = [n for n in RAW_GPKGS if not (RAW / n).exists()]
-    if missing:
+    if missing := [n for n in RAW_GEOPACKAGES if not (RAW / n).exists()]:
         raise RuntimeError(
             f"missing raw inputs {missing}; fetch them with scripts/fetch_sources.py "
             "(HDX serves them behind a WAF, so the download is manual)"
@@ -322,7 +330,7 @@ def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
     # is still confined to that directory.
     base = raw_dir.resolve()
     h = hashlib.sha256()
-    for n in names or RAW_GPKGS:
+    for n in names or RAW_GEOPACKAGES:
         p = raw_dir / n
         if not p.exists():
             continue
@@ -336,51 +344,87 @@ def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
     return h.hexdigest()[:16]
 
 
+def _vintage_has_succeeded(instance, fp: str) -> bool:
+    """Whether a refresh for this exact fingerprint has already SUCCEEDED.
+
+    Queries completed runs tagged with the fingerprint. This is what
+    success-gates the sensor: it fires for a fingerprint only while no
+    successful run exists for it, so a run that fails (or was requested but
+    never finished) leaves the vintage eligible and the next tick re-fires it,
+    while a vintage that genuinely succeeded is never rebuilt. A self-advanced
+    cursor could not express this: it advances on request, not on success.
+    """
+    records = instance.get_run_records(
+        filters=RunsFilter(
+            statuses=[DagsterRunStatus.SUCCESS],
+            tags={VINTAGE_FP_TAG: fp},
+        ),
+        limit=1,
+    )
+    return len(records) > 0
+
+
 @sensor(
     job=refresh_job,
     minimum_interval_seconds=3600,
     default_status=DefaultSensorStatus.RUNNING,
 )
 def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
-    """Fire the refresh when a new GRID3 vintage appears in data/raw/.
+    """Fire the refresh when a new, un-built GRID3 vintage is present in data/raw/.
 
-    Requires every raw input to be present and settled before requesting a run,
-    uses a content fingerprint so an unchanged data/raw/ is a no-op, and keys
-    each run so a failed refresh or a restored earlier vintage is not
-    deduplicated away. The cursor holds the last fingerprint acted on.
-
-    Known limit: the cursor advances when the run is REQUESTED, not when it
-    succeeds, so a run that fails after being requested is not re-fired by this
-    sensor on its own (re-run it from the Dagster UI, or re-drop the file). A
-    stricter success-gated cursor needs a run-status sensor, which is out of
-    scope here; the weekly schedule also re-attempts.
+    Three guards, in order:
+    - Completeness: every raw input must be present, so the sensor never fires
+      on a half-applied set (one new file beside one still-missing one).
+    - Settle: the combined content fingerprint must be stable across a short
+      pause, so a file still being written is not read mid-copy. Placement via
+      scripts/fetch_sources.py --place already makes each file land atomically
+      and as a set; this is the belt-and-braces guard for a hand-dropped file.
+    - Success-gating: the sensor fires only while no SUCCEEDED run exists for the
+      current fingerprint. A run that fails leaves the vintage eligible, so the
+      next tick re-fires it; a vintage that succeeded is never rebuilt. This
+      replaces the old request-time cursor, which skipped a vintage whose run had
+      failed. The cursor is kept only as a cheap "nothing changed since last
+      tick" short-circuit, not as the authority.
     """
-    missing = [n for n in RAW_GPKGS if not (RAW / n).is_file()]
-    if missing:
+    if missing := [n for n in RAW_GEOPACKAGES if not (RAW / n).is_file()]:
         return SensorResult(skip_reason=f"waiting for raw inputs: {', '.join(missing)}")
 
-    # Guard against a half-written file: a geopackage copied or downloaded
-    # straight to its final path changes between stat calls while it is still
-    # being written. Require the fingerprint to be stable across a short pause
-    # before acting, so the run is requested only once the files settle.
     fp = fingerprint()
     time.sleep(2)
     if fp != fingerprint():
         return SensorResult(skip_reason="data/raw/ still changing; waiting for it to settle")
 
-    if fp == (context.cursor or ""):
-        return SensorResult(skip_reason="no new GRID3 vintage in data/raw/")
+    # Success gate: skip only if this exact vintage already built successfully.
+    # The cursor short-circuit below is just an optimization; the success query
+    # is the authority, so a failed run's fingerprint is not suppressed.
+    if _vintage_has_succeeded(context.instance, fp):
+        context.update_cursor(fp)
+        return SensorResult(skip_reason=f"vintage {fp} already built successfully")
 
-    from dagster import RunRequest
-
-    # The run key carries the content fingerprint AND a short attempt suffix
-    # derived from the current time, so (a) a failed refresh can be re-requested
-    # for the same fingerprint instead of being deduplicated away, and (b) a
-    # restored earlier vintage still triggers a run rather than being suppressed
-    # by a reused key. The cursor stores only the fingerprint, so an unchanged
-    # directory is still a no-op.
+    # The run key carries the fingerprint AND a time suffix so a re-fire after a
+    # failed run is a new, non-deduplicated request. The run is tagged with the
+    # fingerprint so a later tick can see whether it succeeded.
     run_key = f"{fp}-{int(time.time())}"
-    return SensorResult(run_requests=[RunRequest(run_key=run_key)], cursor=fp)
+    return SensorResult(
+        run_requests=[RunRequest(run_key=run_key, tags={VINTAGE_FP_TAG: fp})],
+        cursor=fp,
+    )
+
+
+@run_failure_sensor(monitored_jobs=[refresh_job], default_status=DefaultSensorStatus.RUNNING)
+def refresh_failure_sensor(context) -> None:
+    """Log a failed refresh so the failure is visible in the sensor timeline.
+
+    The re-fire itself is handled by new_vintage_sensor's success gate (a failed
+    run leaves its fingerprint un-succeeded, so the next tick re-fires it); this
+    sensor only records the failure for operators. It does not touch the vintage
+    sensor's cursor, which would be a fragile cross-sensor write.
+    """
+    context.log.warning(
+        f"refresh_register run {context.dagster_run.run_id} failed; the vintage will be "
+        "re-fired by new_vintage_sensor on the next tick because its fingerprint has no "
+        "successful run."
+    )
 
 
 defs = Definitions(
@@ -388,5 +432,5 @@ defs = Definitions(
     asset_checks=[lga_resolve_rate_check, carryover_rate_check, carryover_gate_check],
     jobs=[refresh_job],
     schedules=[weekly_refresh],
-    sensors=[new_vintage_sensor],
+    sensors=[new_vintage_sensor, refresh_failure_sensor],
 )

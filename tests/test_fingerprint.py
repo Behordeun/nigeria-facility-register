@@ -28,6 +28,19 @@ def test_changes_when_a_file_appears(tmp_path):
     assert fingerprint(tmp_path, names) != before
 
 
+def test_changes_when_only_one_of_a_pair_changes(tmp_path):
+    # The combined fingerprint covers both inputs, so updating only one file
+    # (a half-applied set) changes it. The sensor therefore does not mistake a
+    # one-file update for the already-built vintage; combined with the
+    # all-present guard, a mixed pair is never silently accepted as unchanged.
+    names = ["a.gpkg", "b.gpkg"]
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
+    (tmp_path / "b.gpkg").write_bytes(b"y" * 100)
+    before = fingerprint(tmp_path, names)
+    (tmp_path / "a.gpkg").write_bytes(b"x" * 100 + b"NEW")  # only a changes
+    assert fingerprint(tmp_path, names) != before
+
+
 def test_changes_when_a_file_grows(tmp_path):
     names = ["a.gpkg"]
     (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
