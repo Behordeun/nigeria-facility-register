@@ -1,0 +1,90 @@
+# Always-on Dagster deployment: the webserver (UI) and the daemon (runs the
+# weekly schedule and the new-vintage sensor) are two processes from the one
+# image, sharing a DAGSTER_HOME so they see the same instance, run storage and
+# schedules. This is a deployment substrate, not the dev/CI loop.
+#
+# State lives in named volumes and a bind mount:
+#   - dagster_home: the instance (run storage, schedule/sensor state, dagster.yaml)
+#   - build: the DuckDB database, the run-scoped staging DBs, and the snapshots
+#   - data/raw (bind): the license-fetched GRID3 geopackages the operator places
+#     with scripts/fetch_sources.py --place; never baked into the image
+#
+# The two services share DAGSTER_HOME and build/, so the daemon that promotes a
+# refresh and the webserver that reports it read the same files. The refresh
+# itself stays serialised by the QueuedRunCoordinator in dagster.yaml.
+
+x-dagster-common: &dagster-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  image: nfr-dagster:local
+  environment:
+    DAGSTER_HOME: /opt/dagster/home
+  volumes:
+    - dagster_home:/opt/dagster/home
+    - build:/app/build
+    - ./data/raw:/app/data/raw:ro
+  # Seed dagster.yaml into the shared home on first start (empty volume), then
+  # run the service's role. The webserver and daemon must agree on the instance,
+  # so both run this seed; it is idempotent.
+  entrypoint:
+    - /bin/sh
+    - -c
+    - |
+      cp -n /app/dagster.yaml "$$DAGSTER_HOME/dagster.yaml" 2>/dev/null || true
+      exec "$$@"
+    - --
+
+services:
+  webserver:
+    <<: *dagster-common
+    # The process binds 0.0.0.0 INSIDE the container by necessity: Docker's
+    # published-port forwarding reaches a container over its bridge interface,
+    # not loopback, so a process bound to the container's 127.0.0.1 would be
+    # unreachable even through the host mapping. The UI is unauthenticated, so
+    # the guard is the host-side publish below plus the internal network:
+    #   - the port is published ONLY on the host's 127.0.0.1, so it is not
+    #     reachable from other hosts;
+    #   - the service sits on an internal bridge network, so another container
+    #     on a shared network is the only other thing that could reach it.
+    # SECURITY: never drop the "127.0.0.1:" prefix on the ports entry without
+    # putting an authenticating reverse proxy in front; that prefix is the only
+    # thing keeping the unauthenticated UI off every host interface.
+    command:
+      - uv
+      - run
+      - dagster-webserver
+      - -h
+      - 0.0.0.0
+      - -p
+      - "3000"
+      - -m
+      - nfr.orchestration.definitions
+    ports:
+      - "127.0.0.1:3000:3000"
+    networks:
+      - internal
+    depends_on:
+      - daemon
+
+  daemon:
+    <<: *dagster-common
+    command:
+      - uv
+      - run
+      - dagster-daemon
+      - run
+      - -m
+      - nfr.orchestration.definitions
+    networks:
+      - internal
+
+networks:
+  # A private bridge for the webserver and daemon; nothing outside this compose
+  # project is attached, so the only external reach to the UI is the host
+  # loopback publish on the webserver.
+  internal:
+
+volumes:
+  dagster_home:
+  build:
