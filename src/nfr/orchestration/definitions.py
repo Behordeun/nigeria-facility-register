@@ -21,22 +21,41 @@ import time
 from pathlib import Path
 
 from dagster import (
+    AssetCheckResult,
+    AssetCheckSeverity,
     DefaultScheduleStatus,
     DefaultSensorStatus,
     Definitions,
+    MetadataValue,
     ScheduleDefinition,
     SensorEvaluationContext,
     SensorResult,
     asset,
+    asset_check,
     define_asset_job,
     sensor,
 )
+
+from nfr.orchestration import metrics
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
 DB = ROOT / "build" / "nfr.duckdb"
 DBT_DIR = ROOT / "dbt"
 RAW_GPKGS = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_facilities_v3_0.gpkg"]
+
+# Advisory floors for the asset checks. A refresh below one of these is not
+# necessarily broken, but it is worth a human glance, so the checks warn rather
+# than fail the run. They are deliberately loose: the LGA resolve rate sits well
+# above 0.90 on the real vintages and the carry-over rate near 0.90, so these
+# catch a collapse (a crosswalk regression, a bad load), not normal variation.
+MIN_LGA_RESOLVE_RATE = 0.80
+MIN_CARRYOVER_RATE = 0.60
+
+
+def _rate_meta(value: float | None) -> MetadataValue:
+    """Render a rate as a percentage for the Dagster UI, or n/a when undefined."""
+    return MetadataValue.text("n/a" if value is None else f"{value * 100:.1f}%")
 
 
 @asset
@@ -55,17 +74,80 @@ def raw_sources(context) -> None:
         [sys.executable, "-m", "nfr.load_sources", "--db", str(DB)],
         cwd=str(ROOT), check=True,
     )
-    context.add_output_metadata({"db": str(DB)})
+    # raw_counts, not load_counts: the staging tables do not exist until
+    # dbt_models runs, so reading them here would fail a fresh refresh.
+    counts = metrics.raw_counts_from_path(str(DB))
+    context.add_output_metadata(
+        {
+            "db": str(DB),
+            "raw_v2_rows": counts["raw_v2_rows"],
+            "raw_v3_rows": counts["raw_v3_rows"],
+        }
+    )
 
 
 @asset(deps=[raw_sources])
 def dbt_models(context) -> None:
-    """Run the dbt staging and marts build, then the dbt tests."""
+    """Run the dbt staging and marts build, then emit the run's metrics."""
     # Run dbt as a module of this interpreter, so it resolves to the dbt beside
     # the virtualenv's Python rather than whatever is on the system PATH.
     subprocess.run(
         [sys.executable, "-m", "dbt", "build", "--profiles-dir", "."],
         cwd=str(DBT_DIR), check=True,
+    )
+    m = metrics.collect_from_path(str(DB))
+    context.add_output_metadata(
+        {
+            "authority_rows": m.authority_rows,
+            "lineage_rows": m.lineage_rows,
+            "coverage_lga_resolve_rate": _rate_meta(m.coverage_lga_resolve_rate),
+            "drift_lga_resolve_rate": _rate_meta(m.drift_lga_resolve_rate),
+            "carryover_rate": _rate_meta(m.carryover_rate),
+        }
+    )
+
+
+@asset_check(asset=dbt_models, blocking=False)
+def lga_resolve_rate_check(context) -> AssetCheckResult:
+    """Warn when too little of the frame resolved to a facility.
+
+    A collapse in the coverage resolve rate points at a crosswalk regression or
+    a bad load, not normal vintage variation. Undefined (no LGAs) passes with a
+    note rather than asserting a floor against a missing denominator.
+    """
+    rate = metrics.coverage_lga_resolve_rate_from_path(str(DB))
+    if rate is None:
+        return AssetCheckResult(
+            passed=True, metadata={"coverage_lga_resolve_rate": _rate_meta(None)}
+        )
+    return AssetCheckResult(
+        passed=rate >= MIN_LGA_RESOLVE_RATE,
+        severity=AssetCheckSeverity.WARN,
+        metadata={
+            "coverage_lga_resolve_rate": _rate_meta(rate),
+            "floor": _rate_meta(MIN_LGA_RESOLVE_RATE),
+        },
+    )
+
+
+@asset_check(asset=dbt_models, blocking=False)
+def carryover_rate_check(context) -> AssetCheckResult:
+    """Warn when too few v2.0 facilities carried over into v3.0.
+
+    A sharp drop in carry-over suggests the spatial match broke (a coordinate or
+    projection change), since a real vintage carries close to 90% forward.
+    Undefined (no v2.0 facilities in a covered state) passes with a note.
+    """
+    rate = metrics.carryover_rate_from_path(str(DB))
+    if rate is None:
+        return AssetCheckResult(passed=True, metadata={"carryover_rate": _rate_meta(None)})
+    return AssetCheckResult(
+        passed=rate >= MIN_CARRYOVER_RATE,
+        severity=AssetCheckSeverity.WARN,
+        metadata={
+            "carryover_rate": _rate_meta(rate),
+            "floor": _rate_meta(MIN_CARRYOVER_RATE),
+        },
     )
 
 
@@ -172,6 +254,7 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
 
 defs = Definitions(
     assets=[raw_sources, dbt_models],
+    asset_checks=[lga_resolve_rate_check, carryover_rate_check],
     jobs=[refresh_job],
     schedules=[weekly_refresh],
     sensors=[new_vintage_sensor],
