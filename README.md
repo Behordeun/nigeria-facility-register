@@ -30,15 +30,17 @@ tests/            unit tests for the join keys
 
 ```bash
 make setup                     # venv + deps
-# download the two GRID3 geopackages in a browser (links in data/sources.yml), then:
-python scripts/fetch_sources.py --place ~/Downloads/nga_health_facilities_v2_0.gpkg
-python scripts/fetch_sources.py --place ~/Downloads/grid3_nga_health_facilities_v3_0.gpkg
+# download the two GRID3 geopackages in a browser (links in data/sources.yml), then
+# place both as a set (use the venv python so pyogrio is available):
+.venv/bin/python scripts/fetch_sources.py --place \
+    ~/Downloads/nga_health_facilities_v2_0.gpkg \
+    ~/Downloads/grid3_nga_health_facilities_v3_0.gpkg
 make fetch                     # verify they are present and valid
 make build                     # load sources + dbt staging + marts
 make test                      # unit + dbt tests
 ```
 
-The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`. Place each download with `scripts/fetch_sources.py --place <file>`: it checks the file is a complete, readable geopackage and moves it into `data/raw/` with one atomic rename, so the loader and the refresh sensor never see a half-written file at the final path.
+The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`. Place the downloads with `scripts/fetch_sources.py --place <files>` (run it with the venv's Python, `.venv/bin/python`, so `pyogrio` is on the path). It validates each file is a complete, readable GeoPackage, then places a copy into `data/raw/` with an atomic rename, so the loader and the refresh sensor never see a half-written file. Pass both geopackages to one `--place` so they land as a consistent set rather than one new file beside one old one; your original downloads are left untouched.
 
 ## Data honesty
 

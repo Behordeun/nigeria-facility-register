@@ -4,22 +4,26 @@ Fetch and place the raw inputs listed in data/sources.yml into data/raw/.
 The GRID3 geopackages sit behind an AWS WAF JavaScript challenge on HDX, so a
 plain scripted GET returns a 202 challenge page, not the file. This script does
 not try to defeat that. Download the two .gpkg resources in a browser (the WAF
-passes for a human), then hand each downloaded file to --place, which validates
-it and moves it into data/raw/ atomically.
+passes for a human), then hand the downloaded files to --place, which validates
+them and places a copy into data/raw/ atomically.
 
 Why --place rather than copying the file in by hand: a geopackage copied or
 downloaded straight to its final path in data/raw/ is visible at that path while
 it is still being written, and the Dagster new-vintage sensor or a manual load
-can read it half-written. --place writes to a temp name in the same directory
-and os.replace()s it onto the final name, which is atomic within a filesystem,
-so the file at the final path is always complete. It also opens the file first
-and confirms it is a real geopackage with readable layers, so a truncated or
-wrong download is rejected before it lands.
+can read it half-written. --place copies to a temp name in the same directory,
+validates THAT copy (so bytes that changed mid-read cannot slip through), and
+os.replace()s it onto the final name, which is atomic within a filesystem, so
+the file at the final path is always complete and valid. Validation opens the
+file with the GPKG driver and reads one feature, so a truncated file, a WAF
+challenge page, a non-GeoPackage under a .gpkg name, or an empty geopackage is
+rejected before it lands. Pass both files to one --place so they land as a
+consistent set rather than one-new-one-old. The source downloads are left where
+they are; this places a copy.
 
 Usage:
     python scripts/fetch_sources.py                      # check what is present
     python scripts/fetch_sources.py --verify             # fail if missing/invalid
-    python scripts/fetch_sources.py --place ~/Downloads/nga_health_facilities_v2_0.gpkg
+    python scripts/fetch_sources.py --place ~/Downloads/*.gpkg    # place both as a set
 """
 from __future__ import annotations
 
@@ -46,13 +50,16 @@ EXPECTED = {
 
 
 def validate_geopackage(path: Path) -> tuple[bool, str]:
-    """Confirm the file is a complete, openable geopackage with at least one
-    readable layer and one feature.
+    """Confirm the file is a complete GeoPackage whose feature data is readable.
 
-    Opening the layer list (pyogrio.list_layers) reads the gpkg SQLite header
-    and the gpkg_contents table, not every feature, so it is cheap but catches a
-    truncated or non-geopackage file that a size check would pass. Returns
-    (ok, reason); reason is empty on success.
+    Checks, in order: the file exists and clears a size floor (a fast reject for
+    a WAF challenge page); it opens with the GPKG driver specifically, so a
+    different OGR-readable format under a .gpkg name is rejected; it has at least
+    one layer; and at least one feature actually reads back. The last step is the
+    point: list_layers reads only metadata, so a file whose layer table survives
+    but whose feature data is truncated would pass a metadata-only check and then
+    break the loader. Reading one feature confirms the feature data is there and
+    readable without scanning the whole file. Returns (ok, reason).
     """
     if not path.is_file():
         return False, "not a file"
@@ -62,22 +69,37 @@ def validate_geopackage(path: Path) -> tuple[bool, str]:
     try:
         import pyogrio
 
-        layers = pyogrio.list_layers(str(path))
+        info = pyogrio.read_info(str(path))
     except Exception as exc:  # noqa: BLE001 - report any open failure as invalid
         return False, f"not a readable geopackage: {exc}"
-    if layers is None or len(layers) == 0:
-        return False, "geopackage has no layers"
+
+    driver = (info or {}).get("driver")
+    if driver != "GPKG":
+        return False, f"not a GeoPackage (OGR driver is {driver!r}, expected 'GPKG')"
+    if not (info or {}).get("features"):
+        return False, "geopackage has no features"
+
+    # Read a single feature so a truncated feature table (readable metadata, bad
+    # data) is caught, not just an empty one. max_features=1 avoids a full scan.
+    try:
+        gdf = pyogrio.read_dataframe(str(path), max_features=1)
+    except Exception as exc:  # noqa: BLE001
+        return False, f"feature data is not readable: {exc}"
+    if len(gdf) < 1:
+        return False, "no feature could be read"
     return True, ""
 
 
-def place(download: Path) -> Path:
-    """Validate a downloaded geopackage and move it into data/raw/ atomically.
+def _stage(download: Path) -> tuple[str, Path]:
+    """Copy one validated download to a temp file beside data/raw/ and validate
+    the COPY, returning (expected_name, temp_path).
 
-    The destination name is taken from the download's own file name and must be
-    one of the expected inputs, so a mis-named download is rejected rather than
-    landing under a name the loader does not read. The move is temp-name +
-    os.replace within data/raw/, so the final path only ever holds a complete
-    file.
+    Validating the copy, not the source, is what makes the placement safe
+    against a download that changes while it is being read: whatever bytes
+    actually landed in the temp file are the bytes that get promoted, and they
+    are re-checked here. The temp file is made group/other readable (minus
+    umask) so a loader or sensor running as a different account can read it once
+    promoted; mkstemp alone would leave it owner-only.
     """
     download = download.expanduser()
     name = download.name
@@ -85,26 +107,76 @@ def place(download: Path) -> Path:
         raise SystemExit(
             f"unexpected file name {name!r}; expected one of: {', '.join(sorted(EXPECTED))}"
         )
-    ok, reason = validate_geopackage(download)
-    if not ok:
-        raise SystemExit(f"refusing to place {name}: {reason}")
+    else:
+        ok, reason = validate_geopackage(download)
+        if not ok:
+            raise SystemExit(f"refusing to place {name}: {reason}")
 
     RAW.mkdir(parents=True, exist_ok=True)
-    dest = RAW / name
-    # Temp file in the SAME directory as dest, so os.replace is a same-filesystem
-    # atomic rename (a cross-filesystem replace is not atomic).
-    fd, tmp_name = tempfile.mkstemp(dir=str(RAW), prefix=f".{name}.", suffix=".part")
+    # Temp file in the SAME directory as the destination, so os.replace is a
+    # same-filesystem atomic rename (a cross-filesystem replace is not atomic).
+    # Suffix .part.gpkg: the trailing .gpkg keeps pyogrio from warning about a
+    # non-conformant extension while validating the staged copy, and .part marks
+    # it as an incomplete staging file. The leading dot hides it.
+    fd, tmp_name = tempfile.mkstemp(dir=str(RAW), prefix=f".{name}.", suffix=".part.gpkg")
     os.close(fd)
     tmp = Path(tmp_name)
     try:
-        # Copy the bytes into the temp file, then atomically swap it into place.
         tmp.write_bytes(download.read_bytes())
-        os.replace(tmp, dest)
+        # Readable by group/other (respecting umask), so a sensor/loader account
+        # other than the placing user can read the promoted file.
+        os.chmod(tmp, 0o644 & ~_umask())
+        ok, reason = validate_geopackage(tmp)
+        if not ok:
+            raise SystemExit(f"refusing to place {name}: staged copy invalid ({reason})")
     except BaseException:
         tmp.unlink(missing_ok=True)
         raise
-    print(f"placed {name} -> {dest} ({dest.stat().st_size // 1_000_000} MB)")
-    return dest
+    return name, tmp
+
+
+def _umask() -> int:
+    # Read the umask without permanently changing it.
+    current = os.umask(0)
+    os.umask(current)
+    return current
+
+
+def place_all(downloads: list[Path]) -> list[Path]:
+    """Validate every download, stage each as a validated temp copy, then
+    promote them all with atomic renames.
+
+    Promotion happens only after EVERY input has been validated and staged, so a
+    set of inputs lands as a consistent group: the refresh never sees one new
+    file beside one old one because a validation failure on the second aborts
+    before the first is promoted. Within the promote step each file is an atomic
+    os.replace; the brief window between the two replaces is unavoidable without
+    a directory-level swap, but both files are already staged and valid, so the
+    window is a rename apart, not a download apart. The source downloads are left
+    in place (this places a copy; it does not delete the user's file).
+    """
+    staged: list[tuple[str, Path]] = []
+    try:
+        for download in downloads:
+            staged.append(_stage(download))
+    except BaseException:
+        for _, tmp in staged:
+            tmp.unlink(missing_ok=True)
+        raise
+
+    def _promote(name: str, tmp: Path) -> Path:
+        dest = RAW / name
+        os.replace(tmp, dest)
+        print(f"placed {name} -> {dest} ({dest.stat().st_size // 1_000_000} MB)")
+        return dest
+
+    placed = [_promote(name, tmp) for name, tmp in staged]
+    return placed
+
+
+def place(download: Path) -> Path:
+    """Place a single validated download; thin wrapper over place_all."""
+    return place_all([download])[0]
 
 
 def check(verify: bool) -> None:
@@ -134,12 +206,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--verify", action="store_true",
                     help="exit non-zero if any required raw file is missing or invalid")
-    ap.add_argument("--place", metavar="FILE",
-                    help="validate a downloaded geopackage and move it into data/raw/ atomically")
+    ap.add_argument("--place", metavar="FILE", nargs="+",
+                    help="validate downloaded geopackage(s) and place them into data/raw/ "
+                         "atomically; pass both files together to land them as a consistent set")
     args = ap.parse_args()
 
     if args.place:
-        place(Path(args.place))
+        place_all([Path(f) for f in args.place])
         return
     check(args.verify)
 
