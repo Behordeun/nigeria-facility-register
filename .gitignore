@@ -36,3 +36,7 @@ archives/
 
 #Ignore vscode AI rules
 .github/instructions/codacy.instructions.md
+
+# Deployment secrets: the real .env is never committed; .env.example is the template
+.env
+!.env.example

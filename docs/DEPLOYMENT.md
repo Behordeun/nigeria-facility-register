@@ -84,10 +84,12 @@ published data.
 Bring it up with the rest of the stack (`docker compose up -d`), then at
 `http://127.0.0.1:8088`:
 
-1. Set real credentials first. Put a `.env` beside the compose file with
-   `SUPERSET_SECRET_KEY`, `SUPERSET_ADMIN_USERNAME`, `SUPERSET_ADMIN_PASSWORD`;
-   the committed defaults are placeholders that only let a local trial boot.
-   **Never commit a real secret key.**
+1. Set real credentials first. Copy `.env.example` to `.env` beside the compose
+   file and fill in `SUPERSET_SECRET_KEY` and `SUPERSET_ADMIN_PASSWORD`
+   (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires the
+   secret key and the admin password, so `docker compose up` aborts with a clear
+   message if either is unset rather than booting with a guessable default. The
+   real `.env` is gitignored. **Never commit real credentials.**
 2. Add the database connection (Settings -> Database Connections -> + Database,
    "Other"): SQLAlchemy URI `duckdb:////app/register/nfr.duckdb?access_mode=read_only`.
    The `read_only` access mode matches the read-only mount and lets Superset

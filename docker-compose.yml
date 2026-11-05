@@ -88,11 +88,14 @@ services:
   superset:
     image: apache/superset:4.1.1@sha256:1d1fdaaeb19ce9cdba71620ee1cc6117d73813b2f3b422ce5a1bf752c247b7c0
     environment:
-      # SECRET_KEY must be set to a real secret in a .env file for any real use;
-      # the placeholder only lets a local trial boot. Never commit a real key.
-      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:-change-me-in-a-dotenv-not-in-git}
+      # The secret key and the admin password are required, not defaulted: the
+      # :? syntax aborts the up with the given message if the value is unset or
+      # empty, so a deployment that forgets the .env cannot boot with a known
+      # credential. Copy .env.example to .env and set real values first. The
+      # username is not a credential, so it keeps a plain default.
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?set SUPERSET_SECRET_KEY in a .env file}
       SUPERSET_ADMIN_USERNAME: ${SUPERSET_ADMIN_USERNAME:-admin}
-      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?set SUPERSET_ADMIN_PASSWORD in a .env file}
     volumes:
       # The live register, read-only: Superset reads it, never writes it.
       - build:/app/register:ro
