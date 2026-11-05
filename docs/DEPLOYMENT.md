@@ -56,6 +56,20 @@ new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
 materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
 placed.
 
+The orchestrated job always builds from the real inputs in `data/raw/`. It has
+no fixture mode, so `raw_sources` fails fast with a "missing raw inputs" message
+when `data/raw/` is empty rather than building an empty register. The committed
+two-state sample under `data/sample/` is for the local data build only: run it
+with `make sample` (or `nfr.load_sources --raw data/sample` then `dbt build
+--vars 'fixture_build: true'`), which goes straight to DuckDB and dbt and never
+touches Dagster. So a green fixture build does not make the Dagster job runnable:
+`data/raw/` has to hold the geopackages first. For a real national register
+those are the HDX downloads; to just exercise the orchestrated path locally you
+can `--place` the two-state sample from `data/sample/` into `data/raw/`, which
+builds the same two-state register through the full job. Because `data/raw/` is a
+read-only mount inside the containers, place the files on the host, where the
+daemon and webserver then see them through the mount with no restart.
+
 ## Security notes
 
 - The webserver is **unauthenticated**. Inside the container the process binds
