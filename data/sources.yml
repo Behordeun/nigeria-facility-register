@@ -28,6 +28,21 @@ sources:
     format: csv
     note: Small derived index, vendored into data/frame/.
 
+  lga_boundaries:
+    name: Nigeria 774-LGA boundary polygons (DERIVED, simplified)
+    source: geoBoundaries ADM2
+    url: https://www.geoboundaries.org
+    license: CC BY 4.0
+    format: geojson
+    note: >
+      Vendored into data/frame/nigeria_774_lga_boundaries.simplified.geojson for
+      the choropleth. Derived from the geoBoundaries NGA ADM2 boundaries by
+      Douglas-Peucker simplification (topology-preserving, tolerance 0.005
+      degrees), keeping only shapeID and shapeName; ~1.5 MB vs ~9 MB raw. Joins
+      the master index 1:1 on shapeID (774/774). CC BY 4.0 permits
+      redistribution with attribution, so it is committed, not fetched.
+      Regenerate with scripts/build_lga_geometry.py --source <raw geojson>.
+
   ntd_sth_state:
     name: ESPEN STH endemicity, per-state summary (DERIVED)
     url: https://espen.afro.who.int/countries/nigeria
