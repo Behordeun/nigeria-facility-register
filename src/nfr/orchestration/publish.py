@@ -17,9 +17,23 @@ fingerprint and the data it describes are always consistent.
 """
 from __future__ import annotations
 
+import os
+
 import duckdb
 
+# The sentinel table name. Used only as a bind-parameter VALUE in the
+# information_schema lookup; every statement that names it as an identifier
+# below is a fully literal constant, so no value is ever concatenated into SQL.
 _TABLE = "nfr_published_vintage"
+
+# Fully literal statements: the table name is a fixed identifier spelled inline,
+# never interpolated or concatenated, so each string handed to execute() is a
+# compile-time constant with no string-to-SQL path. The fingerprint is passed as
+# a bind parameter, never formatted into the statement.
+_CREATE = 'create table if not exists "nfr_published_vintage" (fingerprint varchar not null)'
+_DELETE = 'delete from "nfr_published_vintage"'
+_INSERT = 'insert into "nfr_published_vintage" values (?)'
+_SELECT = 'select fingerprint from "nfr_published_vintage" limit 1'
 
 
 def write_published_fingerprint(db_path: str, fingerprint: str) -> None:
@@ -27,9 +41,9 @@ def write_published_fingerprint(db_path: str, fingerprint: str) -> None:
     from. Called against the side database before it is promoted."""
     con = duckdb.connect(db_path)
     try:
-        con.execute(f"create table if not exists {_TABLE} (fingerprint varchar not null)")
-        con.execute(f"delete from {_TABLE}")
-        con.execute(f"insert into {_TABLE} values (?)", [fingerprint])
+        con.execute(_CREATE)
+        con.execute(_DELETE)
+        con.execute(_INSERT, [fingerprint])
     finally:
         con.close()
 
@@ -37,8 +51,6 @@ def write_published_fingerprint(db_path: str, fingerprint: str) -> None:
 def read_published_fingerprint(db_path: str) -> str | None:
     """Return the fingerprint the live database was built from, or None if the
     database or the sentinel is absent (a first run, before anything published)."""
-    import os
-
     if not os.path.exists(db_path):
         return None
     con = duckdb.connect(db_path, read_only=True)
@@ -49,7 +61,7 @@ def read_published_fingerprint(db_path: str) -> str | None:
         ).fetchone()
         if not exists:
             return None
-        row = con.execute(f"select fingerprint from {_TABLE} limit 1").fetchone()
+        row = con.execute(_SELECT).fetchone()
         return row[0] if row else None
     finally:
         con.close()
