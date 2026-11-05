@@ -1,0 +1,15 @@
+# Keep the build context small and the image clean. The deps come from the
+# lockfile, not a copied virtualenv, and build artifacts/history must not leak in.
+.venv/
+build/
+.git/
+.history/
+dbt/target/
+dbt/logs/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+coverage.xml
+.ruff_cache/
+# Raw inputs are license-fetched and bind-mounted at run time, never baked in.
+data/raw/
