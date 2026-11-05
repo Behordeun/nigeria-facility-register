@@ -56,6 +56,8 @@ def _quoted_ident(table: str) -> str:
 
 
 def read_gpkg(path: Path) -> pd.DataFrame:
+    if not Path(path).resolve().is_relative_to(PROJECT_ROOT):
+        raise ValueError(f"path {path} resolves outside the project root")
     gdf = gpd.read_file(path)
     return gdf.drop(columns=[c for c in ["geometry"] if c in gdf.columns])
 
@@ -86,7 +88,7 @@ def _safe_input_file(path: Path) -> Path:
     the loader opens it. Returns the real path.
     """
     real = path.resolve()
-    if PROJECT_ROOT not in real.parents:
+    if not real.is_relative_to(PROJECT_ROOT):
         raise SystemExit(f"input {real} resolves outside the project root {PROJECT_ROOT}")
     if not real.is_file():
         raise SystemExit(f"missing input: {path}\nrun scripts/fetch_sources.py first")
@@ -96,7 +98,7 @@ def _safe_input_file(path: Path) -> Path:
 def _safe_dir(raw: str) -> Path:
     """Resolve a CLI-supplied directory and confirm it stays within the project."""
     p = Path(raw).resolve()
-    if p != PROJECT_ROOT and PROJECT_ROOT not in p.parents:
+    if not p.is_relative_to(PROJECT_ROOT):
         raise SystemExit(f"path {p} is outside the project root {PROJECT_ROOT}")
     return p
 

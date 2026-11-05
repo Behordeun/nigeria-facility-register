@@ -1,0 +1,16 @@
+# Dagster instance config. Point DAGSTER_HOME at this directory (the Makefile
+# `dagster` target does) so this applies.
+#
+# Serialise the refresh: the run coordinator allows at most one run at a time
+# carrying the concurrency key the refresh_register job tags its runs with, so a
+# scheduled, sensor, or manual launch cannot overlap and race on the shared
+# DuckDB file and dbt output directories. The tag alone does nothing without
+# this limit, which is what makes the serialisation real.
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+  config:
+    tag_concurrency_limits:
+      - key: "dagster/concurrency_key"
+        value: "refresh_register"
+        limit: 1
