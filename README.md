@@ -17,8 +17,8 @@ A loader reads each source file into DuckDB as a `raw` table. Staging builds the
 ## Layout
 
 ```text
-src/nfr/          Python: name keys, source loader, matchers
-dbt/              DuckDB models: staging (authority layer), marts (LGA coverage x burden)
+src/nfr/          Python: name keys, source loader, Dagster orchestration
+dbt/              DuckDB models: staging (authority layer, version lineage), marts (coverage x burden, version drift)
 data/frame/       774-LGA index + centroids (CC BY)
 data/derived/     derived ESPEN NTD summary (CC BY-NC-SA, non-commercial)
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
