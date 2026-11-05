@@ -11,6 +11,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Sonar needs full history to assign issues to the right commits.
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -28,6 +31,15 @@ jobs:
 
       - name: Unit tests
         run: uv run pytest -q
+
+      # Upload coverage to SonarCloud. pytest wrote coverage.xml (see pyproject).
+      # Needs the SONAR_TOKEN repo secret; and SonarCloud's Automatic Analysis
+      # must be OFF for this project, since CI-based analysis and automatic
+      # analysis cannot both run.
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
       # The committed sample fixture (data/sample/, two states) lets CI run the
       # full transform without the WAF-gated production geopackages. This builds
