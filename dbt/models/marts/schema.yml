@@ -172,8 +172,15 @@ models:
         data_type: boolean
         constraints:
           - type: not_null
+      # The two geometry columns are attached by a LEFT JOIN to the boundaries,
+      # so they are nullable at the type level: a not_null contract here would
+      # fail enforcement with a blunt error on a join miss. The completeness
+      # guarantee (every LGA carries geometry) is instead the singular test
+      # assert_choropleth_every_lga_has_geometry, which names the shortfall
+      # precisely rather than failing the contract on the first null.
       - name: geometry_geojson
-        data_type: json
-        description: The LGA boundary polygon as GeoJSON text, from the vendored simplified geoBoundaries set.
-        constraints:
-          - type: not_null
+        data_type: varchar
+        description: The LGA boundary polygon as a GeoJSON text string (a map layer reads it as a string and parses it; a json type returns a parsed object the layer cannot consume), from the vendored simplified geoBoundaries set.
+      - name: geometry_feature
+        data_type: varchar
+        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, and priority_high_burden_thin_coverage for colouring and tooltips.

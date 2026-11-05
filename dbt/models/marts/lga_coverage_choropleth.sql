@@ -20,7 +20,12 @@
 with boundaries as (
     select
         shapeID                             as shape_id,
-        ST_AsGeoJSON(geom)                  as geometry_geojson
+        -- Cast to varchar so the column is plain GeoJSON text. A json-typed
+        -- column comes back from the driver as a parsed object, which a deck.gl
+        -- map layer cannot read: it expects a string it parses itself.
+        -- ST_AsGeoJSON already returns text; the cast pins the column type to
+        -- varchar so the contract and the driver agree.
+        cast(ST_AsGeoJSON(geom) as varchar)  as geometry_geojson
     from st_read('{{ geojson_path }}')
 ),
 
@@ -58,7 +63,27 @@ select
     c.sth_high_share_pct_state,
     c.sth_survey_years_state,
     c.priority_high_burden_thin_coverage,
-    b.geometry_geojson
+    b.geometry_geojson,
+    -- A complete GeoJSON Feature per LGA: the deck.gl Geojson layer reads
+    -- .geometry and .properties off each row, so a bare geometry (what
+    -- geometry_geojson holds) gives it nothing to key on. The geometry text is
+    -- parsed back to a JSON value with json() so it nests as an object, not a
+    -- quoted string, and the properties carry the fields a map colours or labels
+    -- by. Emitted as varchar for the same reason geometry_geojson is.
+    cast(
+        json_object(
+            'type', 'Feature',
+            'geometry', json(b.geometry_geojson),
+            'properties', json_object(
+                'canonical_lga', c.canonical_lga,
+                'state', c.state,
+                'facilities', c.facilities,
+                'facility_status', c.facility_status,
+                'sth_high_share_pct_state', c.sth_high_share_pct_state,
+                'priority_high_burden_thin_coverage', c.priority_high_burden_thin_coverage
+            )
+        ) as varchar
+    )                                       as geometry_feature
 from coverage c
 left join frame_keyed fk
     on c.state_key = fk.state_key and c.lga_key = fk.lga_key
