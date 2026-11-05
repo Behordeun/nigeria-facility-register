@@ -18,6 +18,7 @@ from pathlib import Path
 
 import duckdb
 import geopandas as gpd
+import pandas as pd
 
 
 def sha256(path: Path) -> str:
@@ -39,13 +40,32 @@ def load_gpkg(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> int:
 
 
 def load_csv(con: duckdb.DuckDBPyConnection, table: str, path: Path) -> int:
+    # Parse with pandas (deterministic comma CSV) rather than DuckDB's sniffer,
+    # which can misread a file whose free-text column confuses delimiter
+    # detection and collapse every row into a single column, silently breaking
+    # downstream column references.
+    df = pd.read_csv(path)
     con.execute(f"drop table if exists {table}")
-    con.execute(
-        f"create table {table} as "
-        f"select * from read_csv_auto(?, header=true, all_varchar=false)",
-        [str(path)],
-    )
+    con.register("_csv_tmp", df)
+    con.execute(f"create table {table} as select * from _csv_tmp")
+    con.unregister("_csv_tmp")
     return con.execute(f"select count(*) from {table}").fetchone()[0]
+
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+
+def _safe_dir(raw: str) -> Path:
+    """Resolve a CLI-supplied directory and confirm it stays within the project.
+
+    The source directories come from argv, so a caller could pass an absolute or
+    ../-laden path. Resolving and checking containment keeps a stray or hostile
+    argument from pointing the loader at files outside the project tree.
+    """
+    p = Path(raw).resolve()
+    if p != PROJECT_ROOT and PROJECT_ROOT not in p.parents:
+        raise SystemExit(f"path {p} is outside the project root {PROJECT_ROOT}")
+    return p
 
 
 def main() -> None:
@@ -56,14 +76,21 @@ def main() -> None:
     ap.add_argument("--derived", default="data/derived")
     args = ap.parse_args()
 
-    Path(args.db).parent.mkdir(parents=True, exist_ok=True)
-    con = duckdb.connect(args.db)
+    raw = _safe_dir(args.raw)
+    frame = _safe_dir(args.frame)
+    derived = _safe_dir(args.derived)
+    db_path = Path(args.db).resolve()
+    if PROJECT_ROOT not in db_path.parents:
+        raise SystemExit(f"--db {db_path} is outside the project root {PROJECT_ROOT}")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect(str(db_path))
 
     jobs = [
-        ("grid3_v2", Path(args.raw) / "nga_health_facilities_v2_0.gpkg", load_gpkg),
-        ("grid3_v3", Path(args.raw) / "grid3_nga_health_facilities_v3_0.gpkg", load_gpkg),
-        ("frame_master_index", Path(args.frame) / "nigeria_master_lga_index.csv", load_csv),
-        ("ntd_sth_state", Path(args.derived) / "ntd_sth_state.csv", load_csv),
+        ("grid3_v2", raw / "nga_health_facilities_v2_0.gpkg", load_gpkg),
+        ("grid3_v3", raw / "grid3_nga_health_facilities_v3_0.gpkg", load_gpkg),
+        ("frame_master_index", frame / "nigeria_master_lga_index.csv", load_csv),
+        ("lga_alias_crosswalk", frame / "lga_alias_crosswalk.csv", load_csv),
+        ("ntd_sth_state", derived / "ntd_sth_state.csv", load_csv),
     ]
     for table, path, fn in jobs:
         if not path.exists():

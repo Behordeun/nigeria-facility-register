@@ -1,0 +1,23 @@
+state,facility_lga,canonical_lga,match_type,note
+Abia,Obi Nwga,Obi Ngwa,spelling,transposed letters in facility source
+Abia,Osisioma Ngwa,Osisioma,spelling,facility source carries the Ngwa suffix
+Bayelsa,Yenegoa,Yenagoa,spelling,vowel variant
+Edo,Uhunmwode,Uhunmwonde,spelling,dropped n in facility source
+Ekiti,Aiyekire (Gbonyin),Gbonyin,alias,facility source uses the former name with Gbonyin in parentheses
+Gombe,Shomgom,Shongom,spelling,transposed letters
+Jigawa,Birniwa,Biriniwa,spelling,dropped i
+Jigawa,Kiri Kasamma,Kiri Kasama,spelling,double m
+Kano,Nassarawa,Nasarawa,spelling,"double s (Kano LGA, not Nasarawa state)"
+Kano,Garum Mallam,Garun Malam,spelling,m/n and double l variant
+Kebbi,Aleiro,Aliero,spelling,vowel transposition
+Kebbi,Wasagu/Danko,Danko-Wasagu,alias,components in reversed order
+Lagos,Shomolu,Somolu,spelling,sh/s variant
+Lagos,Ifako/Ijaye,Ifako-Ijaiye,spelling,slash separator and vowel variant
+Osun,Ayedade,Ayedaade,spelling,single a
+Osun,Ayedire,Aiyedire,spelling,ai/a variant
+Osun,Ilesha East,Ilesa East,spelling,sh/s variant
+Osun,Ilesha West,Ilesa West,spelling,sh/s variant
+Oyo,Orelope,Oorelope,spelling,single o
+Rivers,Omumma,Omuma,spelling,double m
+Sokoto,Wamakko,Wamako,spelling,double k
+FCT,Municipal Area Council,AMAC,alias,facility source names the Abuja Municipal Area Council in full
