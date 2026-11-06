@@ -86,33 +86,39 @@ def _flood(rows):
 
 
 def test_flood_rejects_non_binary_affected():
+    flood = _flood([["Abia", "Aba North", 2024, 2, "LGA"]])
     with pytest.raises(SystemExit, match="0/1"):
-        bes.derive_flood_affected(_flood([["Abia", "Aba North", 2024, 2, "LGA"]]))
+        bes.derive_flood_affected(flood)
 
 
 def test_flood_rejects_mixed_resolution_within_an_event():
-    rows = [["Abia", "Aba North", 2024, 0, "LGA"], ["Abia", "Aba South", 2024, 1, "state"]]
+    flood = _flood(
+        [["Abia", "Aba North", 2024, 0, "LGA"], ["Abia", "Aba South", 2024, 1, "state"]]
+    )
     with pytest.raises(SystemExit, match="mixes"):
-        bes.derive_flood_affected(_flood(rows))
+        bes.derive_flood_affected(flood)
 
 
 def test_flood_rejects_duplicate_lga_event():
-    rows = [["Abia", "Aba North", 2024, 0, "LGA"], ["Abia", "Aba North", 2024, 0, "LGA"]]
+    flood = _flood(
+        [["Abia", "Aba North", 2024, 0, "LGA"], ["Abia", "Aba North", 2024, 0, "LGA"]]
+    )
     with pytest.raises(SystemExit, match="duplicate"):
-        bes.derive_flood_affected(_flood(rows))
+        bes.derive_flood_affected(flood)
 
 
-def test_births_rejects_zero_and_partial_frames():
+def test_births_rejects_a_zero_figure():
     frame = pd.DataFrame({"shapeID": ["a", "b"]})
+    births = pd.DataFrame({"shapeID": ["a", "b"], "shapeName": ["A", "B"], "births": [1.0, 0.0]})
     with pytest.raises(SystemExit, match="positive"):
-        bes.derive_births(
-            pd.DataFrame({"shapeID": ["a", "b"], "shapeName": ["A", "B"], "births": [1.0, 0.0]}),
-            frame,
-        )
+        bes.derive_births(births, frame)
+
+
+def test_births_rejects_a_partial_frame():
+    frame = pd.DataFrame({"shapeID": ["a", "b"]})
+    births = pd.DataFrame({"shapeID": ["a"], "shapeName": ["A"], "births": [1.0]})
     with pytest.raises(SystemExit, match="do not match"):
-        bes.derive_births(
-            pd.DataFrame({"shapeID": ["a"], "shapeName": ["A"], "births": [1.0]}), frame
-        )
+        bes.derive_births(births, frame)
 
 
 def test_build_refuses_to_write_into_a_source_directory(tmp_path):
