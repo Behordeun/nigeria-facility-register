@@ -1,6 +1,6 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the three serving marts (`lga_coverage_burden`, `lga_version_drift` and `lga_coverage_choropleth`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the four serving marts (`lga_coverage_burden`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
@@ -11,6 +11,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_ntd_endemicity_lga` | staging | one (LGA, disease) | exactly 774 x 5 = 3,870 |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
+| `register_summary` | mart | the published register | exactly 1 |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
 ## `stg_facilities_authority`
@@ -151,20 +152,50 @@ Guarantees:
 
 ## `lga_coverage_choropleth`
 
-`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. It carries the columns listed below, not the per-LGA endemicity ranks; read those from `lga_coverage_burden`. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
+`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
 
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
 | `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
-| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state` and `priority_high_burden_thin_coverage` |
+| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage` and the five `*_endemicity_rank_lga` ranks |
 
-The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`) are exactly as in `lga_coverage_burden` above.
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, and the five `*_endemicity_rank_lga` ranks) are exactly as in `lga_coverage_burden` above.
 
 Guarantees:
 
 - Exactly 774 distinct `(state, canonical_lga)` pairs, so every LGA is on the map.
 - Geometry is never null: a missing polygon would be a hole in the map, so the build and a test fail rather than ship one.
 - Rows are polygon parts, not LGAs. Do not sum or count coverage columns across rows: an LGA with three parts would be counted three times. Aggregate from `lga_coverage_burden`, or take distinct `(state, canonical_lga)` first.
+
+## `register_summary`
+
+One row describing the published register as a whole, rebuilt on every refresh so a dashboard can render it as a live summary instead of a hand-written report.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `built_at` | timestamp | no | when this register was built, which is the refresh that published it (build host's clock) |
+| `lgas` | bigint | no | LGAs in `lga_coverage_burden`; always 774 |
+| `states` | bigint | no | distinct states and FCT in the frame |
+| `states_on_v3` | bigint | no | states whose facilities come from GRID3 v3.0 |
+| `states_on_v2` | bigint | no | states still on GRID3 v2.0 |
+| `states_without_facilities` | bigint | no | states none of whose LGAs matched a facility, so no version applies |
+| `v3_source_date` | date | yes | release date of the v3.0 register in use; null if no state uses it |
+| `v2_source_date` | date | yes | release date of the v2.0 register in use; null if no state uses it |
+| `facilities` | bigint | no | facilities in the authority layer |
+| `facilities_in_lgas` | bigint | no | facilities whose LGA resolved to a frame LGA (the sum of `lga_coverage_burden.facilities`) |
+| `facilities_v3` | bigint | no | authority-layer facilities from v3.0 |
+| `facilities_v2` | bigint | no | authority-layer facilities from v2.0 |
+| `lgas_unmatched` | bigint | no | LGAs with `facility_status = 'unmatched'` |
+| `priority_lgas` | bigint | no | LGAs with the priority flag set |
+| `sth_known_lgas`, `sch_known_lgas`, `lf_known_lgas`, `oncho_known_lgas`, `loa_known_lgas` | bigint | no | LGAs with a known ESPEN status (a rank) for that disease; the rest are unknown, not zero |
+| `espen_latest_year` | integer | yes | latest year any ESPEN status is reported for |
+| `lineage_carried_over`, `lineage_dropped`, `lineage_appeared` | bigint | no | `lga_version_drift` records by status |
+
+Guarantees:
+
+- Exactly one row.
+- It agrees with the tables it summarises: `states_on_v3 + states_on_v2 + states_without_facilities = states`, `facilities_v3 + facilities_v2 = facilities`, and `facilities_in_lgas` equals the coverage mart's facility total and never exceeds `facilities`. The gap between `facilities` and `facilities_in_lgas` is the facilities whose LGA label the crosswalk could not place, shown rather than hidden.
+- Unknown is not zero here either: a known-status count is the LGAs with a rank, never the LGAs without a positive one.
 
 ## The rule that spans every table
 

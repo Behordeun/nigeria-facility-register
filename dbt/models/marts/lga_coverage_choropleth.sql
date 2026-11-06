@@ -63,6 +63,11 @@ select
     c.sth_high_share_pct_state,
     c.sth_survey_years_state,
     c.priority_high_burden_thin_coverage,
+    c.sth_endemicity_rank_lga,
+    c.sch_endemicity_rank_lga,
+    c.lf_endemicity_rank_lga,
+    c.oncho_endemicity_rank_lga,
+    c.loa_endemicity_rank_lga,
     b.geometry_geojson,
     -- A complete GeoJSON Feature per LGA: the deck.gl Geojson layer reads
     -- .geometry and .properties off each row, so a bare geometry (what
@@ -80,7 +85,12 @@ select
                 'facilities', c.facilities,
                 'facility_status', c.facility_status,
                 'sth_high_share_pct_state', c.sth_high_share_pct_state,
-                'priority_high_burden_thin_coverage', c.priority_high_burden_thin_coverage
+                'priority_high_burden_thin_coverage', c.priority_high_burden_thin_coverage,
+                'sth_endemicity_rank_lga', c.sth_endemicity_rank_lga,
+                'sch_endemicity_rank_lga', c.sch_endemicity_rank_lga,
+                'lf_endemicity_rank_lga', c.lf_endemicity_rank_lga,
+                'oncho_endemicity_rank_lga', c.oncho_endemicity_rank_lga,
+                'loa_endemicity_rank_lga', c.loa_endemicity_rank_lga
             )
         ) as varchar
     )                                       as geometry_feature
