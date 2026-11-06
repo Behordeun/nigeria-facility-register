@@ -237,6 +237,21 @@ models:
         data_type: boolean
         constraints:
           - type: not_null
+      - name: sth_endemicity_rank_lga
+        data_type: integer
+        description: As in lga_coverage_burden; null when the LGA's status was never known.
+      - name: sch_endemicity_rank_lga
+        data_type: integer
+        description: As in lga_coverage_burden; null when the LGA's status was never known.
+      - name: lf_endemicity_rank_lga
+        data_type: integer
+        description: As in lga_coverage_burden; null when the LGA's status was never known.
+      - name: oncho_endemicity_rank_lga
+        data_type: integer
+        description: As in lga_coverage_burden; null when the LGA's status was never known.
+      - name: loa_endemicity_rank_lga
+        data_type: integer
+        description: As in lga_coverage_burden; null when the LGA's status was never known.
       # The two geometry columns are attached by a LEFT JOIN to the boundaries,
       # so they are nullable at the type level: a not_null contract here would
       # fail enforcement with a blunt error on a join miss. The completeness
@@ -248,4 +263,4 @@ models:
         description: The LGA boundary polygon as a GeoJSON text string (a map layer reads it as a string and parses it; a json type returns a parsed object the layer cannot consume), from the vendored simplified geoBoundaries set.
       - name: geometry_feature
         data_type: varchar
-        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, and priority_high_burden_thin_coverage for colouring and tooltips.
+        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage and the five *_endemicity_rank_lga columns for colouring and tooltips.

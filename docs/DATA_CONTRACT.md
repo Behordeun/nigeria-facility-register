@@ -151,14 +151,14 @@ Guarantees:
 
 ## `lga_coverage_choropleth`
 
-`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. It carries the columns listed below, not the per-LGA endemicity ranks; read those from `lga_coverage_burden`. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
+`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
 
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
 | `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
-| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state` and `priority_high_burden_thin_coverage` |
+| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage` and the five `*_endemicity_rank_lga` ranks |
 
-The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`) are exactly as in `lga_coverage_burden` above.
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, and the five `*_endemicity_rank_lga` ranks) are exactly as in `lga_coverage_burden` above.
 
 Guarantees:
 
