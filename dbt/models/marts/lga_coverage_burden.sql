@@ -15,6 +15,10 @@
 -- (0-3, null when the LGA's status was never known) for five diseases, pivoted
 -- from stg_ntd_endemicity_lga. They sit alongside the state column rather than
 -- replacing it, so the existing column keeps its meaning.
+--
+-- Per-capita coverage: population (WorldPop 2025) and births (WorldPop 2015)
+-- give facilities per 10,000 people and per 10,000 births, so a large LGA with
+-- many facilities is not mistaken for a well-served one.
 
 with xwalk_raw as (
     select state, facility_lga, canonical_lga
@@ -68,6 +72,7 @@ frame as (
         canonical_lga,
         state,
         espen_iu_id,
+        shapeID                             as shape_id,
         {{ norm_lga_key('canonical_lga') }} as lga_key,
         {{ norm_state('state') }} as state_key
     from {{ source('raw', 'frame_master_index') }}
@@ -94,6 +99,19 @@ ntd_lga as (
     group by state_key, lga_key
 ),
 
+-- Denominators, keyed on the frame's geoBoundaries shapeID. Both inputs cover
+-- all 774 LGAs with a positive figure (tested at the source), so a rate is null
+-- only where the facility count itself is not a measurement (see below).
+population as (
+    select shapeID as shape_id, population, population_year
+    from {{ source('raw', 'access_population_lga') }}
+),
+
+births as (
+    select shapeID as shape_id, births
+    from {{ source('raw', 'births_lga') }}
+),
+
 joined as (
     select
         frame.canonical_lga,
@@ -108,12 +126,26 @@ joined as (
         ntd_lga.sch_endemicity_rank_lga,
         ntd_lga.lf_endemicity_rank_lga,
         ntd_lga.oncho_endemicity_rank_lga,
-        ntd_lga.loa_endemicity_rank_lga
+        ntd_lga.loa_endemicity_rank_lga,
+        pop.population,
+        pop.population_year,
+        b.births,
+        -- Rates are null, not 0, where no facility matched the LGA: a zero count
+        -- there may be a name-join miss, so a rate of 0 would assert an absence
+        -- the data has not established (the same reasoning as the priority flag).
+        case when fac.facilities is null then null
+             else round(cast(fac.facilities as double) * 10000 / pop.population, 3) end
+                                           as facilities_per_10k_population,
+        case when fac.facilities is null then null
+             else round(cast(fac.facilities as double) * 10000 / b.births, 3) end
+                                           as facilities_per_10k_births
     from frame
     left join fac  on frame.state_key = fac.state_key and frame.lga_key = fac.lga_key
     left join ntd  on frame.state_key = ntd.state_key
     left join ntd_lga
       on frame.state_key = ntd_lga.state_key and frame.lga_key = ntd_lga.lga_key
+    left join population pop on frame.shape_id = pop.shape_id
+    left join births b       on frame.shape_id = b.shape_id
 ),
 
 cut as (

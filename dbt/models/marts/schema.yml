@@ -119,6 +119,29 @@ models:
                 quote: false
               config:
                 where: "loa_endemicity_rank_lga is not null"
+      - name: population
+        data_type: bigint
+        description: WorldPop R2025A population of the LGA (year in population_year), summed at 100 m; always positive.
+        constraints:
+          - type: not_null
+      - name: population_year
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: births
+        data_type: double
+        description: WorldPop annual births in the LGA for 2015 (UN-adjusted); always positive. Older than the population figure; read the per-births rate as indicative.
+        constraints:
+          - type: not_null
+      - name: facilities_per_10k_population
+        data_type: double
+        description: >
+          facilities x 10,000 / population. Null where facility_status is
+          'unmatched' (a zero count there may be a name-join miss), never 0 for
+          that reason.
+      - name: facilities_per_10k_births
+        data_type: double
+        description: facilities x 10,000 / births (2015). Null where facility_status is 'unmatched'.
       - name: priority_high_burden_thin_coverage
         data_type: boolean
         description: >
@@ -252,6 +275,12 @@ models:
       - name: loa_endemicity_rank_lga
         data_type: integer
         description: As in lga_coverage_burden; null when the LGA's status was never known.
+      - name: population
+        data_type: bigint
+        description: As in lga_coverage_burden.
+      - name: facilities_per_10k_population
+        data_type: double
+        description: As in lga_coverage_burden; null where no facility matched.
       # The two geometry columns are attached by a LEFT JOIN to the boundaries,
       # so they are nullable at the type level: a not_null contract here would
       # fail enforcement with a blunt error on a join miss. The completeness
@@ -263,7 +292,7 @@ models:
         description: The LGA boundary polygon as a GeoJSON text string (a map layer reads it as a string and parses it; a json type returns a parsed object the layer cannot consume), from the vendored simplified geoBoundaries set.
       - name: geometry_feature
         data_type: varchar
-        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage and the five *_endemicity_rank_lga columns for colouring and tooltips.
+        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage, the five *_endemicity_rank_lga columns, population and facilities_per_10k_population for colouring and tooltips.
 
   - name: register_summary
     description: >
@@ -334,6 +363,15 @@ models:
         constraints:
           - type: not_null
       - name: priority_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: population
+        data_type: bigint
+        description: Total WorldPop population across the 774 LGAs (year in population_year).
+        constraints:
+          - type: not_null
+      - name: population_year
         data_type: bigint
         constraints:
           - type: not_null

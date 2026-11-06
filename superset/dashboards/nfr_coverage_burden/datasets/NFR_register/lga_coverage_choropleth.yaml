@@ -39,10 +39,12 @@ columns:
     \ || CASE WHEN facilities = 1 THEN ' facility' ELSE ' facilities' END || ' ('\
     \ || CASE WHEN facility_source_version IS NULL THEN 'no facility matched' ELSE\
     \ 'GRID3 ' || facility_source_version || ', ' || facility_status END || ')' ||\
-    \ ' \xB7 ' || 'STH ' || coalesce(cast(sth_endemicity_rank_lga as varchar), 'unknown')\
-    \ || ' \xB7 ' || 'SCH ' || coalesce(cast(sch_endemicity_rank_lga as varchar),\
-    \ 'unknown') || ' \xB7 ' || 'LF ' || coalesce(cast(lf_endemicity_rank_lga as varchar),\
-    \ 'unknown') || ' \xB7 ' || 'Oncho ' || coalesce(cast(oncho_endemicity_rank_lga\
+    \ ' \xB7 ' || CASE WHEN facilities_per_10k_population IS NULL THEN 'per-capita\
+    \ rate n/a' ELSE printf('%.1f', facilities_per_10k_population) || ' per 10k people'\
+    \ END || ' \xB7 ' || 'STH ' || coalesce(cast(sth_endemicity_rank_lga as varchar),\
+    \ 'unknown') || ' \xB7 ' || 'SCH ' || coalesce(cast(sch_endemicity_rank_lga as\
+    \ varchar), 'unknown') || ' \xB7 ' || 'LF ' || coalesce(cast(lf_endemicity_rank_lga\
+    \ as varchar), 'unknown') || ' \xB7 ' || 'Oncho ' || coalesce(cast(oncho_endemicity_rank_lga\
     \ as varchar), 'unknown') || ' \xB7 ' || 'Loa ' || coalesce(cast(loa_endemicity_rank_lga\
     \ as varchar), 'unknown') || ' \xB7 priority: ' || CASE WHEN priority_high_burden_thin_coverage\
     \ THEN 'yes' ELSE 'no' END"
@@ -86,6 +88,18 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: facilities_per_10k_population
+  verbose_name: Facilities per 10,000 people
+  is_dttm: false
+  is_active: true
+  type: FLOAT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: sth_endemicity_rank_lga
   verbose_name: Soil-transmitted helminths rank
   is_dttm: false
@@ -119,6 +133,18 @@ columns:
   groupby: true
   filterable: true
   expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: population
+  verbose_name: Population (WorldPop 2025)
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
   description: null
   python_date_format: null
   extra: null

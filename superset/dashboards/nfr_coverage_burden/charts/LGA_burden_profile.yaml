@@ -13,6 +13,8 @@ params:
   - state
   - canonical_lga
   - facilities
+  - population
+  - facilities_per_10k_population
   - facility_status
   - sth_endemicity_rank_lga
   - sch_endemicity_rank_lga

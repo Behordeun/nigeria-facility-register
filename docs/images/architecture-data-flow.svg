@@ -29,7 +29,7 @@
 
   <rect width="1540" height="1030" fill="#fff"/>
   <text x="40" y="50" class="h1">Data flow</text>
-  <text x="40" y="76" class="sub">From public sources to the published register and the dashboard. Solid arrows carry data; dashed means loaded and tested but not yet used.</text>
+  <text x="40" y="76" class="sub">From public sources to the published register and the dashboard. Solid arrows carry data. The flood flags are loaded and tested but not yet joined into a mart.</text>
 
   <!-- column backgrounds and headers -->
   <rect x="30" y="100" width="210" height="904" rx="14" fill="#eef4fd"/>
@@ -63,10 +63,11 @@
   <path class="e" d="M1020,548 H1044 V214 H1088"/>
   <path class="e" d="M230,800 H268"/>
   <path class="e" d="M230,680 H268"/>
-  <path class="ed" d="M480,680 H496 V906 H518"/>
+  <path class="e" d="M480,680 H496 V906 H518"/>
+  <path class="e" d="M730,932 H1084 V226 H1088"/>
   <path class="e" d="M480,800 H1076 V452 H1088"/>
   <path class="e" d="M230,920 H268"/>
-  <path class="ed" d="M480,920 H518"/>
+  <path class="e" d="M480,920 H518"/>
   <path class="e" d="M1310,200 H1366"/>
   <path class="e" d="M1310,320 H1366"/>
   <path class="e" d="M1310,440 H1366"/>
@@ -169,11 +170,11 @@
     <text class="cb"><tspan x="532" y="684">dbt seed: every known label</tspan><tspan x="532" y="700">to a 0-3 rank; unknown is</tspan><tspan x="532" y="716">never ranked</tspan></text>
   </g>
   <g>
-    <rect x="520" y="872" width="210" height="122" rx="10" fill="#fff" stroke="#cfc6f0" stroke-dasharray="5 4"/>
-    <use href="#i-db" xlink:href="#i-db" x="530" y="882" width="26" height="26" color="#9b8fd6"/>
+    <rect x="520" y="872" width="210" height="122" rx="10" fill="#fff" stroke="#cfc6f0"/>
+    <use href="#i-db" xlink:href="#i-db" x="530" y="882" width="26" height="26" color="#6a4fd1"/>
     <text x="564" y="900" class="ct">flood, births, access</text>
     <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga,</tspan><tspan x="532" y="956">access_population_lga</tspan></text>
-    <text x="532" y="982" class="ft">loaded and tested, not yet joined</text>
+    <text x="532" y="982" class="ft">births, population feed coverage</text>
   </g>
 
   <!-- ========== STAGING (dbt) ========== -->
@@ -201,7 +202,7 @@
     <rect x="1090" y="152" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
     <use href="#i-table" xlink:href="#i-table" x="1100" y="162" width="26" height="26" color="#2f6fd6"/>
     <text x="1134" y="180" class="ct">lga_coverage_burden</text>
-    <text class="cb"><tspan x="1102" y="204">one row per LGA (774):</tspan><tspan x="1102" y="220">coverage x burden, five</tspan><tspan x="1102" y="236">ranks, priority flag</tspan></text>
+    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">per-10k population, five NTD</tspan><tspan x="1102" y="236">ranks, priority flag</tspan></text>
   </g>
   <g>
     <rect x="1090" y="272" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
