@@ -72,7 +72,7 @@ flowchart TD
     COV --> OUT["Published marts<br/>DATA_CONTRACT.md"]
     LINM --> OUT
     CHO --> OUT
-    OUT --> BI["Superset dashboards<br/>read-only"]
+    OUT --> BI["Superset dashboard<br/>read-only, committed bundle<br/>coverage / NTD burden / drift"]
 ```
 
 ## Spatial matching (why lineage needs it)

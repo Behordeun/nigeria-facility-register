@@ -1,0 +1,30 @@
+slice_name: LGAs with facilities matched
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  extra_form_data: {}
+  metric:
+    expressionType: SQL
+    sqlExpression: COUNT(DISTINCT state || '|' || canonical_lga)
+    label: LGAs
+    hasCustomLabel: true
+    optionName: metric_4caf3e7bbbe8
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: facility_status <> 'unmatched'
+    filterOptionName: filter_54a18d3a19b9
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  subheader: of 774
+query_context: null
+cache_timeout: null
+uuid: fc10a0aa-44d6-5ffa-a1bf-c49aa4a15d9a
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

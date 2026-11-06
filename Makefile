@@ -3,7 +3,7 @@
 PY ?= .venv/bin/python
 DB ?= build/nfr.duckdb
 
-.PHONY: help setup fetch load build sample test dagster lint clean
+.PHONY: help setup fetch load build sample test dagster dashboard dashboard-export lint clean
 
 help:
 	@echo "setup   install the package and dev deps into .venv"
@@ -13,6 +13,8 @@ help:
 	@echo "sample  run the whole transform on the committed sample fixture (no download)"
 	@echo "test    unit tests + dbt tests"
 	@echo "dagster launch the Dagster dev UI for the refresh pipeline"
+	@echo "dashboard        import the committed Superset dashboard into the running compose stack"
+	@echo "dashboard-export export the dashboard from the running Superset back into superset/"
 	@echo "lint    ruff"
 	@echo "clean   remove build artifacts"
 
@@ -41,6 +43,13 @@ sample:
 test:
 	$(PY) -m pytest -q
 	cd dbt && ../$(PY) -m dbt.cli.main test --profiles-dir . || true
+
+# Superset dashboard bundle (superset/dashboards/). Needs `docker compose up -d`.
+dashboard:
+	$(PY) scripts/superset_dashboard.py import
+
+dashboard-export:
+	$(PY) scripts/superset_dashboard.py export
 
 lint:
 	$(PY) -m ruff check src tests

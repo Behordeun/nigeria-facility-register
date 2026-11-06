@@ -1,0 +1,84 @@
+slice_name: 'Soil-transmitted helminths: endemicity rank by LGA'
+description: 0 non-endemic to 3 highest need. LGAs never reported with a known status
+  are left blank, not shaded as 0.
+certified_by: null
+certification_details: null
+viz_type: deck_polygon
+params:
+  datasource: 2__table
+  viz_type: deck_polygon
+  extra_form_data: {}
+  line_column: polygon_coordinates
+  line_type: json
+  metric:
+    expressionType: SQL
+    sqlExpression: MAX(sth_endemicity_rank_lga)
+    label: Soil-transmitted helminths rank
+    hasCustomLabel: true
+    optionName: metric_a6b2c306016d
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: sth_endemicity_rank_lga IS NOT NULL
+    filterOptionName: filter_3363edd2ddb4
+  row_limit: 5000
+  time_range: No filter
+  reverse_long_lat: false
+  mapbox_style: mapbox://styles/mapbox/light-v9
+  viewport:
+    longitude: 8.4
+    latitude: 9.1
+    zoom: 4.5
+    bearing: 0
+    pitch: 0
+    width: 800
+    height: 600
+    altitude: 1.5
+    maxZoom: 20
+    minZoom: 0
+    maxPitch: 60
+    minPitch: 0
+    maxLatitude: 85.05113
+    minLatitude: -85.05113
+  autozoom: false
+  filled: true
+  stroked: true
+  extruded: false
+  fill_color_picker:
+    r: 3
+    g: 65
+    b: 73
+    a: 1
+  stroke_color_picker:
+    r: 255
+    g: 255
+    b: 255
+    a: 1
+  line_width: 1
+  line_width_unit: pixels
+  multiplier: 1
+  point_radius_fixed:
+    type: fix
+    value: 0
+  linear_color_scheme: schemeYlOrRd
+  opacity: 80
+  break_points:
+  - '0'
+  - '1'
+  - '2'
+  - '3'
+  - '4'
+  num_buckets: '4'
+  table_filter: false
+  toggle_polygons: true
+  legend_position: null
+  legend_format: .0f
+  js_columns: []
+  js_data_mutator: ''
+  js_tooltip: ''
+  js_onclick_href: ''
+query_context: null
+cache_timeout: null
+uuid: 6eb0c1ff-33f4-5f4a-96a9-23213be160d7
+version: 1.0.0
+dataset_uuid: 698033d9-20bf-5060-84b1-ce546855b85a

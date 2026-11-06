@@ -1,0 +1,235 @@
+table_name: lga_coverage_choropleth
+main_dttm_col: null
+description: lga_coverage_burden with one row per LGA boundary polygon part (800 rows
+  over 774 LGAs). Never sum across rows.
+default_endpoint: null
+offset: 0
+cache_timeout: null
+catalog: null
+schema: main
+sql: null
+params: null
+template_params: null
+filter_select_enabled: true
+fetch_values_predicate: null
+extra: null
+normalize_columns: false
+always_filter_main_dttm: false
+uuid: 698033d9-20bf-5060-84b1-ce546855b85a
+metrics:
+- metric_name: count
+  verbose_name: COUNT(*)
+  metric_type: count
+  expression: COUNT(*)
+  description: null
+  d3format: null
+  currency: null
+  extra: null
+  warning_text: null
+columns:
+- column_name: priority_high_burden_thin_coverage
+  verbose_name: Priority (high STH burden, thin coverage)
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: polygon_coordinates
+  verbose_name: Polygon coordinates
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: CAST(json_extract(geometry_geojson, '$.coordinates') AS VARCHAR)
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: sth_high_share_pct_state
+  verbose_name: STH high-prevalence share (state, %)
+  is_dttm: false
+  is_active: true
+  type: FLOAT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: sth_endemicity_rank_lga
+  verbose_name: Soil-transmitted helminths rank
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: lf_endemicity_rank_lga
+  verbose_name: Lymphatic filariasis rank
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: loa_endemicity_rank_lga
+  verbose_name: Loa loa rank
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facility_status
+  verbose_name: Facility status
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facility_source_version
+  verbose_name: Register version
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: oncho_endemicity_rank_lga
+  verbose_name: Onchocerciasis rank
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: sch_endemicity_rank_lga
+  verbose_name: Schistosomiasis rank
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: canonical_lga
+  verbose_name: LGA
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: state
+  verbose_name: State
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities
+  verbose_name: Facilities
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: sth_survey_years_state
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: geometry_feature
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: geometry_geojson
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: espen_iu_id
+  verbose_name: null
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+version: 1.0.0
+database_uuid: 117b3c23-1fc4-537f-a53a-9bcc51057770

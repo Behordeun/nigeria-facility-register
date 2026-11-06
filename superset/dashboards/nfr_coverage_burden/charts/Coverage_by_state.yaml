@@ -1,0 +1,49 @@
+slice_name: Coverage by state
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: aggregate
+  groupby:
+  - state
+  - facility_source_version
+  metrics:
+  - expressionType: SQL
+    sqlExpression: SUM(facilities)
+    label: Facilities
+    hasCustomLabel: true
+    optionName: metric_b92ac0b9b39e
+  - expressionType: SQL
+    sqlExpression: COUNT(DISTINCT state || '|' || canonical_lga)
+    label: LGAs
+    hasCustomLabel: true
+    optionName: metric_4caf3e7bbbe8
+  - expressionType: SQL
+    sqlExpression: COUNT(*) FILTER (WHERE facility_status = 'unmatched')
+    label: Unmatched LGAs
+    hasCustomLabel: true
+    optionName: metric_852b53d7b243
+  - expressionType: SQL
+    sqlExpression: COUNT(*) FILTER (WHERE priority_high_burden_thin_coverage)
+    label: Priority LGAs
+    hasCustomLabel: true
+    optionName: metric_a348917e8a52
+  adhoc_filters: []
+  row_limit: 100
+  order_desc: true
+  server_pagination: false
+  server_page_length: 40
+  include_search: true
+  show_cell_bars: true
+  percent_metrics: []
+  timeseries_limit_metric: null
+  table_timestamp_format: smart_date
+query_context: null
+cache_timeout: null
+uuid: 28f9e326-f34f-5773-8be2-2e46fe49dd8d
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

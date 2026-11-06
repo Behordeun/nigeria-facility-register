@@ -1,0 +1,30 @@
+slice_name: Priority LGAs
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  extra_form_data: {}
+  metric:
+    expressionType: SQL
+    sqlExpression: COUNT(DISTINCT state || '|' || canonical_lga)
+    label: LGAs
+    hasCustomLabel: true
+    optionName: metric_4caf3e7bbbe8
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: priority_high_burden_thin_coverage
+    filterOptionName: filter_7ffacab48b9d
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  subheader: high STH burden, thin coverage
+query_context: null
+cache_timeout: null
+uuid: 43a579da-6996-53f9-870f-21cb29cc3153
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

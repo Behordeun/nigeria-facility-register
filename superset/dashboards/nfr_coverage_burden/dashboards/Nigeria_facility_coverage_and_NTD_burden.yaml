@@ -1,0 +1,704 @@
+dashboard_title: Nigeria facility coverage and NTD burden
+description: null
+css: null
+slug: nfr-coverage-burden
+certified_by: null
+certification_details: null
+published: true
+uuid: 435de0dd-d46c-52d5-a5c1-e75ed9f32288
+position:
+  DASHBOARD_VERSION_KEY: v2
+  MARKDOWN-overview_note:
+    id: MARKDOWN-overview_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-0
+    children: []
+    meta:
+      width: 12
+      height: 18
+      code: '### Facility coverage
+
+        Counts come from the version-aware authority layer: GRID3 v3.0 where it covers
+        a state, v2.0 elsewhere. An LGA with no facility matched is a name-join miss
+        to reconcile, never a measured zero. The priority flag marks LGAs with a high
+        state-level STH share and thin coverage (bottom tercile of non-zero counts).'
+  ROW-overview-0:
+    id: ROW-overview-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    children:
+    - MARKDOWN-overview_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-kpi_facilities:
+    id: CHART-kpi_facilities
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-1
+    children: []
+    meta:
+      chartId: 1
+      width: 3
+      height: 30
+      sliceName: Facilities in the register
+      uuid: 03a38381-ecfd-5d2d-87bc-1ad067631a05
+  CHART-kpi_matched:
+    id: CHART-kpi_matched
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-1
+    children: []
+    meta:
+      chartId: 2
+      width: 3
+      height: 30
+      sliceName: LGAs with facilities matched
+      uuid: fc10a0aa-44d6-5ffa-a1bf-c49aa4a15d9a
+  CHART-kpi_unmatched:
+    id: CHART-kpi_unmatched
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-1
+    children: []
+    meta:
+      chartId: 3
+      width: 3
+      height: 30
+      sliceName: LGAs with no facility matched
+      uuid: b892dd02-e155-5286-8085-14caa108abee
+  CHART-kpi_priority:
+    id: CHART-kpi_priority
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-1
+    children: []
+    meta:
+      chartId: 4
+      width: 3
+      height: 30
+      sliceName: Priority LGAs
+      uuid: 43a579da-6996-53f9-870f-21cb29cc3153
+  ROW-overview-1:
+    id: ROW-overview-1
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    children:
+    - CHART-kpi_facilities
+    - CHART-kpi_matched
+    - CHART-kpi_unmatched
+    - CHART-kpi_priority
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-map_facilities:
+    id: CHART-map_facilities
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-2
+    children: []
+    meta:
+      chartId: 5
+      width: 6
+      height: 90
+      sliceName: Facilities per LGA
+      uuid: e8ac7bd2-fa7f-5dd7-ae87-77f569d84e77
+  CHART-map_priority:
+    id: CHART-map_priority
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-2
+    children: []
+    meta:
+      chartId: 6
+      width: 6
+      height: 90
+      sliceName: Priority LGAs (high STH burden, thin coverage)
+      uuid: be092ae8-ee0a-58f8-b643-5e03d79b757b
+  ROW-overview-2:
+    id: ROW-overview-2
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    children:
+    - CHART-map_facilities
+    - CHART-map_priority
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-table_states:
+    id: CHART-table_states
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    - ROW-overview-3
+    children: []
+    meta:
+      chartId: 7
+      width: 12
+      height: 70
+      sliceName: Coverage by state
+      uuid: 28f9e326-f34f-5773-8be2-2e46fe49dd8d
+  ROW-overview-3:
+    id: ROW-overview-3
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-overview
+    children:
+    - CHART-table_states
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-overview:
+    id: TAB-overview
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-overview-0
+    - ROW-overview-1
+    - ROW-overview-2
+    - ROW-overview-3
+    meta:
+      text: Coverage
+      defaultText: Tab title
+      placeholder: Tab title
+  MARKDOWN-burden_note:
+    id: MARKDOWN-burden_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-0
+    children: []
+    meta:
+      width: 12
+      height: 22
+      code: '### NTD endemicity by LGA
+
+        Per-LGA ESPEN status for five diseases, ranked 0 (non-endemic) to 3 (highest
+        need). STH, schistosomiasis and Loa loa rank by prevalence band; lymphatic
+        filariasis and onchocerciasis rank by programme stage. An LGA never reported
+        with a known status is blank on the map and `unknown` in the chart: unknown
+        is not zero.
+
+
+        Colour key, maps and chart alike: pale yellow 0 (non-endemic), orange 1, red
+        2, dark red 3; grey in the chart is unknown.
+
+
+        ESPEN data: CC BY-NC-SA 3.0 IGO, non-commercial use only.'
+  ROW-burden-0:
+    id: ROW-burden-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    children:
+    - MARKDOWN-burden_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-map_sth:
+    id: CHART-map_sth
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-1
+    children: []
+    meta:
+      chartId: 8
+      width: 4
+      height: 70
+      sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
+      uuid: 6eb0c1ff-33f4-5f4a-96a9-23213be160d7
+  CHART-map_sch:
+    id: CHART-map_sch
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-1
+    children: []
+    meta:
+      chartId: 9
+      width: 4
+      height: 70
+      sliceName: 'Schistosomiasis: endemicity rank by LGA'
+      uuid: 5786eeb1-e7bf-5cc6-8aa9-8ebc640830e9
+  CHART-map_lf:
+    id: CHART-map_lf
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-1
+    children: []
+    meta:
+      chartId: 10
+      width: 4
+      height: 70
+      sliceName: 'Lymphatic filariasis: endemicity rank by LGA'
+      uuid: d652bf9c-104a-55f8-be1b-4d336aae1c3e
+  ROW-burden-1:
+    id: ROW-burden-1
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    children:
+    - CHART-map_sth
+    - CHART-map_sch
+    - CHART-map_lf
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-map_oncho:
+    id: CHART-map_oncho
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-2
+    children: []
+    meta:
+      chartId: 11
+      width: 4
+      height: 70
+      sliceName: 'Onchocerciasis: endemicity rank by LGA'
+      uuid: fe1f2b4e-d1fc-5a0f-bc47-a86f854daa81
+  CHART-map_loa:
+    id: CHART-map_loa
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-2
+    children: []
+    meta:
+      chartId: 12
+      width: 4
+      height: 70
+      sliceName: 'Loa loa: endemicity rank by LGA'
+      uuid: 8214dcc9-aefb-5631-bb58-05faefce86e2
+  CHART-bar_rank_distribution:
+    id: CHART-bar_rank_distribution
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-2
+    children: []
+    meta:
+      chartId: 13
+      width: 4
+      height: 70
+      sliceName: LGAs by endemicity rank, per disease
+      uuid: 2923cc16-c0aa-59c6-a36e-c4ed9ed3071e
+  ROW-burden-2:
+    id: ROW-burden-2
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    children:
+    - CHART-map_oncho
+    - CHART-map_loa
+    - CHART-bar_rank_distribution
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-table_burden_profile:
+    id: CHART-table_burden_profile
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-3
+    children: []
+    meta:
+      chartId: 14
+      width: 12
+      height: 80
+      sliceName: LGA burden profile
+      uuid: 87bc6785-3e9c-5069-8878-8b503bb9a223
+  ROW-burden-3:
+    id: ROW-burden-3
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    children:
+    - CHART-table_burden_profile
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-burden:
+    id: TAB-burden
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-burden-0
+    - ROW-burden-1
+    - ROW-burden-2
+    - ROW-burden-3
+    meta:
+      text: NTD burden
+      defaultText: Tab title
+      placeholder: Tab title
+  MARKDOWN-drift_note:
+    id: MARKDOWN-drift_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    - ROW-drift-0
+    children: []
+    meta:
+      width: 12
+      height: 14
+      code: '### Register version drift
+
+        Each v2.0 facility is matched to v3.0 by mutual nearest neighbour within 100
+        m. Dropped and appeared records are review candidates, not measured closures
+        or openings.'
+  ROW-drift-0:
+    id: ROW-drift-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    children:
+    - MARKDOWN-drift_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-pie_lineage:
+    id: CHART-pie_lineage
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    - ROW-drift-1
+    children: []
+    meta:
+      chartId: 15
+      width: 4
+      height: 60
+      sliceName: Facility lineage, v2.0 to v3.0
+      uuid: 966826b0-afbe-5be5-90e2-30f13ab83316
+  CHART-pie_name_match:
+    id: CHART-pie_name_match
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    - ROW-drift-1
+    children: []
+    meta:
+      chartId: 17
+      width: 4
+      height: 60
+      sliceName: Name agreement of carried-over facilities
+      uuid: d291a91a-5d7f-57e8-b7e4-d7428226887b
+  CHART-bar_lineage_state:
+    id: CHART-bar_lineage_state
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    - ROW-drift-1
+    children: []
+    meta:
+      chartId: 16
+      width: 4
+      height: 120
+      sliceName: Lineage status by state
+      uuid: dfee2389-5fce-5fed-991c-eea79204fcf7
+  ROW-drift-1:
+    id: ROW-drift-1
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    children:
+    - CHART-pie_lineage
+    - CHART-pie_name_match
+    - CHART-bar_lineage_state
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-table_review_queue:
+    id: CHART-table_review_queue
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    - ROW-drift-2
+    children: []
+    meta:
+      chartId: 18
+      width: 12
+      height: 80
+      sliceName: 'Review queue: dropped and appeared facilities'
+      uuid: 2bf515ff-d6f8-5049-99f7-6734584c72a8
+  ROW-drift-2:
+    id: ROW-drift-2
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-drift
+    children:
+    - CHART-table_review_queue
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-drift:
+    id: TAB-drift
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-drift-0
+    - ROW-drift-1
+    - ROW-drift-2
+    meta:
+      text: Version drift
+      defaultText: Tab title
+      placeholder: Tab title
+  MARKDOWN-about_note:
+    id: MARKDOWN-about_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-about
+    - ROW-about-0
+    children: []
+    meta:
+      width: 12
+      height: 60
+      code: '## About this dashboard
+
+
+        **Sources.** GRID3 Nigeria health facilities v2.0 and v3.0 (CC BY 4.0); the
+        774-LGA frame and geoBoundaries ADM2 polygons (CC BY 4.0); ESPEN NTD endemicity
+        (CC BY-NC-SA 3.0 IGO, non-commercial). See `data/ATTRIBUTION.md`.
+
+
+        **Missing is not zero.** A stale state, an unknown endemicity status and an
+        LGA with no matched facility are each an absence, shown as blank, `unknown`
+        or `unmatched`, never as 0.
+
+
+        **Map rows are polygon parts.** `lga_coverage_choropleth` has one row per
+        boundary part (800 over 774 LGAs). Aggregate from `lga_coverage_burden`, never
+        by summing map rows.
+
+
+        **Contract.** Column meanings and guarantees are in `docs/DATA_CONTRACT.md`.'
+  ROW-about-0:
+    id: ROW-about-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-about
+    children:
+    - MARKDOWN-about_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-about:
+    id: TAB-about
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-about-0
+    meta:
+      text: About
+      defaultText: Tab title
+      placeholder: Tab title
+  ROOT_ID:
+    id: ROOT_ID
+    type: ROOT
+    children:
+    - TABS-main
+  TABS-main:
+    id: TABS-main
+    type: TABS
+    parents:
+    - ROOT_ID
+    children:
+    - TAB-overview
+    - TAB-burden
+    - TAB-drift
+    - TAB-about
+    meta: {}
+metadata:
+  native_filter_configuration:
+  - id: NATIVE_FILTER-state
+    name: State
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: state
+      datasetUuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+    chartsInScope:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    - 16
+    - 17
+    - 18
+    tabsInScope:
+    - TAB-overview
+    - TAB-burden
+    - TAB-drift
+    - TAB-about
+    description: ''
+  - id: NATIVE_FILTER-facility-status
+    name: Facility status
+    filterType: filter_select
+    type: NATIVE_FILTER
+    targets:
+    - column:
+        name: facility_status
+      datasetUuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
+    controlValues:
+      enableEmptyFilter: false
+      defaultToFirstItem: false
+      multiSelect: true
+      searchAllOptions: false
+      inverseSelection: false
+    defaultDataMask:
+      extraFormData: {}
+      filterState: {}
+      ownState: {}
+    cascadeParentIds: []
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded:
+      - 15
+      - 16
+      - 17
+      - 18
+      - 13
+    chartsInScope:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 14
+    tabsInScope:
+    - TAB-overview
+    - TAB-burden
+    - TAB-drift
+    - TAB-about
+    description: ''
+  chart_configuration: {}
+  global_chart_configuration:
+    scope:
+      rootPath:
+      - ROOT_ID
+      excluded: []
+  color_scheme: ''
+  refresh_frequency: 0
+  expanded_slices: {}
+  label_colors:
+    '0': '#fee087'
+    '1': '#fd9540'
+    '2': '#e42722'
+    '3': '#800026'
+    unknown: '#bdbdbd'
+  shared_label_colors: {}
+  timed_refresh_immune_slices: []
+  cross_filters_enabled: false
+  default_filters: '{}'
+version: 1.0.0

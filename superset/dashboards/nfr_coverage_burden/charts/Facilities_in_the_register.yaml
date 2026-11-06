@@ -1,0 +1,26 @@
+slice_name: Facilities in the register
+description: null
+certified_by: null
+certification_details: null
+viz_type: big_number_total
+params:
+  datasource: 1__table
+  viz_type: big_number_total
+  extra_form_data: {}
+  metric:
+    expressionType: SQL
+    sqlExpression: SUM(facilities)
+    label: Facilities
+    hasCustomLabel: true
+    optionName: metric_b92ac0b9b39e
+  adhoc_filters: []
+  header_font_size: 0.4
+  subheader_font_size: 0.15
+  y_axis_format: SMART_NUMBER
+  time_format: smart_date
+  subheader: authority layer, all LGAs
+query_context: null
+cache_timeout: null
+uuid: 03a38381-ecfd-5d2d-87bc-1ad067631a05
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
