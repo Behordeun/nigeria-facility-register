@@ -1,0 +1,16 @@
+database_name: NFR register
+sqlalchemy_uri: duckdb:////app/register/nfr.duckdb?access_mode=read_only
+cache_timeout: null
+expose_in_sqllab: true
+allow_run_async: false
+allow_ctas: false
+allow_cvas: false
+allow_dml: false
+allow_file_upload: false
+extra:
+  metadata_params: {}
+  engine_params: {}
+  metadata_cache_timeout: {}
+  schemas_allowed_for_file_upload: []
+uuid: 117b3c23-1fc4-537f-a53a-9bcc51057770
+version: 1.0.0
