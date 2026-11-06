@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 760" width="1280" height="760" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
+  <title id="t">Orchestration and atomic publish</title>
+  <desc id="d">A new-vintage sensor or the weekly schedule queues one refresh_register run. The run snapshots the raw inputs, loads them into a side DuckDB, runs the dbt build and tests, checks the carry-over gate, and only then promotes the side file onto the live register in one atomic rename. Any failure discards the side file and leaves the live register untouched.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7fa8"/></marker>
+    <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker>
+    <marker id="g" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#1f8a4c"/></marker>
+    <symbol id="i-radar" viewBox="0 0 32 32"><circle cx="16" cy="18" r="3.4" fill="currentColor"/><path d="M10 12a8.5 8.5 0 0 1 12 0M6 8a14 14 0 0 1 20 0" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><path d="M16 21v8" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-cal" viewBox="0 0 32 32"><rect x="4" y="6" width="24" height="22" rx="3" fill="currentColor"/><rect x="4" y="6" width="24" height="7" rx="3" fill="currentColor"/><path d="M4 13h24" stroke="#fff" stroke-width="1.6"/><path d="M10 3v6M22 3v6" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/><g fill="#fff"><rect x="9" y="17" width="4" height="3"/><rect x="15" y="17" width="4" height="3"/><rect x="21" y="17" width="4" height="3"/><rect x="9" y="22" width="4" height="3"/><rect x="15" y="22" width="4" height="3"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M13 10.5v11l9-5.5z" fill="#fff"/></symbol>
+    <symbol id="i-camera" viewBox="0 0 32 32"><path d="M4 10h6l2-3h8l2 3h6v15H4z" fill="currentColor"/><circle cx="16" cy="17" r="5" fill="#fff"/><circle cx="16" cy="17" r="2.6" fill="currentColor"/></symbol>
+    <symbol id="i-db" viewBox="0 0 32 32"><ellipse cx="16" cy="7" rx="12" ry="5" fill="currentColor"/><path d="M4 7v18a12 5 0 0 0 24 0V7" fill="currentColor"/><path d="M4 13a12 5 0 0 0 24 0M4 19a12 5 0 0 0 24 0" fill="none" stroke="#fff" stroke-width="1.6"/></symbol>
+    <symbol id="i-tests" viewBox="0 0 32 32"><path d="M7 3h13l6 6v20H7z" fill="currentColor"/><path d="M11 14l2 2 4-4M11 22l2 2 4-4" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M19 15h4M19 23h4" stroke="#fff" stroke-width="1.8"/></symbol>
+    <symbol id="i-shield" viewBox="0 0 32 32"><path d="M16 2l11 4v9c0 7-5 12-11 15C10 27 5 22 5 15V6z" fill="currentColor"/><path d="M11 16l3.5 3.5L21.5 12" fill="none" stroke="#fff" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M9 13h13l-3.5-3.5M23 19H10l3.5 3.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M11 11l10 10M21 11L11 21" stroke="#fff" stroke-width="3" stroke-linecap="round"/></symbol>
+    <symbol id="i-gauge" viewBox="0 0 32 32"><path d="M4 22a12 12 0 0 1 24 0" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><path d="M16 22l6-8" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><circle cx="16" cy="22" r="2.6" fill="currentColor"/></symbol>
+    <symbol id="i-chart" viewBox="0 0 32 32"><rect x="3" y="4" width="26" height="24" rx="3" fill="none" stroke="currentColor" stroke-width="2.6"/><path d="M8 22l6-6 4 3 7-8" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <style>
+      .h1{font-size:28px;font-weight:700;fill:#1b2a4a}
+      .sub{font-size:14px;fill:#55617a}
+      .ct{font-size:15.5px;font-weight:700;fill:#1b2a4a}
+      .cb{font-size:12.5px;fill:#46516a}
+      .num{font-size:12px;font-weight:700;fill:#fff}
+      .lab{font-size:12.5px;font-weight:700}
+      .mono{font-family:Menlo,Consolas,monospace;font-size:11.5px;fill:#4a35a8}
+      .e{fill:none;stroke:#6b7fa8;stroke-width:2;marker-end:url(#a)}
+      .ef{fill:none;stroke:#c0392b;stroke-width:1.8;stroke-dasharray:6 4;marker-end:url(#r)}
+      .eg{fill:none;stroke:#1f8a4c;stroke-width:2.2;marker-end:url(#g)}
+      .ei{fill:none;stroke:#9aa6bf;stroke-width:1.6;stroke-dasharray:3 3;marker-end:url(#a)}
+    </style>
+  </defs>
+
+  <rect width="1280" height="760" fill="#fff"/>
+  <text x="40" y="50" class="h1">Orchestration and atomic publish</text>
+  <text x="40" y="76" class="sub">Dagster rebuilds the whole register off to the side and publishes it only if every check passes. Readers see the whole old register or the whole new one, never a mix.</text>
+
+  <!-- ===== triggers and job ===== -->
+  <g>
+    <rect x="40" y="104" width="400" height="104" rx="12" fill="#fff8ec" stroke="#f1d7a6" stroke-width="1.4"/>
+    <use href="#i-radar" xlink:href="#i-radar" x="56" y="120" width="28" height="28" color="#c77d12"/>
+    <text x="94" y="140" class="ct">new_vintage_sensor</text>
+    <text class="cb"><tspan x="58" y="166">fires when the raw inputs differ from the fingerprint</tspan><tspan x="58" y="184">the live register was built from; waits for every input</tspan><tspan x="58" y="200">and a stable fingerprint across two ticks</tspan></text>
+  </g>
+  <g>
+    <rect x="460" y="104" width="260" height="104" rx="12" fill="#fff8ec" stroke="#f1d7a6" stroke-width="1.4"/>
+    <use href="#i-cal" xlink:href="#i-cal" x="476" y="120" width="28" height="28" color="#c77d12"/>
+    <text x="514" y="140" class="ct">weekly_refresh</text>
+    <text class="cb"><tspan x="478" y="166">schedule, Monday 06:00</tspan><tspan x="478" y="184">also launchable by hand</tspan></text>
+  </g>
+  <g>
+    <rect x="820" y="104" width="420" height="104" rx="12" fill="#fff" stroke="#f1d7a6" stroke-width="1.6"/>
+    <use href="#i-play" xlink:href="#i-play" x="836" y="120" width="28" height="28" color="#c77d12"/>
+    <text x="874" y="140" class="ct">refresh_register job</text>
+    <text class="cb"><tspan x="838" y="166">one run at a time (QueuedRunCoordinator), so the</tspan><tspan x="838" y="184">schedule, the sensor and a manual run never overlap</tspan><tspan x="838" y="200">on the shared database</tspan></text>
+  </g>
+  <path class="e" d="M240,104 V92 H1030 V102"/>
+  <path class="e" d="M720,156 H818"/>
+  <path class="e" d="M1030,210 V236 H155 V262"/>
+
+  <!-- ===== pipeline steps ===== -->
+  <rect x="30" y="246" width="1220" height="226" rx="16" fill="#f6f5fd" stroke="#e1dcf5"/>
+  <text x="1236" y="262" font-size="11.5" font-weight="700" fill="#7a6fc0" text-anchor="end">INSIDE ONE RUN</text>
+
+  <g>
+    <rect x="40" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
+    <circle cx="62" cy="292" r="12" fill="#6a4fd1"/><text x="62" y="296" class="num" text-anchor="middle">1</text>
+    <use href="#i-camera" xlink:href="#i-camera" x="232" y="280" width="26" height="26" color="#6a4fd1"/>
+    <text x="84" y="297" class="ct">Snapshot inputs</text>
+    <text class="cb"><tspan x="54" y="326">raw_sources copies data/raw</tspan><tspan x="54" y="344">into a per-run snapshot; a later</tspan><tspan x="54" y="362">change to data/raw cannot alter</tspan><tspan x="54" y="380">what this run builds</tspan></text>
+    <text x="54" y="438" class="mono">build/snapshots/&lt;run&gt;/</text>
+  </g>
+  <g>
+    <rect x="282" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
+    <circle cx="304" cy="292" r="12" fill="#6a4fd1"/><text x="304" y="296" class="num" text-anchor="middle">2</text>
+    <use href="#i-db" xlink:href="#i-db" x="474" y="280" width="26" height="26" color="#6a4fd1"/>
+    <text x="326" y="297" class="ct">Load side DB</text>
+    <text class="cb"><tspan x="296" y="326">the loader writes the raw</tspan><tspan x="296" y="344">tables into a run-scoped</tspan><tspan x="296" y="362">DuckDB file, never the live</tspan><tspan x="296" y="380">register</tspan></text>
+    <text x="296" y="438" class="mono">build/staging/&lt;run&gt;.duckdb</text>
+  </g>
+  <g>
+    <rect x="524" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
+    <circle cx="546" cy="292" r="12" fill="#6a4fd1"/><text x="546" y="296" class="num" text-anchor="middle">3</text>
+    <use href="#i-tests" xlink:href="#i-tests" x="716" y="280" width="26" height="26" color="#1f9d7a"/>
+    <text x="568" y="297" class="ct">dbt build + tests</text>
+    <text class="cb"><tspan x="538" y="326">staging and marts with</tspan><tspan x="538" y="344">enforced contracts; blocking</tspan><tspan x="538" y="362">tests: row bounds, keys,</tspan><tspan x="538" y="380">referential integrity,</tspan><tspan x="538" y="398">missing is not zero</tspan></text>
+  </g>
+  <g>
+    <rect x="766" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
+    <circle cx="788" cy="292" r="12" fill="#6a4fd1"/><text x="788" y="296" class="num" text-anchor="middle">4</text>
+    <use href="#i-shield" xlink:href="#i-shield" x="958" y="280" width="26" height="26" color="#c0392b"/>
+    <text x="810" y="297" class="ct">Carry-over gate</text>
+    <text class="cb"><tspan x="780" y="326">fails the run if the v2-to-v3</tspan><tspan x="780" y="344">carry-over rate falls below a</tspan><tspan x="780" y="362">hard floor, or cannot be</tspan><tspan x="780" y="380">measured at all</tspan></text>
+  </g>
+  <g>
+    <rect x="1008" y="270" width="232" height="186" rx="12" fill="#fff" stroke="#a9dcbb" stroke-width="1.6"/>
+    <circle cx="1030" cy="292" r="12" fill="#1f8a4c"/><text x="1030" y="296" class="num" text-anchor="middle">5</text>
+    <use href="#i-swap" xlink:href="#i-swap" x="1202" y="280" width="26" height="26" color="#1f8a4c"/>
+    <text x="1052" y="297" class="ct">Atomic promote</text>
+    <text class="cb"><tspan x="1022" y="326">one os.replace moves the</tspan><tspan x="1022" y="344">side file onto the live path</tspan><tspan x="1022" y="362">and records the snapshot's</tspan><tspan x="1022" y="380">fingerprint as published</tspan></text>
+    <text x="1022" y="438" class="mono">build/nfr.duckdb</text>
+  </g>
+  <path class="e" d="M270,363 H280"/>
+  <path class="e" d="M512,363 H522"/>
+  <path class="e" d="M754,363 H764"/>
+  <path class="eg" d="M996,363 H1006"/>
+
+  <!-- ===== outcomes ===== -->
+  <path class="ef" d="M639,456 V530 H452"/>
+  <path class="ef" d="M881,456 V548 H452"/>
+  <path class="ei" d="M610,456 V610 H648"/>
+  <path class="eg" d="M1124,456 V574"/>
+  <text x="664" y="524" class="lab" fill="#c0392b">any failure</text>
+  <text x="1136" y="520" class="lab" fill="#1f8a4c">all passed</text>
+
+  <g>
+    <rect x="40" y="496" width="410" height="116" rx="12" fill="#fdf0ee" stroke="#f0c2bb" stroke-width="1.4"/>
+    <use href="#i-x" xlink:href="#i-x" x="56" y="512" width="28" height="28" color="#c0392b"/>
+    <text x="94" y="532" class="ct">Nothing is published</text>
+    <text class="cb"><tspan x="58" y="560">the side file is discarded and the live register is left</tspan><tspan x="58" y="578">untouched; the vintage stays eligible, so the sensor</tspan><tspan x="58" y="596">fires again; a run-failure sensor logs it for operators</tspan></text>
+  </g>
+  <g>
+    <rect x="650" y="566" width="330" height="172" rx="12" fill="#fff" stroke="#d6dbe6" stroke-width="1.4"/>
+    <use href="#i-gauge" xlink:href="#i-gauge" x="666" y="580" width="28" height="28" color="#6b7fa8"/>
+    <text x="704" y="600" class="ct">Run metadata + asset checks</text>
+    <text class="cb"><tspan x="668" y="626">every run records load counts, the LGA</tspan><tspan x="668" y="644">resolve rate and the carry-over rate;</tspan><tspan x="668" y="662">asset checks warn below advisory</tspan><tspan x="668" y="680">floors that sit above the hard gate,</tspan><tspan x="668" y="698">so a vintage warns before it blocks</tspan></text>
+    <text x="668" y="724" font-size="11" font-style="italic" fill="#7a8398">advisory: warns, never blocks</text>
+  </g>
+  <g>
+    <rect x="1008" y="576" width="232" height="154" rx="12" fill="#eef8f1" stroke="#a9dcbb" stroke-width="1.6"/>
+    <use href="#i-chart" xlink:href="#i-chart" x="1024" y="592" width="28" height="28" color="#1f8a4c"/>
+    <text x="1062" y="612" class="ct">Live register</text>
+    <text class="cb"><tspan x="1026" y="640">published marts, read by</tspan><tspan x="1026" y="658">the Superset dashboard over</tspan><tspan x="1026" y="676">a read-only connection; the</tspan><tspan x="1026" y="694">sensor now sees this vintage</tspan><tspan x="1026" y="712">as built</tspan></text>
+  </g>
+</svg>
