@@ -171,4 +171,5 @@ def test_place_all_lands_both_or_neither(tmp_path, monkeypatch):
     # Neither landed, and no temp files are left behind.
     assert not (raw / good.name).exists()
     assert not (raw / bad.name).exists()
-    assert raw.exists() and not list(raw.glob(".*.part.gpkg"))
+    assert raw.exists()
+    assert not list(raw.glob(".*.part.gpkg"))
