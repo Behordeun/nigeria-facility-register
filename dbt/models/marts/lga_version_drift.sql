@@ -17,6 +17,12 @@
 -- the one-row-per-facility grain. The join is a left join, so a lineage record
 -- whose LGA does not resolve is kept with a null canonical_lga, never dropped.
 --
+-- state is always the frame's state name, resolved from the lineage state's
+-- normalised key rather than from the LGA join, so a record whose LGA does not
+-- resolve still carries the same label as its resolved neighbours (the frame's
+-- "Federal Capital Territory", never the lineage "FCT"). One label per state is
+-- what lets a filter or a group-by on state treat each state as one value.
+--
 -- Only states v3.0 covers carry lineage; stg_version_lineage already excludes
 -- the rest, so every row here is a real cross-version comparison.
 
@@ -75,6 +81,16 @@ frame as (
         from {{ source('raw', 'frame_master_index') }}
     )
     where rn = 1
+),
+
+frame_state as (
+    -- One frame state name per normalised state key. min() only makes the pick
+    -- deterministic; the frame carries a single spelling per state.
+    select
+        {{ norm_state('state') }} as state_key,
+        min(state) as state
+    from {{ source('raw', 'frame_master_index') }}
+    group by 1
 )
 
 select
@@ -82,7 +98,9 @@ select
     n.lineage_status,
     f.canonical_lga,
     n.lga                               as source_lga,
-    coalesce(f.state, n.state)          as state,
+    -- Falls back to the lineage label only for a state the frame does not know,
+    -- so the row still materialises and assert_drift_state_in_frame names it.
+    coalesce(fs.state, n.state)         as state,
     f.espen_iu_id,
     n.v2_id,
     n.v3_id,
@@ -94,3 +112,5 @@ select
 from normed n
 left join frame f
   on n.state_key = f.state_key and n.lga_key = f.lga_key
+left join frame_state fs
+  on n.state_key = fs.state_key
