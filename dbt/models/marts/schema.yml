@@ -264,3 +264,112 @@ models:
       - name: geometry_feature
         data_type: varchar
         description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage and the five *_endemicity_rank_lga columns for colouring and tooltips.
+
+  - name: register_summary
+    description: >
+      One row describing the published register: when it was built, which GRID3
+      release each part comes from, how much of the LGA frame each source covers,
+      and the lineage totals. Rebuilt on every refresh, so a dashboard can render
+      it as a live summary. See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: built_at
+        data_type: timestamp
+        description: When this register was built (the refresh that published it), in the build host's clock.
+        constraints:
+          - type: not_null
+      - name: lgas
+        data_type: bigint
+        description: LGAs in the coverage mart; 774 by contract.
+        constraints:
+          - type: not_null
+      - name: states
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: states_on_v3
+        data_type: bigint
+        description: States whose facilities come from GRID3 v3.0.
+        constraints:
+          - type: not_null
+      - name: states_on_v2
+        data_type: bigint
+        description: States still on GRID3 v2.0, awaiting v3.0 coverage.
+        constraints:
+          - type: not_null
+      - name: states_without_facilities
+        data_type: bigint
+        description: States none of whose LGAs matched a facility, so no version applies; an absence to reconcile, not a third version.
+        constraints:
+          - type: not_null
+      - name: v3_source_date
+        data_type: date
+        description: Release date of the GRID3 v3.0 register in use; null if no state uses it.
+      - name: v2_source_date
+        data_type: date
+        description: Release date of the GRID3 v2.0 register in use; null if no state uses it.
+      - name: facilities
+        data_type: bigint
+        description: Facilities in the authority layer (v3.0 plus v2.0).
+        constraints:
+          - type: not_null
+      - name: facilities_in_lgas
+        data_type: bigint
+        description: Facilities whose LGA resolved to a frame LGA; at most `facilities`.
+        constraints:
+          - type: not_null
+      - name: facilities_v3
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: facilities_v2
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: lgas_unmatched
+        data_type: bigint
+        description: LGAs that matched no facility (a name-join miss to reconcile, not a measured zero).
+        constraints:
+          - type: not_null
+      - name: priority_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: sth_known_lgas
+        data_type: bigint
+        description: LGAs with a known ESPEN STH status (a rank); the rest are unknown, not zero.
+        constraints:
+          - type: not_null
+      - name: sch_known_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: lf_known_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: oncho_known_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: loa_known_lgas
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: espen_latest_year
+        data_type: integer
+        description: Latest year any ESPEN status is reported for.
+      - name: lineage_carried_over
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: lineage_dropped
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: lineage_appeared
+        data_type: bigint
+        constraints:
+          - type: not_null
