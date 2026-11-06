@@ -28,7 +28,7 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
 | staging | authority layer, version lineage, per-LGA NTD endemicity | one source version per state, unique facility id, crosswalk-resolved LGA; endemicity one row per (LGA, disease), every known label ranked, unknown never ranked |
-| marts | coverage-burden, version drift, coverage-choropleth | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
+| marts | coverage-burden, version drift, coverage-choropleth, register summary | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part, register summary exactly one row that agrees with the tables it summarises; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
 ## Data-quality gate
 

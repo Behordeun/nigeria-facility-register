@@ -1,0 +1,38 @@
+slice_name: Facility lineage, v2.0 to v3.0
+description: null
+certified_by: null
+certification_details: null
+viz_type: pie
+params:
+  datasource: 3__table
+  viz_type: pie
+  extra_form_data: {}
+  groupby:
+  - lineage_status
+  metric:
+    expressionType: SQL
+    sqlExpression: COUNT(*)
+    label: Count
+    hasCustomLabel: true
+    optionName: metric_36da8e2f24cb
+  adhoc_filters: []
+  row_limit: 100
+  sort_by_metric: true
+  color_scheme: supersetColors
+  show_labels_threshold: 5
+  show_legend: true
+  legendType: plain
+  legendOrientation: bottom
+  label_type: percent
+  number_format: SMART_NUMBER
+  show_labels: true
+  labels_outside: false
+  outerRadius: 80
+  innerRadius: 40
+  donut: true
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 966826b0-afbe-5be5-90e2-30f13ab83316
+version: 1.0.0
+dataset_uuid: 4c124e6e-44f9-58c0-9bb3-022f79d12a60

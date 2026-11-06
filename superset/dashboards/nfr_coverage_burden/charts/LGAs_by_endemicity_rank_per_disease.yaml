@@ -1,0 +1,50 @@
+slice_name: LGAs by endemicity rank, per disease
+description: null
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 5__table
+  viz_type: echarts_timeseries_bar
+  extra_form_data: {}
+  x_axis: disease
+  metrics:
+  - expressionType: SQL
+    sqlExpression: COUNT(*)
+    label: Count
+    hasCustomLabel: true
+    optionName: metric_36da8e2f24cb
+  groupby:
+  - rank_label
+  adhoc_filters: []
+  row_limit: 10000
+  order_desc: true
+  stack: Stack
+  orientation: horizontal
+  x_axis_sort_asc: true
+  x_axis_sort_series: name
+  x_axis_sort_series_ascending: true
+  show_legend: true
+  legendType: plain
+  legendOrientation: top
+  color_scheme: supersetColors
+  y_axis_format: SMART_NUMBER
+  truncateXAxis: true
+  y_axis_bounds:
+  - null
+  - null
+  rich_tooltip: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  only_total: true
+  sort_series_type: sum
+  truncate_metric: true
+  x_axis_title_margin: 15
+  y_axis_title_margin: 15
+  y_axis_title_position: Left
+query_context: null
+cache_timeout: null
+uuid: 2923cc16-c0aa-59c6-a36e-c4ed9ed3071e
+version: 1.0.0
+dataset_uuid: 224794c0-e3be-55bb-a30a-0110894386af
