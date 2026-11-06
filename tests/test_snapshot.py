@@ -92,6 +92,18 @@ def test_snapshot_rejects_a_symlink_escaping_the_raw_dir(tmp_path):
         snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
 
 
+def test_snapshot_accepts_a_symlink_to_a_sibling_in_the_raw_dir(tmp_path):
+    # A symlink that stays inside the raw dir is a project input, not an escape:
+    # the resolved target's parents include the raw dir, so it is snapshotted.
+    src = tmp_path / "raw"
+    src.mkdir()
+    (src / "a.gpkg").write_bytes(b"AAAA")
+    (src / "real_b.gpkg").write_bytes(b"BBBB")
+    (src / "b.gpkg").symlink_to(src / "real_b.gpkg")
+    dest = snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
+    assert (dest / "b.gpkg").read_bytes() == b"BBBB", "a same-directory symlink must be followed and copied"
+
+
 def test_clear_snapshot_does_not_raise_on_unlink_error(tmp_path, monkeypatch):
     # After a successful promote the snapshot's cleanup must never fail the run;
     # an unlink error is swallowed so a published refresh is not marked failed.

@@ -57,5 +57,5 @@ jobs:
       - name: dbt build + test on the fixture
         working-directory: dbt
         run: |
-          uv run dbt deps || true
+          uv run dbt deps
           uv run dbt build --profiles-dir . --vars 'fixture_build: true'

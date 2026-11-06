@@ -59,9 +59,12 @@ def _quoted_ident(table: str) -> str:
 
 
 def read_gpkg(path: Path) -> pd.DataFrame:
-    if not Path(path).resolve().is_relative_to(PROJECT_ROOT):
+    # Open the resolved path that was checked, not the caller's spelling of it,
+    # so what is read is exactly what passed the project-root check.
+    real = Path(path).resolve()
+    if not real.is_relative_to(PROJECT_ROOT):
         raise ValueError(f"path {path} resolves outside the project root")
-    gdf = gpd.read_file(path)
+    gdf = gpd.read_file(real)
     return gdf.drop(columns=[c for c in ["geometry"] if c in gdf.columns])
 
 

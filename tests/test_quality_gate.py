@@ -85,3 +85,37 @@ def test_staging_db_path_sanitises_and_falls_back():
     assert d._staging_db_path("../../etc/passwd").name.startswith("nfr_")
     assert "/" not in d._staging_db_path("../../etc/passwd").name
     assert d._staging_db_path("").name == "nfr_manual.duckdb"
+
+
+def test_failed_publish_discards_the_side_db_and_keeps_the_live_db(tmp_path, monkeypatch):
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "staging" / "nfr_run.duckdb"
+    staging.parent.mkdir()
+    staging.write_bytes(b"new register")
+    snap = tmp_path / "snapshots" / "run"
+    snap.mkdir(parents=True)
+    (snap / "a.gpkg").write_bytes(b"A")
+    monkeypatch.setattr(d, "DB", live)
+
+    def fail(*_args):
+        raise RuntimeError("sentinel write failed")
+
+    monkeypatch.setattr(d.publish, "write_published_fingerprint", fail)
+    with pytest.raises(RuntimeError, match="sentinel write failed"):
+        d._promote(staging, "fp", snap)
+    assert live.read_bytes() == b"previous register", "a failed publish must leave the live register untouched"
+    assert not staging.exists(), "a failed publish must discard the side database"
+    assert not snap.exists(), "a failed publish must clear the run snapshot"
+
+
+def test_promote_replaces_the_live_db_with_the_side_db(tmp_path, monkeypatch):
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"new register")
+    monkeypatch.setattr(d, "DB", live)
+    monkeypatch.setattr(d.publish, "write_published_fingerprint", lambda *_args: None)
+    d._promote(staging, "fp", tmp_path / "snapshots" / "run")
+    assert live.read_bytes() == b"new register", "promote must move the side database onto the live path"
+    assert not staging.exists(), "the side database is renamed, not copied"

@@ -189,6 +189,27 @@ def raw_sources(context) -> None:
     )
 
 
+def _promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> None:
+    """Publish a fully built and tested side database onto the live path.
+
+    Records the published vintage in the side DB BEFORE the rename, so the
+    fingerprint and the data it describes are promoted together in the one atomic
+    step and can never disagree. os.replace is atomic within a filesystem (build
+    and live share the build/ tree), so a reader of the live DB sees either the
+    whole previous register or the whole new one, never a mixture.
+
+    If either step raises, the side DB and the run's snapshot are removed, the
+    live DB is left exactly as it was, and the error propagates.
+    """
+    try:
+        publish.write_published_fingerprint(str(staging_db), built_fingerprint)
+        os.replace(staging_db, DB)
+    except BaseException:
+        staging_db.unlink(missing_ok=True)
+        snapshot.clear_snapshot(snapshot_dir)
+        raise
+
+
 def _enforce_carryover_gate(db_path: str) -> float:
     """Return the carry-over rate, or raise if it does not clear the hard floor.
 
@@ -268,17 +289,7 @@ def dbt_models(context) -> None:
         snapshot.clear_snapshot(snapshot_dir)
         raise
 
-    # Record the published vintage in the side DB BEFORE the rename, so the
-    # fingerprint and the data it describes are promoted together in the one
-    # atomic step and can never disagree.
-    publish.write_published_fingerprint(str(staging_db), built_fingerprint)
-
-    # Everything passed: promote the staged database onto the live path in one
-    # atomic rename. os.replace is atomic within a filesystem, so a reader of the
-    # live DB sees either the whole previous register or the whole new one, never
-    # a half-built or rejected mixture. Build and live sit under the same build/
-    # tree, so the rename stays on one filesystem.
-    os.replace(staging_db, DB)
+    _promote(staging_db, built_fingerprint, snapshot_dir)
     context.add_output_metadata(
         {
             "db": str(DB),
