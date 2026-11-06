@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-06
+
 ### Added
 
 - A pipeline overview diagram (`docs/images/pipeline-overview.svg`) at the top of the README's build section: source data, the DuckDB raw layer, dbt staging and marts, Dagster orchestration with the quality gate, and the read-only Superset dashboard. The three diagrams in `docs/ARCHITECTURE.md` (data flow, version lineage, orchestration and atomic publish) are redrawn as SVGs in the same style, replacing the Mermaid blocks.
@@ -60,4 +62,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Notes
 
-- The project is pre-release. The public interface and the mart schema may change before the first tagged version.
+- First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
+
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...development
+[0.1.0]: https://github.com/Behordeun/nigeria-facility-register/releases/tag/v0.1.0
