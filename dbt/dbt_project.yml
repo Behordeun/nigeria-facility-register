@@ -1,0 +1,17 @@
+name: nigeria_facility_register
+version: 0.1.0
+config-version: 2
+
+profile: nfr
+
+model-paths: ["models"]
+test-paths: ["tests"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages"]
+
+models:
+  nigeria_facility_register:
+    staging:
+      +materialized: table
+    marts:
+      +materialized: table

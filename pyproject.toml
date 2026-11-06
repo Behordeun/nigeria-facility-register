@@ -3,22 +3,42 @@ name = "nigeria-facility-register"
 version = "0.1.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
-requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [{ name = "Muhammad Abiodun Sulaiman" }]
+requires-python = ">=3.11,<3.13"
+license = { text = "AGPL-3.0-or-later" }
+authors = [
+    { name = "Muhammad Abiodun Sulaiman" },
+    { name = "Bolaji Fatai  Oyeyemi" },
+    { name = "Hammed Sarafadeen" },
+]
 dependencies = [
     "duckdb==1.1.3",
-    "geopandas==1.0.1",
+    "geopandas==1.1.2",
     "pandas==2.2.3",
     "scipy==1.14.1",
     "pyyaml==6.0.2",
-    "dbt-duckdb==1.9.1",
+    "dbt-duckdb==1.11.1",
+    # dbt-core floor is a security floor: 1.12 is the first line whose
+    # constraints admit the patched sqlparse (0.6) and, through dbt-common, the
+    # patched deepdiff (8). 1.12 also requires protobuf 6, which is why the
+    # dagster bump below travels with it. Capped below 1.13: dbt-duckdb 1.11.1
+    # targets the 1.12 adapter generation, so the cap keeps 1.12.x patch
+    # upgrades available while blocking a jump to a dbt-core minor the pinned
+    # adapter was not built against.
+    "dbt-core>=1.12.0,<1.13",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest==8.3.4",
+    "pytest==9.0.3",
+    "pytest-cov==7.0.0",
     "ruff==0.8.4",
+    # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
+    # one-off build tool, not a runtime dependency).
+    "topojson==2.2",
+]
+orchestration = [
+    "dagster==1.13.5",
+    "dagster-webserver==1.13.5",
 ]
 
 [tool.ruff]
@@ -27,6 +47,17 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--cov=nfr --cov-report=xml --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["nfr"]
+# I/O orchestration exercised end to end in CI (the dbt build, or a Dagster
+# run), not by unit tests. Their pure helpers are tested directly, so these are
+# excluded and the coverage figure reflects the unit-tested library code.
+omit = [
+    "src/nfr/load_sources.py",
+    "src/nfr/orchestration/definitions.py",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

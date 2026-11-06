@@ -1,0 +1,215 @@
+version: 2
+
+models:
+  - name: stg_facilities_authority
+    description: >
+      Version-aware authoritative facility layer: v3.0 where it covers a state,
+      v2.0 everywhere else. One row per facility. See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: facility_id
+        data_type: varchar
+        description: Source id (globalid for v2.0, unique_id for v3.0). Unique across the layer.
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: lga
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: facility_name
+        data_type: varchar
+      - name: facility_level
+        data_type: varchar
+      - name: functional
+        data_type: varchar
+        description: Populated for v3.0 rows only; null for v2.0 (no such field).
+      - name: latitude
+        data_type: double
+      - name: longitude
+        data_type: double
+      - name: source_version
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['v2.0', 'v3.0']
+      - name: source_date
+        data_type: date
+        constraints:
+          - type: not_null
+      - name: facility_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['current', 'stale-awaiting-v3']
+
+  - name: stg_version_lineage
+    description: >
+      Cross-version facility lineage: each v2.0 facility reconstructed against
+      v3.0 by a mutual nearest-neighbour match within 100 m on lat/lon, then
+      classified carried-over, dropped or appeared. One row per facility. Only
+      states v3.0 covers appear, so every row is a real comparison. See
+      docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: facility_id
+        data_type: varchar
+        description: >
+          The facility this lineage record is about: the v3 id for a
+          carried-over or appeared record, the v2 id for a dropped one. Unique
+          across the layer.
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: lineage_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['carried-over', 'dropped', 'appeared']
+      - name: state
+        data_type: varchar
+        description: Canonical state; always a v3.0-covered state.
+        constraints:
+          - type: not_null
+      - name: lga
+        data_type: varchar
+        description: Source LGA label (v3 side for matched/appeared, v2 side for dropped), not yet frame-resolved.
+      - name: v2_id
+        data_type: varchar
+        description: globalid of the v2.0 facility; null for an appeared record.
+      - name: v3_id
+        data_type: varchar
+        description: unique_id of the v3.0 facility; null for a dropped record.
+      - name: v2_name
+        data_type: varchar
+      - name: v3_name
+        data_type: varchar
+      - name: match_distance_m
+        data_type: double
+        description: Metres between the paired facilities; null unless carried-over.
+      - name: name_similarity
+        data_type: double
+        description: Jaro-Winkler similarity of the two names; null unless carried-over.
+      - name: name_match_band
+        data_type: varchar
+        description: >
+          Banded name_similarity for a carried-over pair: exact-or-near (>=0.92),
+          close (>=0.80), divergent (<0.80). Null unless carried-over. A
+          divergent band flags a carried-over facility renamed between versions.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['exact-or-near', 'close', 'divergent']
+              config:
+                where: "name_match_band is not null"
+
+  - name: stg_ntd_endemicity_lga
+    description: >
+      ESPEN endemicity per LGA for five diseases, ranked on the shared 0-3
+      ordinal scale of the ntd_endemicity_rank seed. One row per (LGA, disease),
+      774 x 5 rows. The rank comes from the latest known label, so a recent
+      "Unknown" does not erase an earlier measured status; an LGA never reported
+      with a known status has a null rank, never 0. Derived from ESPEN
+      (CC BY-NC-SA 3.0 IGO): non-commercial. See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: canonical_lga
+        data_type: varchar
+        description: Canonical LGA name from the frame. The LGA key is (state, canonical_lga).
+        constraints:
+          - type: not_null
+      - name: state_key
+        data_type: varchar
+        description: norm_state(state), the join key the marts use.
+        constraints:
+          - type: not_null
+      - name: lga_key
+        data_type: varchar
+        description: norm_lga_key(canonical_lga), the join key the marts use.
+        constraints:
+          - type: not_null
+      - name: espen_iu_id
+        data_type: bigint
+        description: The ESPEN implementation unit the LGA maps to (exactly one per LGA).
+        constraints:
+          - type: not_null
+      - name: disease
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: disease_code
+        data_type: varchar
+        description: ESPEN disease code as published (STH, SCH, lf, Oncho, Loa).
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['STH', 'SCH', 'lf', 'Oncho', 'Loa']
+      - name: endemicity_latest_known
+        data_type: varchar
+        description: The latest label that is not an "Unknown ..." status; null when the LGA was never reported with a known status.
+      - name: year_latest_known
+        data_type: integer
+        description: Year of endemicity_latest_known; null exactly when that label is null.
+      - name: endemicity_rank
+        data_type: integer
+        description: >
+          Ordinal 0-3 from the seed (0 non-endemic, 3 the highest need); null
+          exactly when endemicity_latest_known is null. Comparable within a
+          rank_basis; across bases it orders need, not prevalence.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "endemicity_rank is not null"
+      - name: rank_basis
+        data_type: varchar
+        description: prevalence band (STH, SCH, Loa) or programme stage (LF, Oncho).
+        constraints:
+          - type: not_null
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['prevalence band', 'programme stage']
+      - name: endemicity_latest
+        data_type: varchar
+        description: The latest year's label as published, which may be an "Unknown ..." status.
+        constraints:
+          - type: not_null
+      - name: year_latest
+        data_type: integer
+        constraints:
+          - type: not_null
+      - name: years_reported
+        data_type: integer
+        description: Number of distinct years ESPEN reported this LGA and disease.
+        constraints:
+          - type: not_null

@@ -1,11 +1,12 @@
 # Raw third-party inputs: fetched, never committed (large, and one is NC)
 data/raw/
 
-# Build artifacts: the DuckDB database and dbt targets rebuild from bronze
+# Build artifacts: the DuckDB database and dbt targets rebuild from the sources
 build/
 dbt/target/
 dbt/dbt_packages/
 dbt/logs/
+dbt/.user.yml
 
 # Python
 __pycache__/
@@ -15,8 +16,27 @@ venv/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
+.coverage
+coverage.xml
 
 # OS / editor
 .DS_Store
 .idea/
 .vscode/
+.history/
+.codacy
+
+# Internal working notes: kept local, never committed. The SPEC holds prior-art
+# framing and decision history that does not belong in a public repo.
+*.local.md
+docs/SPEC.local.md
+
+# Internal archives: superseded drafts kept locally for reference
+archives/
+
+#Ignore vscode AI rules
+.github/instructions/codacy.instructions.md
+
+# Deployment secrets: the real .env is never committed; .env.example is the template
+.env
+!.env.example

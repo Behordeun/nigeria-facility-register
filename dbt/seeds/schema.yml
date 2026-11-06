@@ -1,0 +1,44 @@
+version: 2
+
+seeds:
+  - name: ntd_endemicity_rank
+    description: >
+      Ordinal rank for each known ESPEN endemicity label, per disease, on one
+      shared 0-3 scale (0 non-endemic, 3 the highest need). STH, schistosomiasis
+      and Loa loa rank by prevalence band. Lymphatic filariasis and
+      onchocerciasis are reported as programme stages, not prevalence, so they
+      rank by stage: post-intervention surveillance 1; under MDA, under targeted
+      treatment, or pending impact assessment 2 (still inside the programme,
+      transmission not yet shown interrupted); endemic with MDA not delivered 3.
+      "Unknown ..." labels are deliberately absent, so an unknown status stays
+      null downstream and never takes a low rank. Every known label in
+      raw.ntd_espen_lga must appear here; assert_ntd_labels_all_ranked fails the
+      build otherwise.
+    config:
+      column_types:
+        disease_code: varchar
+        endemicity: varchar
+        endemicity_rank: integer
+        rank_basis: varchar
+    columns:
+      - name: disease_code
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['STH', 'SCH', 'lf', 'Oncho', 'Loa']
+      - name: endemicity
+        data_tests: [not_null]
+      - name: endemicity_rank
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+      - name: rank_basis
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: ['prevalence band', 'programme stage']

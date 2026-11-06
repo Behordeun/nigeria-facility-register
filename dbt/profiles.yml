@@ -1,0 +1,21 @@
+# Local dbt-duckdb profile. The database file is created under build/ and is
+# gitignored; the pipeline rebuilds it from the source files on every run.
+#
+# The path is NFR_DUCKDB_PATH when set, else ../build/nfr.duckdb. A plain
+# `make build` or `dbt build` uses the default live path, unchanged. The Dagster
+# refresh sets NFR_DUCKDB_PATH to a run-scoped side file so it builds and tests
+# off to the side and promotes that file onto the live path only after the whole
+# build and the quality gate pass, so a reader of the live DB never sees a
+# half-built or rejected register.
+nfr:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: "{{ env_var('NFR_DUCKDB_PATH', '../build/nfr.duckdb') }}"
+      threads: 4
+      # The spatial extension is needed by the choropleth model, which ST_Reads
+      # the vendored LGA boundary geojson. dbt-duckdb installs and loads it on
+      # connect, so no per-model hook is required.
+      extensions:
+        - spatial

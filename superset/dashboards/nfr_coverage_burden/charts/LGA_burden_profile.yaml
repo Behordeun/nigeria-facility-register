@@ -1,0 +1,42 @@
+slice_name: LGA burden profile
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - state
+  - canonical_lga
+  - facilities
+  - facility_status
+  - sth_endemicity_rank_lga
+  - sch_endemicity_rank_lga
+  - lf_endemicity_rank_lga
+  - oncho_endemicity_rank_lga
+  - loa_endemicity_rank_lga
+  - priority_high_burden_thin_coverage
+  order_by_cols:
+  - '["state", true]'
+  - '["canonical_lga", true]'
+  adhoc_filters: []
+  row_limit: 50000
+  server_pagination: true
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 87bc6785-3e9c-5069-8878-8b503bb9a223
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

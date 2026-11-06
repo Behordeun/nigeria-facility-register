@@ -1,0 +1,148 @@
+# Deployment
+
+The dev and CI loops do not need a container: `uv` plus the committed lockfile
+reproduce the environment, and `make sample` / `make build` run the transform
+directly. This document is for an **always-on deployment**, where the Dagster
+schedule and sensor must keep running so the register refreshes on its own.
+
+## What runs
+
+Three services (`docker-compose.yml`); the first two share the project image
+(`Dockerfile`):
+
+- **webserver** — the Dagster UI, on `127.0.0.1:3000`.
+- **daemon** — runs the weekly schedule and the new-vintage sensor, and launches
+  the `refresh_register` job.
+- **superset** — Apache Superset (official image), on `127.0.0.1:8088`, reading
+  the register read-only for dashboards. See the Superset section below.
+
+Both share a `DAGSTER_HOME` volume (one instance, one run store, one set of
+schedule/sensor state) and the `build/` volume (the live DuckDB database, the
+run-scoped staging databases, and the per-run snapshots). The refresh stays
+serialised by the `QueuedRunCoordinator` in `dagster.yaml`, so the schedule, the
+sensor, and a manual run never overlap on the shared database.
+
+## State and inputs
+
+| Path | Kind | Holds |
+| --- | --- | --- |
+| `dagster_home` volume | named volume | instance config, run storage, schedule/sensor state |
+| `build` volume | named volume | `nfr.duckdb` (live), `build/staging/` (run-scoped), `build/snapshots/` |
+| `./data/raw` | bind mount (read-only) | the GRID3 geopackages the operator places |
+
+The raw geopackages are license-fetched and never baked into the image. Place
+them on the host with `scripts/fetch_sources.py --place` (see the README), then
+they are visible read-only inside the containers at `/app/data/raw`.
+
+## Run it
+
+```bash
+# build the image and start both services
+docker compose up -d --build
+
+# the UI (localhost only)
+open http://127.0.0.1:3000
+
+# follow the daemon (schedule + sensor)
+docker compose logs -f daemon
+
+# stop
+docker compose down            # keep volumes (data persists)
+docker compose down -v         # also drop volumes (wipes the built register)
+```
+
+The first refresh runs when the weekly schedule fires or when the sensor sees a
+new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
+materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
+placed.
+
+The orchestrated job always builds from the real inputs in `data/raw/`. It has
+no fixture mode, so `raw_sources` fails fast with a "missing raw inputs" message
+when `data/raw/` is empty rather than building an empty register. The committed
+two-state sample under `data/sample/` is for the local data build only: run it
+with `make sample`, which loads the sample into DuckDB and runs dbt with
+`fixture_build: true` in one step, never touching Dagster. The fixture vars
+lower the row-count floors to the sample's size; the Dagster job does not set
+them, so placing the sample in `data/raw/` and launching the job fails
+`assert_raw_row_counts_sane` on the production minimums. So a green fixture build
+does not make the Dagster job runnable, and the sample is not a shortcut for it:
+the job needs the real HDX geopackages in `data/raw/`. Because `data/raw/` is a
+read-only mount inside the containers, place those on the host with
+`scripts/fetch_sources.py --place`, where the daemon and webserver then see them
+through the mount with no restart.
+
+## Security notes
+
+- The webserver is **unauthenticated**. Inside the container the process binds
+  `0.0.0.0` because Docker's published-port forwarding reaches a container over
+  its bridge interface, not loopback, so a container-loopback bind would be
+  unreachable even through the host mapping. The UI is kept off other hosts by
+  publishing the port only on the host's `127.0.0.1` and putting both services
+  on a private bridge network. **Do not drop the `127.0.0.1:` prefix on the
+  webserver `ports:` entry** without putting an authenticating reverse proxy in
+  front; that prefix is the only thing keeping the UI off every host interface.
+- The base image is pinned to a SHA-256 digest, not just the floating tag, so a
+  rebuild is reproducible; refresh the digest deliberately (see the Dockerfile
+  comment) rather than letting the tag move.
+- `data/raw` is mounted read-only, so a container cannot alter the operator's
+  placed inputs.
+
+## Superset (dashboards)
+
+The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
+
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, five datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `register_summary`), 19 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has four tabs:
+
+- **Coverage**: facilities in the register, LGAs matched and unmatched, priority LGAs, a facilities-per-LGA map, a priority-LGA map and a by-state table.
+- **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table.
+- **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
+- **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
+
+State and facility-status filters apply across the tabs.
+
+To bring it up:
+
+1. Set real credentials first. Copy `.env.example` to `.env` beside the compose file and fill in `SUPERSET_SECRET_KEY` and `SUPERSET_ADMIN_PASSWORD` (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires both, so `docker compose up` aborts with a clear message if either is unset rather than booting with a guessable default. The real `.env` is gitignored. **Never commit real credentials.**
+2. Start the stack (`docker compose up -d`) and let a refresh publish the register.
+3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It zips the bundle, copies it into the `superset` container and runs `superset import-dashboards`, which creates the connection, datasets, charts and dashboard, or updates them in place by UUID on a re-run. Then open `http://127.0.0.1:8088` and log in.
+
+To change the dashboard, edit it in the Superset UI, then run `make dashboard-export` (or `python scripts/superset_dashboard.py export`). That exports only this dashboard, selected by UUID so other dashboards on the instance never land in the repo, and rewrites the bundle directory with stable filenames; review the diff and commit it. `tests/test_superset_bundle.py` checks the bundle in CI: every reference resolves, the connection stays read-only, and every column a dataset or chart names exists in the dbt contract, so renaming a mart column fails the tests instead of breaking a chart.
+
+The live summary is a Table chart whose single cell is HTML built in SQL by a calculated column on the `register_summary` dataset, rendered with the table's sanitised HTML option. Superset's Handlebars chart would read more naturally but compiles its template with `eval`, which Superset's own Content Security Policy blocks; loosening the policy for one panel is not worth weakening it for the whole app.
+
+The map charts use the deck.gl Polygon layer, which needs each polygon's coordinate rings rather than a GeoJSON object, so the choropleth dataset adds a calculated `polygon_coordinates` column (`json_extract(geometry_geojson, '$.coordinates')`). The map rows are polygon parts (800 over 774 LGAs), so the map metrics use `MAX`, never `SUM`.
+
+Hovering an LGA on any map shows a one-line summary: LGA and state, facility count with register version and status, the five endemicity ranks (`unknown` where no status is known), and the priority flag, followed by the map's own value. The Polygon layer's built-in tooltip prints a row's `name` field as plain text and only renders when the chart has a metric, so the choropleth dataset defines a calculated `name` column holding that summary, every map passes it through `js_columns`, and the priority map carries a constant metric (1 for each flagged LGA, drawn in a single red bucket). This needs no JavaScript controls and stays within Superset's Content Security Policy. `tests/test_superset_bundle.py` fails if a map loses its metric or the hover column.
+
+The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a Mapbox public token (`pk...`) for the map background; without it the tiles do not load, though the polygons, non-map charts and the data layer are unaffected. The token stays in the gitignored `.env`, never committed.
+
+Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
+
+### Who can see what
+
+The bundle's connection is exposed to SQL Lab on purpose, read-only; see [ADR 0001](adr/0001-superset-sql-lab-access.md). Access is controlled with Superset roles, not by hiding the connection:
+
+- **Viewers**: the Gamma role plus access to the dashboard's datasets. They see the dashboard and can export chart data, but cannot run SQL.
+- **Analysts**: additionally the `sql_lab` role, which lets them query every table in the register (marts, staging, raw), read-only. Grant it only to named people who have accepted the ESPEN non-commercial terms, since SQL Lab makes the full per-LGA endemicity table easy to export.
+- **Admins**: manage roles and import the bundle.
+
+Before opening the dashboard to anyone outside the team (self-registration, a public or guest role, embedding), check each of these:
+
+1. Self-registration stays off (`AUTH_USER_REGISTRATION = False`, the default), or new users default to a role without `sql_lab`.
+2. Any public or guest role (`PUBLIC_ROLE_LIKE`, guest tokens) is limited to the dashboard's datasets and has no `sql_lab`.
+3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
+4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
+
+## Not covered here
+
+This is a single-host compose deployment. A cloud/orchestrated deployment
+(Kubernetes, a managed Dagster, external run storage in Postgres) is a separate
+step; the image is a plain Python/uv image, so it drops into those without
+change, but their manifests are out of scope.
+
+## Status
+
+The image and compose file are committed and validated by parse/import; a live
+`docker compose up` has not been run in CI (no container runtime there), so the
+first real deployment should expect to iterate on host specifics (GDAL runtime
+version, volume permissions).
