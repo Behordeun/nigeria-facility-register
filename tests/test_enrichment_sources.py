@@ -123,6 +123,16 @@ def test_build_refuses_to_write_into_a_source_directory(tmp_path):
     assert src.read_text() == "x\n"
 
 
+def test_build_refuses_an_output_directory_above_a_source(tmp_path):
+    nested = tmp_path / "espen_ntd" / "data"
+    nested.mkdir(parents=True)
+    src = nested / "espen_long.csv"
+    src.write_text("x\n")
+    with pytest.raises(SystemExit, match="source directory"):
+        bes.build(src, src, src, tmp_path)
+    assert src.read_text() == "x\n"
+
+
 # The committed outputs: what the loader reads and the dbt tests then check.
 
 def test_committed_espen_is_774_lgas_by_five_diseases():

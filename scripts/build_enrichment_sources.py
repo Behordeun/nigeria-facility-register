@@ -182,8 +182,9 @@ def build(espen: Path, flood: Path, births: Path, out_dir: Path) -> None:
     sources = [p.resolve() for p in (espen, flood, births)]
     out_dir = out_dir.resolve()
     # The originals must never be written: refuse an output directory that holds
-    # any of them, so a mistyped --out cannot overwrite a monorepo file.
-    if any(src.parent == out_dir for src in sources):
+    # any of them at any depth, so a mistyped --out cannot write into the
+    # monorepo tree the sources live in.
+    if any(out_dir in src.parents for src in sources):
         raise SystemExit(f"refusing to write into a source directory: {out_dir}")
 
     frame = pd.read_csv(FRAME_INDEX)
