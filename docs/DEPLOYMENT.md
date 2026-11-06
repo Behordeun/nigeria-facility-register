@@ -118,6 +118,21 @@ The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a 
 
 Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
 
+### Who can see what
+
+The bundle's connection is exposed to SQL Lab on purpose, read-only; see [ADR 0001](adr/0001-superset-sql-lab-access.md). Access is controlled with Superset roles, not by hiding the connection:
+
+- **Viewers**: the Gamma role plus access to the dashboard's datasets. They see the dashboard and can export chart data, but cannot run SQL.
+- **Analysts**: additionally the `sql_lab` role, which lets them query every table in the register (marts, staging, raw), read-only. Grant it only to named people who have accepted the ESPEN non-commercial terms, since SQL Lab makes the full per-LGA endemicity table easy to export.
+- **Admins**: manage roles and import the bundle.
+
+Before opening the dashboard to anyone outside the team (self-registration, a public or guest role, embedding), check each of these:
+
+1. Self-registration stays off (`AUTH_USER_REGISTRATION = False`, the default), or new users default to a role without `sql_lab`.
+2. Any public or guest role (`PUBLIC_ROLE_LIKE`, guest tokens) is limited to the dashboard's datasets and has no `sql_lab`.
+3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
+4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
+
 ## Not covered here
 
 This is a single-host compose deployment. A cloud/orchestrated deployment

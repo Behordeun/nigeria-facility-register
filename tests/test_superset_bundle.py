@@ -67,6 +67,19 @@ def test_database_connection_is_read_only_and_credential_free():
     assert "password" not in database, "a bundle must never carry a credential"
 
 
+def test_sql_lab_exposure_matches_the_recorded_decision():
+    # docs/adr/0001-superset-sql-lab-access.md: the register is exposed to SQL Lab,
+    # read-only, with access gated by the sql_lab role. Changing this setting is a
+    # decision, not a tweak: update the ADR and this test in the same change.
+    (database,) = _many("databases")
+    assert database["expose_in_sqllab"] is True, (
+        "SQL Lab exposure changed; update docs/adr/0001-superset-sql-lab-access.md and this test together"
+    )
+    assert database["allow_dml"] is False and database["sqlalchemy_uri"].endswith("access_mode=read_only"), (
+        "SQL Lab exposure is only acceptable while the connection is read-only"
+    )
+
+
 def test_every_reference_resolves_by_uuid():
     (database,) = _many("databases")
     datasets = {d["uuid"]: d for d in _many("datasets")}
