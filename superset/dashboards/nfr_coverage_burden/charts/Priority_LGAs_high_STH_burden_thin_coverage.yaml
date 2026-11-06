@@ -9,7 +9,13 @@ params:
   extra_form_data: {}
   line_column: polygon_coordinates
   line_type: json
-  metric: null
+  metric:
+    expressionType: SQL
+    label: Priority LGA (1 = flagged)
+    sqlExpression: MAX(CASE WHEN priority_high_burden_thin_coverage THEN 1 ELSE 0
+      END)
+    hasCustomLabel: true
+    optionName: metric_priorityflag
   adhoc_filters:
   - expressionType: SQL
     clause: WHERE
@@ -54,15 +60,18 @@ params:
   point_radius_fixed:
     type: fix
     value: 0
-  linear_color_scheme: schemeYlGnBu
+  linear_color_scheme: schemeReds
   opacity: 80
-  break_points: []
+  break_points:
+  - '0'
+  - '2'
   num_buckets: '1'
   table_filter: false
   toggle_polygons: true
   legend_position: null
   legend_format: .0f
-  js_columns: []
+  js_columns:
+  - name
   js_data_mutator: ''
   js_tooltip: ''
   js_onclick_href: ''

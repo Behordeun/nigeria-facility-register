@@ -241,7 +241,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 18
+      chartId: 19
       width: 4
       height: 70
       sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
@@ -256,7 +256,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 17
+      chartId: 18
       width: 4
       height: 70
       sliceName: 'Schistosomiasis: endemicity rank by LGA'
@@ -484,7 +484,7 @@ position:
     - ROW-drift-2
     children: []
     meta:
-      chartId: 16
+      chartId: 17
       width: 12
       height: 80
       sliceName: 'Review queue: dropped and appeared facilities'
@@ -564,7 +564,7 @@ position:
     - ROW-about-0
     children: []
     meta:
-      chartId: 19
+      chartId: 16
       width: 12
       height: 62
       sliceName: Register status
@@ -644,7 +644,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 19
+      - 16
     chartsInScope:
     - 1
     - 2
@@ -697,8 +697,8 @@ metadata:
       - 6
       - 9
       - 12
+      - 17
       - 16
-      - 19
     chartsInScope:
     - 1
     - 2

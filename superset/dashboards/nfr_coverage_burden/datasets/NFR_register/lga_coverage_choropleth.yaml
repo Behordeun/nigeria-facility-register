@@ -27,6 +27,29 @@ metrics:
   extra: null
   warning_text: null
 columns:
+- column_name: name
+  verbose_name: LGA summary
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: "canonical_lga || ', ' || state || ' \xB7 ' || format('{:,}', facilities)\
+    \ || CASE WHEN facilities = 1 THEN ' facility' ELSE ' facilities' END || ' ('\
+    \ || CASE WHEN facility_source_version IS NULL THEN 'no facility matched' ELSE\
+    \ 'GRID3 ' || facility_source_version || ', ' || facility_status END || ')' ||\
+    \ ' \xB7 ' || 'STH ' || coalesce(cast(sth_endemicity_rank_lga as varchar), 'unknown')\
+    \ || ' \xB7 ' || 'SCH ' || coalesce(cast(sch_endemicity_rank_lga as varchar),\
+    \ 'unknown') || ' \xB7 ' || 'LF ' || coalesce(cast(lf_endemicity_rank_lga as varchar),\
+    \ 'unknown') || ' \xB7 ' || 'Oncho ' || coalesce(cast(oncho_endemicity_rank_lga\
+    \ as varchar), 'unknown') || ' \xB7 ' || 'Loa ' || coalesce(cast(loa_endemicity_rank_lga\
+    \ as varchar), 'unknown') || ' \xB7 priority: ' || CASE WHEN priority_high_burden_thin_coverage\
+    \ THEN 'yes' ELSE 'no' END"
+  description: 'Hover text for the maps: LGA, state, facilities, register version,
+    the five endemicity ranks and the priority flag.'
+  python_date_format: null
+  extra: null
 - column_name: priority_high_burden_thin_coverage
   verbose_name: Priority (high STH burden, thin coverage)
   is_dttm: false

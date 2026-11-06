@@ -73,7 +73,8 @@ params:
   toggle_polygons: true
   legend_position: null
   legend_format: .0f
-  js_columns: []
+  js_columns:
+  - name
   js_data_mutator: ''
   js_tooltip: ''
   js_onclick_href: ''

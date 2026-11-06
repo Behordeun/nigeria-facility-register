@@ -4,7 +4,7 @@ certified_by: null
 certification_details: null
 viz_type: table
 params:
-  datasource: 5__table
+  datasource: 4__table
   viz_type: table
   query_mode: raw
   all_columns:
@@ -22,6 +22,7 @@ params:
   percent_metrics: []
   table_timestamp_format: smart_date
   extra_form_data: {}
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: fb31b5fd-4ca5-53f4-8be9-ce113e789f58

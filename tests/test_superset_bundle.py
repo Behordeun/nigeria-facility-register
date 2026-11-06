@@ -158,3 +158,18 @@ def test_normalise_export_rejects_path_traversal(tmp_path):
     export = _export_zip(tmp_path, {"root/../escape.yaml": "x"})
     with pytest.raises(SystemExit, match="unexpected path"):
         sd.normalise_export(export, tmp_path / "bundle")
+
+
+def test_every_map_shows_the_lga_hover_summary():
+    # The deck.gl Polygon tooltip renders only when the chart has a metric, and
+    # prints the row's `name` field, so each map needs both: a metric and the
+    # `name` hover column passed through js_columns.
+    datasets = {d["uuid"]: d for d in _many("datasets")}
+    maps = [c for c in _many("charts") if c["viz_type"] == "deck_polygon"]
+    assert maps, "expected map charts in the bundle"
+    for chart in maps:
+        params = chart["params"]
+        assert params.get("metric"), f"map {chart['slice_name']} has no metric, so it shows no tooltip"
+        assert params.get("js_columns") == ["name"], f"map {chart['slice_name']} does not pass the hover summary"
+        columns = {c["column_name"]: c for c in datasets[chart["dataset_uuid"]]["columns"]}
+        assert columns.get("name", {}).get("expression"), "the map dataset must define the `name` hover column"

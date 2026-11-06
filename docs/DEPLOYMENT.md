@@ -112,6 +112,8 @@ The live summary is a Table chart whose single cell is HTML built in SQL by a ca
 
 The map charts use the deck.gl Polygon layer, which needs each polygon's coordinate rings rather than a GeoJSON object, so the choropleth dataset adds a calculated `polygon_coordinates` column (`json_extract(geometry_geojson, '$.coordinates')`). The map rows are polygon parts (800 over 774 LGAs), so the map metrics use `MAX`, never `SUM`.
 
+Hovering an LGA on any map shows a one-line summary: LGA and state, facility count with register version and status, the five endemicity ranks (`unknown` where no status is known), and the priority flag, followed by the map's own value. The Polygon layer's built-in tooltip prints a row's `name` field as plain text and only renders when the chart has a metric, so the choropleth dataset defines a calculated `name` column holding that summary, every map passes it through `js_columns`, and the priority map carries a constant metric (1 for each flagged LGA, drawn in a single red bucket). This needs no JavaScript controls and stays within Superset's Content Security Policy. `tests/test_superset_bundle.py` fails if a map loses its metric or the hover column.
+
 The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a Mapbox public token (`pk...`) for the map background; without it the tiles do not load, though the polygons, non-map charts and the data layer are unaffected. The token stays in the gitignored `.env`, never committed.
 
 Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
