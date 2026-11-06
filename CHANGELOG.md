@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Per-LGA population and access to healthcare, loaded and tested as a raw source but not yet joined into any mart. `data/derived/access_population_lga.csv` gives, for each of the 774 LGAs, the 2025 WorldPop R2025A population (summed at 100 m) and the population-weighted travel time to the nearest health facility from the Malaria Atlas Project's 2020 maps, by motorised transport and walking only, plus the share of people more than 60 minutes' walk away. `scripts/build_access_population.py` fetches the rasters (never committed), checks each against a SHA-256 pinned in `data/sources.yml`, and refuses a table that misses a frame LGA, has an LGA with no population, or holds a negative time or an out-of-range share. LGAs with no population on valid travel-time cells get null travel figures, never 0. New dbt tests check frame coverage and those ranges. The derivation lives in `nfr.enrichment.access_population` so a scheduled refresh can reuse it; a failed download closes and removes its temp file, and `--print-hashes` only fetches and reports the upstream hashes, never building from unpinned files. rasterio is added as a dev dependency.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added

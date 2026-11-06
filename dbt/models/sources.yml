@@ -91,3 +91,18 @@ sources:
             data_tests: [not_null, unique]
           - name: births
             data_tests: [not_null]
+      - name: access_population_lga
+        description: >
+          Per-LGA population (WorldPop R2025A constrained counts, CC BY 4.0) and
+          population-weighted travel time to the nearest health facility
+          (Malaria Atlas Project 2020 release, motorised and walking-only, CC BY),
+          derived by scripts/build_access_population.py and keyed on shapeID.
+          Null travel figures mean no population on valid travel-time cells,
+          never 0 minutes. Not yet consumed by any mart.
+        columns:
+          - name: shapeID
+            data_tests: [not_null, unique]
+          - name: population_year
+            data_tests: [not_null]
+          - name: population
+            data_tests: [not_null]

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1540 1010" width="1540" height="1010" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1540 1030" width="1540" height="1030" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
   <title id="t">Data flow</title>
   <desc id="d">Sources are fetched or vendored, loaded into an immutable DuckDB raw layer, modelled by dbt into staging models and contracted marts, and served read-only through a Superset dashboard, refreshed by Dagster.</desc>
   <defs>
@@ -27,17 +27,17 @@
     </style>
   </defs>
 
-  <rect width="1540" height="1010" fill="#fff"/>
+  <rect width="1540" height="1030" fill="#fff"/>
   <text x="40" y="50" class="h1">Data flow</text>
   <text x="40" y="76" class="sub">From public sources to the published register and the dashboard. Solid arrows carry data; dashed means loaded and tested but not yet used.</text>
 
   <!-- column backgrounds and headers -->
-  <rect x="30" y="100" width="210" height="884" rx="14" fill="#eef4fd"/>
-  <rect x="258" y="100" width="232" height="884" rx="14" fill="#f2f5f9"/>
-  <rect x="508" y="100" width="232" height="884" rx="14" fill="#f2effc"/>
-  <rect x="788" y="100" width="242" height="884" rx="14" fill="#ecf8f3"/>
-  <rect x="1078" y="100" width="242" height="884" rx="14" fill="#eef4fd"/>
-  <rect x="1358" y="100" width="172" height="884" rx="14" fill="#eef8f1"/>
+  <rect x="30" y="100" width="210" height="904" rx="14" fill="#eef4fd"/>
+  <rect x="258" y="100" width="232" height="904" rx="14" fill="#f2f5f9"/>
+  <rect x="508" y="100" width="232" height="904" rx="14" fill="#f2effc"/>
+  <rect x="788" y="100" width="242" height="904" rx="14" fill="#ecf8f3"/>
+  <rect x="1078" y="100" width="242" height="904" rx="14" fill="#eef4fd"/>
+  <rect x="1358" y="100" width="172" height="904" rx="14" fill="#eef8f1"/>
   <text x="135" y="128" class="col" fill="#2f5fb3" text-anchor="middle">SOURCES</text>
   <text x="374" y="128" class="col" fill="#4e5a70" text-anchor="middle">IN THE REPO</text>
   <text x="624" y="128" class="col" fill="#4a35a8" text-anchor="middle">RAW · DUCKDB</text>
@@ -62,6 +62,8 @@
   <path class="e" d="M1020,560 H1088"/>
   <path class="e" d="M1020,548 H1044 V214 H1088"/>
   <path class="e" d="M230,800 H268"/>
+  <path class="e" d="M230,680 H268"/>
+  <path class="ed" d="M480,680 H496 V906 H518"/>
   <path class="e" d="M480,800 H1076 V452 H1088"/>
   <path class="e" d="M230,920 H268"/>
   <path class="ed" d="M480,920 H518"/>
@@ -98,6 +100,14 @@
     <text class="cb"><tspan x="52" y="924">flood-event exposure,</tspan><tspan x="52" y="940">2015 births per LGA</tspan></text>
   </g>
 
+  <g>
+    <rect x="40" y="632" width="190" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
+    <use href="#i-pin" xlink:href="#i-pin" x="50" y="642" width="26" height="26" color="#2f6fd6"/>
+    <text x="84" y="660" class="ct">MAP + WorldPop</text>
+    <text class="cb"><tspan x="52" y="684">travel time to care (2020);</tspan><tspan x="52" y="700">2025 population, 100 m</tspan></text>
+    <text x="52" y="718" class="ft">rasters fetched, never committed</text>
+  </g>
+
   <!-- ========== IN THE REPO ========== -->
   <g>
     <rect x="270" y="392" width="210" height="96" rx="10" fill="#fff" stroke="#cfd6e2"/>
@@ -123,6 +133,14 @@
     <use href="#i-doc" xlink:href="#i-doc" x="280" y="882" width="26" height="26" color="#4e5a70"/>
     <text x="314" y="900" class="ct">Enrichment inputs</text>
     <text class="cb"><tspan x="282" y="924">flood exposure 2022 / 2024,</tspan><tspan x="282" y="940">WorldPop births per LGA</tspan></text>
+  </g>
+
+  <g>
+    <rect x="270" y="632" width="210" height="96" rx="10" fill="#fff" stroke="#cfd6e2"/>
+    <use href="#i-doc" xlink:href="#i-doc" x="280" y="642" width="26" height="26" color="#4e5a70"/>
+    <text x="314" y="660" class="ct">Access + population</text>
+    <text class="cb"><tspan x="282" y="684">per-LGA population and</tspan><tspan x="282" y="700">population-weighted travel time</tspan></text>
+    <text x="282" y="718" class="ft">derived, CC BY</text>
   </g>
 
   <!-- ========== RAW (DuckDB) ========== -->
@@ -151,11 +169,11 @@
     <text class="cb"><tspan x="532" y="684">dbt seed: every known label</tspan><tspan x="532" y="700">to a 0-3 rank; unknown is</tspan><tspan x="532" y="716">never ranked</tspan></text>
   </g>
   <g>
-    <rect x="520" y="872" width="210" height="96" rx="10" fill="#fff" stroke="#cfc6f0" stroke-dasharray="5 4"/>
+    <rect x="520" y="872" width="210" height="122" rx="10" fill="#fff" stroke="#cfc6f0" stroke-dasharray="5 4"/>
     <use href="#i-db" xlink:href="#i-db" x="530" y="882" width="26" height="26" color="#9b8fd6"/>
-    <text x="564" y="900" class="ct">flood + births</text>
-    <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga</tspan></text>
-    <text x="532" y="958" class="ft">loaded and tested, not yet joined</text>
+    <text x="564" y="900" class="ct">flood, births, access</text>
+    <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga,</tspan><tspan x="532" y="956">access_population_lga</tspan></text>
+    <text x="532" y="982" class="ft">loaded and tested, not yet joined</text>
   </g>
 
   <!-- ========== STAGING (dbt) ========== -->
