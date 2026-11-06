@@ -1,6 +1,6 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the two serving marts (`lga_coverage_burden` and `lga_version_drift`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the three serving marts (`lga_coverage_burden`, `lga_version_drift` and `lga_coverage_choropleth`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
@@ -10,7 +10,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
-| `lga_coverage_choropleth` | mart | one LGA, with geometry | exactly 774, each with a boundary polygon |
+| `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
 ## `stg_facilities_authority`
 
@@ -115,13 +115,20 @@ Guarantees:
 
 ## `lga_coverage_choropleth`
 
-`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. Same grain and guarantees as the coverage mart (exactly 774 LGAs, one per LGA, the same coverage/burden/priority columns under the same rules), plus one column:
+`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
 
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
-| `geometry_geojson` | json | no | the LGA boundary polygon as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`; every one of the 774 rows carries a polygon |
+| `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
+| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state` and `priority_high_burden_thin_coverage` |
 
-The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`) are exactly as in `lga_coverage_burden` above. Geometry is never null: a missing polygon would be a hole in the map, so the build and a test fail rather than ship one.
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`) are exactly as in `lga_coverage_burden` above.
+
+Guarantees:
+
+- Exactly 774 distinct `(state, canonical_lga)` pairs, so every LGA is on the map.
+- Geometry is never null: a missing polygon would be a hole in the map, so the build and a test fail rather than ship one.
+- Rows are polygon parts, not LGAs. Do not sum or count coverage columns across rows: an LGA with three parts would be counted three times. Aggregate from `lga_coverage_burden`, or take distinct `(state, canonical_lga)` first.
 
 ## The rule that spans every table
 
