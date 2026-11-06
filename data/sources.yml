@@ -55,3 +55,51 @@ sources:
     note: >
       Non-commercial. Only the DERIVED per-state summary is committed, never the
       raw ESPEN IU table. Attribution required; no commercial redistribution.
+
+  # Enrichment inputs. Each is a small DERIVED per-LGA table built by
+  # scripts/build_enrichment_sources.py from a file in the Geospatial monorepo,
+  # which is read only and never modified. upstream_sha256 pins the exact
+  # monorepo file the committed table was derived from; sha256 pins the
+  # committed table itself.
+
+  ntd_espen_lga:
+    name: ESPEN NTD endemicity, per LGA and disease (DERIVED)
+    url: https://espen.afro.who.int/countries/nigeria
+    license: CC BY-NC-SA 3.0 IGO (upstream ESPEN)
+    format: csv
+    derived_from: Geospatial/espen_ntd/data/espen_long.csv (ESPEN IU-level, 2014-2025)
+    upstream_sha256: a438ade2dc971c785416f500961c57aaab892f58b4c89fcb747167b5d0f1e412
+    sha256: 4c8c3d9d0d426bb34cb341e07a5306991eb881952e9ffc2629246549f7d02a4a
+    note: >
+      Non-commercial. Five diseases (STH, schistosomiasis, lymphatic filariasis,
+      onchocerciasis, Loa loa), one row per (LGA, disease): the latest year's
+      endemicity label and the latest non-"Unknown" label. Trachoma, water and
+      sanitation are not in the long table and are not included. Only this
+      summary is committed, never the raw ESPEN IU table.
+
+  flood_event_affected_lga:
+    name: Flood-event exposure per LGA (DERIVED)
+    source: NASA MODIS flood products, summarised per LGA in the flood_health project
+    license: NASA open data (no restriction on reuse; attribution requested)
+    format: csv
+    derived_from: Geospatial/flood_health/data/lga_flood_event_affected.csv
+    upstream_sha256: 983221d07644194ad36b0b7195239b3e75d3cbfae4833e13f9c8a43b519bb750
+    sha256: 6e216b4360160dd3480b1375f23c90b440899ce1762e59b1a16234bbcffef71d
+    note: >
+      One row per (LGA, event_year): 2022 at state resolution (the state's flag
+      repeated to each LGA), 2024 at LGA resolution. affected is a 0/1 exposure
+      flag, not a severity. The single-year flood-days table was not brought in:
+      it covers 224 LGAs, keys on a non-unique name, and does not say why the
+      rest are absent.
+
+  births_lga:
+    name: WorldPop annual births per LGA (DERIVED)
+    url: https://www.worldpop.org
+    license: CC BY 4.0
+    format: csv
+    derived_from: Geospatial/sickle_cell/data/lga_births.csv (WorldPop 1 km births, 2015, UN-adjusted)
+    upstream_sha256: 39ed0a19636f7b25a35e144c8b3c49b4d90ecc460447d9d2bbced4685422bbef
+    sha256: d95c6a9b5a4c7bb340793216be5e44d9c9e3202e3452378e1c674d62700e14c9
+    note: >
+      Zonal-summed into the 774 geoBoundaries polygons, keyed on shapeID. The
+      monorepo's state_population.csv is placeholder projections and is not used.

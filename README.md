@@ -20,10 +20,11 @@ A loader reads each source file into DuckDB as a `raw` table. Staging builds the
 src/nfr/          Python: name keys, source loader, Dagster orchestration
 dbt/              DuckDB models: staging (authority layer, version lineage), marts (coverage x burden, version drift)
 data/frame/       774-LGA index + centroids + simplified boundary polygons (CC BY)
-data/derived/     derived ESPEN NTD summary (CC BY-NC-SA, non-commercial)
+data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA, non-commercial),
+                  per-LGA flood exposure (NASA, open) and WorldPop births (CC BY)
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
-scripts/          fetch_sources.py
-tests/            unit tests for the join keys
+scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py
+tests/            unit tests (join keys, loader guards, orchestration, derived inputs)
 ```
 
 ## Run it
@@ -67,4 +68,4 @@ The dev and CI loops need only `uv` and the lockfile. For an always-on deploymen
 
 ## Licensing
 
-Code is AGPL-3.0-or-later (`LICENSE`): you may use, modify and self-host it, and a modified version offered as a network service must publish its source under the same license. Derived data artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summary carries the upstream CC BY-NC-SA 3.0 IGO non-commercial terms. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.
+Code is AGPL-3.0-or-later (`LICENSE`): you may use, modify and self-host it, and a modified version offered as a network service must publish its source under the same license. Derived data artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summaries carry the upstream CC BY-NC-SA 3.0 IGO non-commercial terms; the WorldPop births table is CC BY 4.0 and the flood-exposure table derives from open NASA data. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.

@@ -33,6 +33,9 @@ ALLOWED_TABLES = {
     "frame_master_index",
     "lga_alias_crosswalk",
     "ntd_sth_state",
+    "ntd_espen_lga",
+    "flood_event_affected_lga",
+    "births_lga",
 }
 
 
@@ -127,6 +130,12 @@ def main() -> None:
         ("frame_master_index", frame / "nigeria_master_lga_index.csv", read_csv),
         ("lga_alias_crosswalk", frame / "lga_alias_crosswalk.csv", read_csv),
         ("ntd_sth_state", derived / "ntd_sth_state.csv", read_csv),
+        # Enrichment inputs (derived per-LGA tables built by
+        # scripts/build_enrichment_sources.py). Loaded and tested here; no mart
+        # consumes them until the enrichment branches that follow.
+        ("ntd_espen_lga", derived / "ntd_espen_lga.csv", read_csv),
+        ("flood_event_affected_lga", derived / "flood_event_affected_lga.csv", read_csv),
+        ("births_lga", derived / "births_lga.csv", read_csv),
     ]
 
     # Validate and read every input BEFORE touching the database, so a missing

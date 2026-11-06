@@ -17,6 +17,7 @@ flowchart TD
         XW["LGA alias crosswalk"]
         NB["ESPEN per-state summary<br/>derived, non-commercial"]
         GEO["774-LGA boundary polygons<br/>simplified, CC BY"]
+        EN["Enrichment inputs, per LGA<br/>ESPEN 5-disease (non-commercial),<br/>flood exposure, WorldPop births"]
     end
 
     subgraph raw["raw (DuckDB, immutable)"]
@@ -25,6 +26,7 @@ flowchart TD
         RF["frame_master_index"]
         RX["lga_alias_crosswalk"]
         RN["ntd_sth_state"]
+        RE["ntd_espen_lga<br/>flood_event_affected_lga<br/>births_lga<br/>(loaded + tested, not yet joined)"]
     end
 
     subgraph staging["staging (dbt)"]
@@ -43,6 +45,7 @@ flowchart TD
     FR --> RF
     XW --> RX
     ES --> NB --> RN
+    EN --> RE
 
     R2 --> AUTH
     R3 --> AUTH
