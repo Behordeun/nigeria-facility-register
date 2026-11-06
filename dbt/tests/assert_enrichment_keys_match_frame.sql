@@ -7,8 +7,8 @@
 -- ntd_espen_lga is checked per disease and flood_event_affected_lga per event,
 -- so a disease or event that lost LGAs cannot hide behind the others. LGA keys
 -- are normalised on both sides (state via norm_state so FCT matches, LGA via
--- norm_lga_key); births_lga is keyed on shapeID, the geoBoundaries id the frame
--- carries. Anti-joins use NOT EXISTS so a null key cannot pass silently.
+-- norm_lga_key); births_lga and access_population_lga are keyed on shapeID, the
+-- geoBoundaries id the frame carries. Anti-joins use NOT EXISTS so a null key cannot pass silently.
 -- Returns one row per (source, slice, key) that fails.
 with frame as (
     select
@@ -80,6 +80,22 @@ births_missing as (
     where not exists (
         select 1 from {{ source('raw', 'births_lga') }} b where b.shapeID = f.shape_id
     )
+),
+
+access_not_in_frame as (
+    select 'access_population_lga' as source, '' as slice, a.shapeID as state_key,
+           null as lga_key, 'not in frame' as problem
+    from {{ source('raw', 'access_population_lga') }} a
+    where a.shapeID is null
+       or not exists (select 1 from frame f where f.shape_id = a.shapeID)
+),
+
+access_missing as (
+    select 'access_population_lga', '', f.shape_id, null, 'frame LGA missing'
+    from frame f
+    where not exists (
+        select 1 from {{ source('raw', 'access_population_lga') }} a where a.shapeID = f.shape_id
+    )
 )
 
 select * from not_in_frame
@@ -89,3 +105,7 @@ union all
 select * from births_not_in_frame
 union all
 select * from births_missing
+union all
+select * from access_not_in_frame
+union all
+select * from access_missing

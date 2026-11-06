@@ -35,6 +35,10 @@ dev = [
     # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
     # one-off build tool, not a runtime dependency).
     "topojson==2.2",
+    # Raster reading and zonal statistics for scripts/build_access_population.py
+    # (a one-off build tool, not a runtime dependency). 1.4.x because 1.5 needs
+    # Python 3.12 and the project still supports 3.11; wheels bundle GDAL.
+    "rasterio==1.4.4",
 ]
 orchestration = [
     "dagster==1.13.5",

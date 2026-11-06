@@ -23,9 +23,11 @@ src/nfr/          Python: name keys, source loader, Dagster orchestration
 dbt/              DuckDB models: staging (authority layer, version lineage, per-LGA NTD endemicity), marts (coverage x burden, version drift, choropleth), seeds (endemicity rank map)
 data/frame/       774-LGA index + centroids + simplified boundary polygons (CC BY)
 data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA, non-commercial),
-                  per-LGA flood exposure (NASA, open) and WorldPop births (CC BY)
+                  per-LGA flood exposure (NASA, open), WorldPop births (CC BY), and per-LGA
+                  population with travel time to healthcare (WorldPop + Malaria Atlas Project, CC BY)
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
-scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py, superset_dashboard.py
+scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
+                  build_access_population.py, superset_dashboard.py
 superset/         Superset dashboard import bundle (connection, datasets, charts, layout)
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)
 ```
