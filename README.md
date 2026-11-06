@@ -12,6 +12,8 @@ GRID3 publishes its health-facility data in versions that cover different states
 
 ## How it is built
 
+![Pipeline overview: public facility registers and burden data are loaded into DuckDB, modelled with dbt into contracted marts, orchestrated by Dagster with a quality gate and atomic publish, and served read-only through a Superset dashboard.](docs/images/pipeline-overview.svg)
+
 A loader reads each source file into DuckDB as a `raw` table. Staging builds the version-aware authority layer and the v2-to-v3 match. Marts join coverage to burden on the 774-LGA frame. dbt tests enforce the contract: one source version per state, unique facility ids, no silent zeros. The whole thing runs locally on DuckDB and dbt.
 
 ## Layout
