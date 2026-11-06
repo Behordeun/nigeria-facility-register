@@ -2,7 +2,8 @@
 -- summarises, so the live dashboard text can never drift from the data it
 -- describes: the LGA count is the 774 frame, every state is on exactly one
 -- version or counted as having no matched facility, the per-version facility counts add up, and facilities placed in
--- LGAs never exceed the authority total. Returns one row per violation.
+-- LGAs never exceed the authority total, and no count is negative. Returns
+-- one row per violation.
 with s as (
     select * from {{ ref('register_summary') }}
 ),
@@ -33,3 +34,7 @@ where facilities_in_lgas <> (select coalesce(sum(facilities), 0) from {{ ref('lg
 union all
 select 'a known-status count exceeds 774' from s
 where greatest(sth_known_lgas, sch_known_lgas, lf_known_lgas, oncho_known_lgas, loa_known_lgas) > 774
+
+union all
+select 'a count is negative' from s
+where least(states_on_v3, states_on_v2, states_without_facilities, lgas_unmatched, priority_lgas) < 0
