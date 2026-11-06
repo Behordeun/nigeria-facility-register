@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1240 640" width="1240" height="640" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
+  <title id="t">Version lineage: spatial matching</title>
+  <desc id="d">GRID3 v2.0 and v3.0 facilities share no id, so each v2.0 facility is paired with its mutual nearest v3.0 neighbour within 100 metres. Pairs are carried over with a name-similarity band; unmatched v2.0 facilities are candidate drops and unmatched v3.0 facilities are candidate appearances, both for review.</desc>
+  <defs>
+    <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7fa8"/></marker>
+    <symbol id="i-pin" viewBox="0 0 32 32"><path fill-rule="evenodd" d="M16 2a10 10 0 0 1 10 10c0 8-10 18-10 18S6 20 6 12A10 10 0 0 1 16 2zm0 6a4 4 0 1 0 0 8a4 4 0 1 0 0-8z" fill="currentColor"/></symbol>
+    <symbol id="i-radius" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-dasharray="4 3"/><circle cx="16" cy="16" r="3.5" fill="currentColor"/><path d="M16 16L27 10" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M10 16.5l4.2 4.2L22.5 12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-minus" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M10 16h12" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 32 32"><circle cx="16" cy="16" r="13" fill="currentColor"/><path d="M10 16h12M16 10v12" stroke="#fff" stroke-width="3.2" stroke-linecap="round"/></symbol>
+    <symbol id="i-table" viewBox="0 0 32 32"><rect x="3" y="4" width="26" height="24" rx="3" fill="currentColor"/><path d="M3 12h26M3 20h26M12 4v24M21 4v24" stroke="#fff" stroke-width="1.6"/></symbol>
+    <style>
+      .h1{font-size:28px;font-weight:700;fill:#1b2a4a}
+      .sub{font-size:14px;fill:#55617a}
+      .ct{font-size:16px;font-weight:700;fill:#1b2a4a}
+      .cb{font-size:13px;fill:#46516a}
+      .mono{font-family:Menlo,Consolas,monospace;font-size:12.5px;fill:#2c3a55}
+      .lab{font-size:12.5px;font-weight:700;fill:#55617a}
+      .chip{font-size:11.5px;font-weight:700}
+      .e{fill:none;stroke:#6b7fa8;stroke-width:2;marker-end:url(#a)}
+    </style>
+  </defs>
+
+  <rect width="1240" height="640" fill="#fff"/>
+  <text x="40" y="50" class="h1">Version lineage: spatial matching</text>
+  <text x="40" y="76" class="sub">GRID3 v2.0 keys on globalid and v3.0 on unique_id, with no shared id, so each facility's lineage is rebuilt from position and name.</text>
+
+  <!-- connectors -->
+  <path class="e" d="M320,190 C365,190 370,250 418,262"/>
+  <path class="e" d="M320,410 C365,410 370,350 418,338"/>
+  <path class="e" d="M780,262 C830,240 840,178 878,174"/>
+  <path class="e" d="M780,314 H878"/>
+  <path class="e" d="M780,366 C830,388 840,438 878,442"/>
+  <rect x="801" y="196" width="56" height="20" rx="4" fill="#fff"/><text x="829" y="211" class="lab" text-anchor="middle">paired</text>
+  <text x="829" y="305" class="lab" text-anchor="middle">v2.0 only</text>
+  <rect x="793" y="400" width="74" height="20" rx="4" fill="#fff"/><text x="830" y="415" class="lab" text-anchor="middle">v3.0 only</text>
+
+  <!-- inputs -->
+  <g>
+    <rect x="40" y="130" width="280" height="120" rx="12" fill="#fff" stroke="#bcd3f2" stroke-width="1.4"/>
+    <use href="#i-pin" xlink:href="#i-pin" x="56" y="146" width="30" height="30" color="#7a8fb8"/>
+    <text x="96" y="168" class="ct">v2.0 facility</text>
+    <text class="cb"><tspan x="58" y="198">national, to October 2024</tspan></text>
+    <text class="mono"><tspan x="58" y="222">globalid · lat/lon · name</tspan></text>
+  </g>
+  <g>
+    <rect x="40" y="350" width="280" height="120" rx="12" fill="#fff" stroke="#bcd3f2" stroke-width="1.4"/>
+    <use href="#i-pin" xlink:href="#i-pin" x="56" y="366" width="30" height="30" color="#2f6fd6"/>
+    <text x="96" y="388" class="ct">v3.0 facility</text>
+    <text class="cb"><tspan x="58" y="418">24 states, to December 2025</tspan></text>
+    <text class="mono"><tspan x="58" y="442">unique_id · lat/lon · name</tspan></text>
+  </g>
+
+  <!-- matcher -->
+  <g>
+    <rect x="420" y="160" width="360" height="280" rx="18" fill="#f2effc" stroke="#cfc6f0" stroke-width="1.6"/>
+    <use href="#i-radius" xlink:href="#i-radius" x="440" y="180" width="40" height="40" color="#6a4fd1"/>
+    <text x="492" y="207" class="ct" font-size="18">Mutual nearest neighbour</text>
+    <text class="cb" font-size="13.5"><tspan x="444" y="250">• within 100 m on latitude / longitude</tspan><tspan x="444" y="276">• each facility is claimed at most once:</tspan><tspan x="458" y="294">a v3.0 point pairs with its nearest v2.0</tspan><tspan x="458" y="312">point and vice versa</tspan><tspan x="444" y="338">• only in states v3.0 covers</tspan><tspan x="444" y="364">• names compared by Jaro-Winkler</tspan><tspan x="458" y="382">similarity for each pair</tspan></text>
+    <text x="444" y="420" class="lab" fill="#4a35a8">stg_version_lineage</text>
+  </g>
+
+  <!-- outcomes -->
+  <g>
+    <rect x="880" y="104" width="320" height="140" rx="12" fill="#f1faf4" stroke="#a9dcbb" stroke-width="1.4"/>
+    <use href="#i-check" xlink:href="#i-check" x="896" y="120" width="28" height="28" color="#1f8a4c"/>
+    <text x="934" y="141" class="ct">carried-over</text>
+    <text class="cb"><tspan x="898" y="170">both ids, distance in metres and a</tspan><tspan x="898" y="187">name-similarity band:</tspan></text>
+    <rect x="898" y="198" width="102" height="24" rx="12" fill="#cdeed9"/><text x="949" y="214" class="chip" fill="#1a6e3d" text-anchor="middle">exact-or-near</text>
+    <rect x="1006" y="198" width="70" height="24" rx="12" fill="#e6f2d4"/><text x="1041" y="214" class="chip" fill="#4e6b1a" text-anchor="middle">close</text>
+    <rect x="1082" y="198" width="90" height="24" rx="12" fill="#fbe9cf"/><text x="1127" y="214" class="chip" fill="#8a5a0c" text-anchor="middle">divergent</text>
+    <text x="898" y="236" font-size="11" fill="#7a8398">≥ 0.92 · ≥ 0.80 · &lt; 0.80; divergent flags a renamed facility</text>
+  </g>
+  <g>
+    <rect x="880" y="256" width="320" height="116" rx="12" fill="#fff7ec" stroke="#f1d29c" stroke-width="1.4"/>
+    <use href="#i-minus" xlink:href="#i-minus" x="896" y="272" width="28" height="28" color="#c77d12"/>
+    <text x="934" y="293" class="ct">dropped</text>
+    <text class="cb"><tspan x="898" y="320">a v2.0 facility with no v3.0 match</tspan><tspan x="898" y="339">review candidate: a closure, or a</tspan><tspan x="898" y="356">move further than 100 m</tspan></text>
+  </g>
+  <g>
+    <rect x="880" y="384" width="320" height="116" rx="12" fill="#eef4fd" stroke="#bcd3f2" stroke-width="1.4"/>
+    <use href="#i-plus" xlink:href="#i-plus" x="896" y="400" width="28" height="28" color="#2f6fd6"/>
+    <text x="934" y="421" class="ct">appeared</text>
+    <text class="cb"><tspan x="898" y="448">a v3.0 facility with no v2.0 match</tspan><tspan x="898" y="467">review candidate: new, or a</tspan><tspan x="898" y="484">re-survey of the same site</tspan></text>
+  </g>
+
+  <!-- result -->
+  <path class="e" d="M600,442 V536"/>
+  <rect x="612" y="478" width="230" height="20" rx="4" fill="#fff"/><text x="616" y="493" class="lab">every record, with its outcome</text>
+  <g>
+    <rect x="40" y="540" width="1160" height="70" rx="12" fill="#f7faff" stroke="#bcd3f2" stroke-width="1.4"/>
+    <use href="#i-table" xlink:href="#i-table" x="58" y="560" width="30" height="30" color="#2f6fd6"/>
+    <text x="102" y="572" class="ct">lga_version_drift</text>
+    <text x="102" y="594" class="cb">One row per lineage record, resolved through the alias crosswalk to the 774-LGA frame. Dropped and appeared are a reconciliation queue, never a count of closures or openings.</text>
+  </g>
+</svg>

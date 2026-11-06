@@ -1,0 +1,130 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 860 1380" width="860" height="1380" role="img" aria-labelledby="title desc" font-family="'Segoe UI', Helvetica, Arial, sans-serif">
+  <title id="title">Nigeria facility register: pipeline overview</title>
+  <desc id="desc">Public facility registers and burden data are loaded into DuckDB, modelled with dbt into contracted marts, orchestrated by Dagster with a quality gate and atomic publish, and served read-only through a Superset dashboard.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#5b7fd6"/>
+    </marker>
+    <style>
+      .h1 { font-size: 26px; font-weight: 700; fill: #1b2a4a; }
+      .sub { font-size: 15px; fill: #44506a; }
+      .ct { font-size: 18px; font-weight: 700; fill: #1b2a4a; }
+      .cb { font-size: 13.5px; fill: #3b4660; }
+      .tag { font-size: 12.5px; font-weight: 600; }
+      .flow { stroke: #5b7fd6; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+    </style>
+  </defs>
+
+  <rect width="860" height="1380" fill="#ffffff"/>
+
+  <!-- ============ Source data ============ -->
+  <rect x="30" y="20" width="800" height="290" rx="16" fill="#eaf2fd" stroke="#c9dcf6" stroke-width="2"/>
+  <g transform="translate(250,44)">
+    <ellipse cx="17" cy="6" rx="15" ry="6" fill="#2f6fd6"/>
+    <path d="M2,6 v24 a15,6 0 0 0 30,0 v-24" fill="#2f6fd6"/>
+    <path d="M2,14 a15,6 0 0 0 30,0 M2,22 a15,6 0 0 0 30,0" fill="none" stroke="#eaf2fd" stroke-width="2"/>
+  </g>
+  <text x="300" y="70" class="h1">Source data</text>
+  <text x="430" y="100" class="sub" text-anchor="middle">Public, versioned registers and burden data on one 774-LGA frame</text>
+
+  <rect x="54" y="118" width="366" height="172" rx="12" fill="#f7fbff" stroke="#bcd3f2"/>
+  <g transform="translate(72,140)">
+    <path d="M18,0 a14,14 0 0 1 14,14 c0,11 -14,26 -14,26 c0,0 -14,-15 -14,-26 a14,14 0 0 1 14,-14 z" fill="#2f6fd6"/>
+    <circle cx="18" cy="14" r="5.5" fill="#f7fbff"/>
+  </g>
+  <text x="120" y="152" class="ct">Health-facility registers</text>
+  <text class="cb"><tspan x="120" y="176">GRID3 Nigeria health facilities</tspan><tspan x="120" y="195">v2.0 (national) and v3.0 (24 states),</tspan><tspan x="120" y="214">CC BY 4.0. Two versions with no</tspan><tspan x="120" y="233">shared facility id.</tspan></text>
+  <rect x="120" y="250" width="162" height="24" rx="12" fill="#dde9fb"/>
+  <text x="201" y="267" class="tag" fill="#2f5fb3" text-anchor="middle">fetched, never committed</text>
+
+  <rect x="440" y="118" width="366" height="172" rx="12" fill="#f7fbff" stroke="#bcd3f2"/>
+  <g transform="translate(458,142)">
+    <path d="M2,8 L13,2 L24,8 L35,2 L35,32 L24,38 L13,32 L2,38 z" fill="#2f6fd6"/>
+    <path d="M13,2 V32 M24,8 V38" stroke="#f7fbff" stroke-width="2"/>
+  </g>
+  <text x="506" y="152" class="ct">Frame and burden layers</text>
+  <text class="cb"><tspan x="506" y="176">774-LGA index and geoBoundaries</tspan><tspan x="506" y="195">polygons (CC BY); ESPEN NTD</tspan><tspan x="506" y="214">endemicity (CC BY-NC-SA, derived</tspan><tspan x="506" y="233">only); flood exposure; WorldPop births.</tspan></text>
+  <rect x="506" y="250" width="132" height="24" rx="12" fill="#dde9fb"/>
+  <text x="572" y="267" class="tag" fill="#2f5fb3" text-anchor="middle">vendored, derived</text>
+
+  <path d="M430,314 V346" class="flow"/>
+
+  <!-- ============ Storage and transformation ============ -->
+  <rect x="30" y="352" width="800" height="700" rx="16" fill="#f1eefc" stroke="#d9d1f5" stroke-width="2"/>
+  <g transform="translate(212,374)">
+    <circle cx="17" cy="17" r="10" fill="none" stroke="#3b2f8f" stroke-width="7" stroke-dasharray="5.2 2.65"/>
+    <circle cx="17" cy="17" r="6" fill="#3b2f8f"/>
+    <circle cx="17" cy="17" r="2.6" fill="#f1eefc"/>
+  </g>
+  <text x="262" y="400" class="h1">Storage and transformation</text>
+  <text x="430" y="430" class="sub" text-anchor="middle">From raw files to contracted, tested, analysis-ready tables</text>
+
+  <rect x="54" y="448" width="752" height="112" rx="12" fill="#fbfaff" stroke="#cfc6f0"/>
+  <g transform="translate(76,474)">
+    <ellipse cx="22" cy="7" rx="20" ry="7" fill="#6a4fd1"/>
+    <path d="M2,7 v30 a20,7 0 0 0 40,0 v-30" fill="#6a4fd1"/>
+    <path d="M2,17 a20,7 0 0 0 40,0 M2,27 a20,7 0 0 0 40,0" fill="none" stroke="#fbfaff" stroke-width="2"/>
+  </g>
+  <text x="140" y="480" class="ct">DuckDB raw layer</text>
+  <text class="cb"><tspan x="140" y="504">A Python loader reads every source into a raw schema from a per-run immutable snapshot,</tspan><tspan x="140" y="523">with each file's provenance and content hash pinned in data/sources.yml.</tspan></text>
+  <rect x="680" y="464" width="104" height="24" rx="12" fill="#e6e0fb"/>
+  <text x="732" y="481" class="tag" fill="#4a35a8" text-anchor="middle">raw</text>
+
+  <path d="M430,562 V588" class="flow"/>
+
+  <rect x="54" y="592" width="752" height="132" rx="12" fill="#f3fbf8" stroke="#bfe5d8"/>
+  <g transform="translate(76,620)">
+    <path d="M22,0 L44,10 L22,20 L0,10 z" fill="#1f9d7a"/>
+    <path d="M0,18 L22,28 L44,18" fill="none" stroke="#1f9d7a" stroke-width="4" stroke-linejoin="round"/>
+    <path d="M0,27 L22,37 L44,27" fill="none" stroke="#1f9d7a" stroke-width="4" stroke-linejoin="round"/>
+  </g>
+  <text x="140" y="624" class="ct">dbt staging</text>
+  <text class="cb"><tspan x="140" y="648">Authority layer: GRID3 v3.0 where it covers a state, v2.0 elsewhere, never mixed.</tspan><tspan x="140" y="667">Version lineage: v2.0 matched to v3.0 within 100 m (carried over, dropped, appeared).</tspan><tspan x="140" y="686">NTD endemicity: five diseases per LGA, ranked 0-3; unknown stays null, never 0.</tspan></text>
+  <rect x="680" y="608" width="104" height="24" rx="12" fill="#d7f1e8"/>
+  <text x="732" y="625" class="tag" fill="#167a5e" text-anchor="middle">staging</text>
+
+  <path d="M430,726 V752" class="flow"/>
+
+  <rect x="54" y="756" width="752" height="132" rx="12" fill="#f4f8ff" stroke="#c4d6f3"/>
+  <g transform="translate(76,782)">
+    <rect x="0" y="0" width="44" height="40" rx="5" fill="#2f6fd6"/>
+    <path d="M0,13 H44 M0,26 H44 M15,0 V40 M30,0 V40" stroke="#f4f8ff" stroke-width="2.4"/>
+  </g>
+  <text x="140" y="788" class="ct">dbt marts (the product)</text>
+  <text class="cb"><tspan x="140" y="812">lga_coverage_burden · lga_version_drift · lga_coverage_choropleth · register_summary</tspan><tspan x="140" y="831">Enforced column contracts and dbt tests: 774 LGAs, unique keys, value domains,</tspan><tspan x="140" y="850">and missing-is-not-zero. Documented in DATA_CONTRACT.md.</tspan></text>
+  <rect x="680" y="772" width="104" height="24" rx="12" fill="#dde9fb"/>
+  <text x="732" y="789" class="tag" fill="#2f5fb3" text-anchor="middle">marts</text>
+
+  <rect x="54" y="904" width="752" height="128" rx="12" fill="#fff8ec" stroke="#f1d7a6"/>
+  <g transform="translate(76,930)">
+    <circle cx="22" cy="20" r="18" fill="none" stroke="#c77d12" stroke-width="5"/>
+    <path d="M22,9 V20 L30,26" fill="none" stroke="#c77d12" stroke-width="4.5" stroke-linecap="round"/>
+  </g>
+  <text x="140" y="936" class="ct">Orchestration and quality gate</text>
+  <text class="cb"><tspan x="140" y="960">Dagster runs a weekly refresh and a new-vintage sensor. Each run builds into a side</tspan><tspan x="140" y="979">DuckDB, passes every dbt test and the carry-over gate, then is promoted in one atomic</tspan><tspan x="140" y="998">rename: readers see the whole old register or the whole new one, never a mix.</tspan></text>
+  <rect x="680" y="920" width="104" height="24" rx="12" fill="#fbe7c4"/>
+  <text x="732" y="937" class="tag" fill="#9a5f08" text-anchor="middle">orchestration</text>
+
+  <path d="M430,1056 V1088" class="flow"/>
+
+  <!-- ============ Visualization ============ -->
+  <rect x="30" y="1094" width="800" height="266" rx="16" fill="#eaf7ef" stroke="#c6e8d3" stroke-width="2"/>
+  <g transform="translate(286,1114)">
+    <rect x="0" y="18" width="9" height="18" rx="2" fill="#1f8a4c"/>
+    <rect x="13" y="9" width="9" height="27" rx="2" fill="#1f8a4c"/>
+    <rect x="26" y="0" width="9" height="36" rx="2" fill="#1f8a4c"/>
+  </g>
+  <text x="334" y="1142" class="h1">Visualization</text>
+  <text x="430" y="1172" class="sub" text-anchor="middle">Read-only dashboards over the published register</text>
+
+  <rect x="54" y="1190" width="752" height="148" rx="12" fill="#f7fdf9" stroke="#bfe3cc"/>
+  <g transform="translate(76,1218)">
+    <rect x="0" y="0" width="44" height="40" rx="5" fill="none" stroke="#1f8a4c" stroke-width="3"/>
+    <path d="M6,30 L16,20 L24,26 L38,10" fill="none" stroke="#1f8a4c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="140" y="1222" class="ct">Apache Superset dashboard</text>
+  <text class="cb"><tspan x="140" y="1246">Coverage · NTD burden · Version drift · Data status, with state and status filters,</tspan><tspan x="140" y="1265">per-LGA hover summaries, and a live status panel that refreshes with the register.</tspan><tspan x="140" y="1284">Reads the register read-only; kept as a committed import bundle (make dashboard).</tspan></text>
+  <rect x="140" y="1300" width="170" height="24" rx="12" fill="#d5efde"/>
+  <text x="225" y="1317" class="tag" fill="#1a6e3d" text-anchor="middle">dashboards and reports</text>
+</svg>

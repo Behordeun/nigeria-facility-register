@@ -4,111 +4,17 @@ The pipeline turns Nigeria's versioned, conflicting health-facility registers in
 
 ## Data flow
 
-```mermaid
-flowchart TD
-    subgraph sources["External sources (fetched, not committed)"]
-        G2["GRID3 v2.0 geopackage<br/>national, CC BY"]
-        G3["GRID3 v3.0 geopackage<br/>24 states, CC BY"]
-        ES["ESPEN STH endemicity<br/>CC BY-NC-SA"]
-    end
-
-    subgraph vendored["Vendored in repo (small, derived)"]
-        FR["774-LGA master index<br/>+ centroids, CC BY"]
-        XW["LGA alias crosswalk"]
-        NB["ESPEN per-state summary<br/>derived, non-commercial"]
-        GEO["774-LGA boundary polygons<br/>simplified, CC BY"]
-        EN["Enrichment inputs, per LGA<br/>ESPEN 5-disease (non-commercial),<br/>flood exposure, WorldPop births"]
-    end
-
-    subgraph raw["raw (DuckDB, immutable)"]
-        R2["grid3_v2"]
-        R3["grid3_v3"]
-        RF["frame_master_index"]
-        RX["lga_alias_crosswalk"]
-        RN["ntd_sth_state"]
-        RE["ntd_espen_lga"]
-        RF2["flood_event_affected_lga<br/>births_lga<br/>(loaded + tested, not yet joined)"]
-    end
-
-    subgraph staging["staging (dbt)"]
-        AUTH["stg_facilities_authority<br/>per-state v3/v2 switch<br/>contract + tests"]
-        LIN["stg_version_lineage<br/>v2 to v3 spatial match<br/>carry-over / dropped / appeared"]
-        NTD["stg_ntd_endemicity_lga<br/>5-disease endemicity per LGA<br/>ranked by seed, unknown stays null"]
-    end
-
-    subgraph marts["marts (dbt, the product)"]
-        COV["lga_coverage_burden<br/>coverage x NTD burden<br/>per-LGA endemicity ranks<br/>priority flag"]
-        LINM["lga_version_drift<br/>queryable lineage"]
-        CHO["lga_coverage_choropleth<br/>coverage + LGA polygons<br/>one row per polygon part"]
-        SUMM["register_summary<br/>one row: build time, versions,<br/>totals, known-status counts"]
-    end
-
-    G2 --> R2
-    G3 --> R3
-    FR --> RF
-    XW --> RX
-    ES --> NB --> RN
-    EN --> RE
-    EN --> RF2
-
-    R2 --> AUTH
-    R3 --> AUTH
-    R2 --> LIN
-    R3 --> LIN
-    RX --> AUTH
-
-    AUTH --> COV
-    RF --> COV
-    RN --> COV
-    RE --> NTD
-    SEED["seed: ntd_endemicity_rank<br/>label to 0-3 rank"] --> NTD
-    NTD --> COV
-    LIN --> LINM
-    RF --> LINM
-
-    COV --> CHO
-    RF --> CHO
-    GEO --> CHO
-
-    COV --> SUMM
-    AUTH --> SUMM
-    NTD --> SUMM
-    LINM --> SUMM
-
-    COV --> OUT["Published marts<br/>DATA_CONTRACT.md"]
-    LINM --> OUT
-    CHO --> OUT
-    SUMM --> OUT
-    OUT --> BI["Superset dashboard<br/>read-only, committed bundle<br/>coverage / NTD burden / drift / status"]
-```
+![Data flow: GRID3 registers, the LGA frame, ESPEN summaries, LGA boundaries and enrichment inputs are loaded into an immutable DuckDB raw layer, modelled by dbt into staging models (authority layer, version lineage, NTD endemicity) and contracted marts (coverage and burden, version drift, choropleth, register summary), and served read-only through the Superset dashboard, refreshed by Dagster.](images/architecture-data-flow.svg)
 
 ## Spatial matching (why lineage needs it)
 
 v2.0 keys on `globalid`, v3.0 on `unique_id`. The two versions share no carry-over id and the NHFR bridge code is too sparse in v3.0, so a facility's lineage across versions is reconstructed by position and name.
 
-```mermaid
-flowchart LR
-    V2["v2.0 facility<br/>globalid, lat/lon, name"]
-    V3["v3.0 facility<br/>unique_id, lat/lon, name"]
-    V2 --> NN{"nearest neighbour<br/>within 100 m,<br/>single claim"}
-    V3 --> NN
-    NN -->|matched| CARRY["carried over<br/>+ name-similarity band"]
-    NN -->|v2 unmatched| DROP["candidate dropped<br/>review queue"]
-    NN -->|v3 unmatched| APP["candidate appeared<br/>review queue"]
-```
+![Version lineage: each v2.0 facility is paired with its mutual nearest v3.0 neighbour within 100 m, claimed at most once and only in v3.0 states; pairs are carried over with a name-similarity band, unmatched v2.0 facilities are candidate drops and unmatched v3.0 facilities candidate appearances, and every record lands in lga_version_drift.](images/architecture-version-lineage.svg)
 
 ## Orchestration and run lifecycle
 
-```mermaid
-flowchart TD
-    SENSOR["new_vintage_sensor<br/>fires on a new file fingerprint"]
-    SCHED["weekly_refresh<br/>Monday 06:00"]
-    SENSOR --> JOB
-    SCHED --> JOB
-    JOB["refresh_register job"] --> A1["asset: raw_sources<br/>load into DuckDB"]
-    A1 --> A2["asset: dbt_models<br/>dbt build + test"]
-    A2 --> CHECKS["asset checks + run metadata<br/>load counts, LGA resolve rate,<br/>carry-over rate"]
-```
+![Orchestration and atomic publish: the new-vintage sensor or the weekly schedule queues one refresh_register run, which snapshots the inputs, loads a side DuckDB, runs the dbt build and tests, checks the carry-over gate, and atomically promotes the side file onto the live register; any failure discards the side file and publishes nothing, and run metadata and asset checks warn without blocking.](images/architecture-orchestration.svg)
 
 The new-vintage sensor fires only when the raw inputs differ from the vintage the live database was last built from. It waits until every raw input is present (so it never runs on a half-applied set of one new file beside one still-missing one), then settles across two ticks rather than sleeping inline: the first tick that sees a new fingerprint records it in the cursor, and the sensor acts only once the same fingerprint persists on a later tick, so a file still being written changes the fingerprint between ticks and never fires. (An inline sleep would block Dagster's shared sensor daemon thread.) The decision itself compares the settled fingerprint to a published-vintage sentinel: the promote step records, inside the live database, the fingerprint it built from, and the sensor fires only when the current inputs differ from it. Making the live database the authority — rather than querying run history — dissolves the awkward cases: a failed or still-queued run records nothing, so the vintage stays eligible; a scheduled or manual run that promotes also updates the sentinel, so the sensor sees it regardless of launch path; and a restored older vintage differs from what is live, so it rebuilds rather than leaving stale data published. The sensor also skips while a refresh is already queued or running, so its per-tick run key does not stack duplicates. A run-failure sensor records a failed refresh for operators; the re-fire comes from the sentinel comparison, not a cross-sensor cursor write.
 
