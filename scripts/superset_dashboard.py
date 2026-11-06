@@ -87,7 +87,8 @@ def _compose(project: str | None) -> list[str]:
 def _run(cmd: list[str], stdin: str | None = None) -> None:
     result = subprocess.run(cmd, input=stdin, text=True, capture_output=True)
     if result.returncode != 0:
-        sys.stderr.write(result.stdout[-4000:] + result.stderr[-4000:])
+        # stderr first: it carries the actionable error.
+        sys.stderr.write(result.stderr[-4000:] + result.stdout[-4000:])
         raise SystemExit(f"command failed ({result.returncode}): {' '.join(cmd[:6])} ...")
 
 
@@ -124,6 +125,10 @@ def normalise_export(zip_path: Path, bundle_dir: Path) -> int:
                 rel = Path(*parts[1:])
                 rel = rel.with_name(_ID_SUFFIX.sub(r"\1", rel.name))
                 target = staging / rel
+                # Containment, not just the ".." check: whatever the entry name
+                # resolves to must stay inside the staging directory.
+                if not target.resolve().is_relative_to(staging.resolve()):
+                    raise SystemExit(f"unexpected path in export: {info.filename}")
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(zf.read(info))
         count = sum(1 for p in staging.rglob("*.yaml"))
