@@ -18,7 +18,7 @@ misplaces population between small neighbouring urban LGAs, so the script warns.
 Usage:
     python scripts/build_access_population.py \
         --boundaries /path/to/Geospatial/_shared_frame/nigeria_adm2_lga_boundaries.geojson
-    python scripts/build_access_population.py --print-hashes   # after an intended upstream change
+    python scripts/build_access_population.py --print-hashes   # after an intended upstream change: fetch and print, no build
 """
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def main() -> None:
     parser.add_argument("--raw-dir", type=Path, default=RAW_DIR)
     parser.add_argument("--out", type=Path, default=OUT)
     parser.add_argument("--print-hashes", action="store_true",
-                        help="ignore the pins, fetch, and print the hashes to record in data/sources.yml")
+                        help="ignore the pins, fetch, print the hashes to record in data/sources.yml, and stop without building")
     args = parser.parse_args()
 
     if args.boundaries.resolve() == SIMPLIFIED.resolve():
@@ -87,8 +87,12 @@ def main() -> None:
         "map_walking": ap.fetch(ap.map_coverage_url(ap.MAP_COVERAGES["walking"], bbox), walking, pinned["map_walking"]),
     }
     if args.print_hashes:
+        # Re-pinning mode: report what is upstream now and stop. The table is
+        # only ever built from files that match the pins in data/sources.yml.
         for key, value in hashes.items():
             print(f"{key}: {value}")
+        print("update access_population_lga.upstream in data/sources.yml, then rerun without --print-hashes")
+        return
 
     table = ap.derive(pop, motorised, walking, lgas, args.year)
     ap.check(table)

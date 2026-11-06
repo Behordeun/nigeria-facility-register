@@ -127,7 +127,9 @@ def fetch(url: str, dest: Path, expected_sha256: str | None = None) -> str:
     tmp = Path(tmp_name)
     try:
         request = urllib.request.Request(url, headers={"User-Agent": "nigeria-facility-register"})
-        with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_S) as response, os.fdopen(fd, "wb") as out:
+        # Wrap the descriptor before the network call, so it is closed even when
+        # the request itself fails.
+        with os.fdopen(fd, "wb") as out, urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT_S) as response:
             for chunk in iter(lambda: response.read(CHUNK), b""):
                 out.write(chunk)
         got = sha256(tmp)

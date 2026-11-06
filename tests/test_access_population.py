@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import io
+import os
 from pathlib import Path
 
 import numpy as np
@@ -188,3 +189,15 @@ def test_committed_table_covers_the_frame_with_valid_values():
     frame = pd.read_csv(ROOT / "data" / "frame" / "nigeria_master_lga_index.csv")
     assert set(table.shapeID) == set(frame.shapeID), "every frame LGA, and only those"
     ap.check(table)
+
+
+def test_fetch_closes_its_temp_file_when_the_request_fails(tmp_path, monkeypatch):
+    def offline(*_args, **_kwargs):
+        raise OSError("network unreachable")
+
+    monkeypatch.setattr(ap.urllib.request, "urlopen", offline)
+    open_before = len(os.listdir("/dev/fd"))
+    with pytest.raises(OSError, match="network unreachable"):
+        ap.fetch("https://example.invalid/f.tif", tmp_path / "f.tif")
+    assert len(os.listdir("/dev/fd")) == open_before, "a failed request must not leave a file descriptor open"
+    assert not list(tmp_path.iterdir()), "a failed request must leave no temp file behind"

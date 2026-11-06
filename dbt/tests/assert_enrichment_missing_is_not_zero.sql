@@ -14,7 +14,8 @@
 --
 -- access_population_lga: every LGA has a positive population (the same reasoning
 -- as births); travel minutes are never negative, and the two shares stay within
--- 0-1. A null travel figure is allowed and means no population on valid
+-- 0-1. A null travel figure or share is allowed (the range checks pass a null
+-- by design) and means no population on valid
 -- travel-time cells; it is never written as 0 minutes.
 -- Returns one row per violation.
 select 'ntd_espen_lga' as source, state, canonical_lga, disease as detail
