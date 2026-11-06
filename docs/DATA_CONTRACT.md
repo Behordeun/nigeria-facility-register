@@ -8,6 +8,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | --- | --- | --- | --- |
 | `stg_facilities_authority` | staging | one facility | one per facility in the authoritative set |
 | `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
+| `stg_ntd_endemicity_lga` | staging | one (LGA, disease) | exactly 774 x 5 = 3,870 |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
@@ -61,6 +62,35 @@ Guarantees:
 - Field shape follows status. A carried-over record carries both ids plus distance and similarity; a dropped record carries the v2 id only; an appeared record carries the v3 id only. The match fields are null for anything that did not match.
 - `dropped` and `appeared` are review candidates, not asserted facts. A drop may be a real closure or a sub-100 m move the match missed; an appearance may be genuinely new or a re-survey of the same site. Read them as the start of a reconciliation queue, never as a measured count of closures or openings.
 
+## `stg_ntd_endemicity_lga`
+
+ESPEN endemicity per LGA for five diseases (STH, schistosomiasis, lymphatic filariasis, onchocerciasis, Loa loa), each status ranked on one shared ordinal scale. Built from the derived per-LGA ESPEN table and the `ntd_endemicity_rank` seed. Derived from ESPEN (CC BY-NC-SA 3.0 IGO): non-commercial use only.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `state` | varchar | no | the LGA's state or FCT |
+| `canonical_lga` | varchar | no | canonical LGA name; the LGA key is `(state, canonical_lga)` |
+| `state_key` | varchar | no | normalised state, the join key the marts use |
+| `lga_key` | varchar | no | normalised LGA name, the join key the marts use |
+| `espen_iu_id` | bigint | no | the ESPEN implementation unit the LGA maps to (exactly one per LGA) |
+| `disease` | varchar | no | full disease name |
+| `disease_code` | varchar | no | one of `STH`, `SCH`, `lf`, `Oncho`, `Loa` (ESPEN's codes as published) |
+| `endemicity_latest_known` | varchar | yes | latest label that is not an "Unknown ..." status; null when the LGA was never reported with a known status |
+| `year_latest_known` | integer | yes | year of that label; null exactly when the label is null |
+| `endemicity_rank` | integer | yes | 0-3 (see the scale below); null exactly when `endemicity_latest_known` is null |
+| `rank_basis` | varchar | no | `prevalence band` (STH, SCH, Loa) or `programme stage` (LF, Oncho) |
+| `endemicity_latest` | varchar | no | the latest year's label as published, which may be an "Unknown ..." status |
+| `year_latest` | integer | no | year of `endemicity_latest` |
+| `years_reported` | integer | no | number of distinct years ESPEN reported this LGA and disease |
+
+The rank scale. 0 is non-endemic and 3 the highest need. STH, schistosomiasis and Loa loa rank by prevalence band (low or hypo-endemic 1, moderate or meso-endemic 2, high or hyper-endemic 3). Lymphatic filariasis and onchocerciasis are published as programme stages, not prevalence, so they rank by stage: under post-intervention surveillance 1; under MDA, under targeted treatment, or pending impact assessment 2; endemic with MDA not delivered 3. Ranks order need within a disease; across the two bases they are comparable as an order of need, not as a prevalence figure.
+
+Guarantees:
+
+- Exactly one row per (LGA, disease): every one of the 774 frame LGAs appears for every disease.
+- Every known label is ranked. A label ESPEN publishes that the seed does not rank fails the build, rather than silently becoming a null rank that reads as unknown.
+- Unknown is not zero. An LGA whose only reports are "Unknown ..." statuses carries a null label, year and rank. A recent "Unknown" does not erase an earlier known status: the rank follows the latest known label, and the latest published label is kept alongside in `endemicity_latest`.
+
 ## `lga_coverage_burden`
 
 Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 present.
@@ -75,6 +105,11 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `facility_status` | varchar | no | `current`, `stale-awaiting-v3`, or `unmatched` |
 | `sth_high_share_pct_state` | double | yes | state-level ESPEN STH high-prevalence share, broadcast to each LGA in the state; null where the state was not surveyed |
 | `sth_survey_years_state` | varchar | yes | the survey-year span behind that share |
+| `sth_endemicity_rank_lga` | integer | yes | per-LGA ESPEN STH endemicity rank, 0-3; null when never known (see `stg_ntd_endemicity_lga`) |
+| `sch_endemicity_rank_lga` | integer | yes | as above, schistosomiasis |
+| `lf_endemicity_rank_lga` | integer | yes | as above, lymphatic filariasis (programme-stage basis) |
+| `oncho_endemicity_rank_lga` | integer | yes | as above, onchocerciasis (programme-stage basis) |
+| `loa_endemicity_rank_lga` | integer | yes | as above, Loa loa |
 | `priority_high_burden_thin_coverage` | boolean | no | true where burden is high and coverage is thin; see rule below |
 
 Guarantees:
@@ -83,6 +118,7 @@ Guarantees:
 - The key is `(state, canonical_lga)`, not `canonical_lga` alone. Six LGA names recur across states (Bassa, Ifelodun, Irepodun, Nasarawa, Obi, Surulere), so joining on the bare name would collide two distinct places. Always carry the state.
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
+- The `*_endemicity_rank_lga` columns are true per-LGA measurements, equal to the rank in `stg_ntd_endemicity_lga` for that LGA and disease. A null means the LGA's status was never known, not that the disease is absent; a non-endemic LGA is `0`. They are non-commercial (ESPEN CC BY-NC-SA 3.0 IGO). They do not feed the priority flag, which is unchanged.
 - The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
 ## `lga_version_drift`
@@ -115,7 +151,7 @@ Guarantees:
 
 ## `lga_coverage_choropleth`
 
-`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
+`lga_coverage_burden` with each LGA's boundary polygon attached for mapping. The coverage, burden and priority columns are exactly as in the coverage mart and follow the same rules. It carries the columns listed below, not the per-LGA endemicity ranks; read those from `lga_coverage_burden`. The grain differs: the vendored boundary set is split into single Polygons (a deck.gl polygon layer rejects MultiPolygons), so an LGA whose boundary has more than one part (the coastal and riverine LGAs with islands) appears once per part, each row repeating the LGA's coverage values. On the current vendored set that is 800 rows covering the 774 LGAs.
 
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
