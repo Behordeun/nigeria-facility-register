@@ -131,8 +131,9 @@ def main() -> None:
         ("lga_alias_crosswalk", frame / "lga_alias_crosswalk.csv", read_csv),
         ("ntd_sth_state", derived / "ntd_sth_state.csv", read_csv),
         # Enrichment inputs (derived per-LGA tables built by
-        # scripts/build_enrichment_sources.py). Loaded and tested here; no mart
-        # consumes them until the enrichment branches that follow.
+        # scripts/build_enrichment_sources.py). ntd_espen_lga feeds the coverage
+        # mart through stg_ntd_endemicity_lga; the other two are loaded and
+        # tested only.
         ("ntd_espen_lga", derived / "ntd_espen_lga.csv", read_csv),
         ("flood_event_affected_lga", derived / "flood_event_affected_lga.csv", read_csv),
         ("births_lga", derived / "births_lga.csv", read_csv),

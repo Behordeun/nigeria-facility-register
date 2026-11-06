@@ -54,6 +54,71 @@ models:
         description: State-level ESPEN STH high-prevalence share, broadcast to each LGA in the state.
       - name: sth_survey_years_state
         data_type: varchar
+      - name: sth_endemicity_rank_lga
+        data_type: integer
+        description: >
+          Per-LGA ESPEN soil-transmitted helminths endemicity rank, 0-3 (see the
+          ntd_endemicity_rank seed); null when the LGA was never reported with
+          a known status, never 0. Non-commercial (ESPEN CC BY-NC-SA 3.0 IGO).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "sth_endemicity_rank_lga is not null"
+      - name: sch_endemicity_rank_lga
+        data_type: integer
+        description: >
+          Per-LGA ESPEN schistosomiasis endemicity rank, 0-3 (see the
+          ntd_endemicity_rank seed); null when the LGA was never reported with
+          a known status, never 0. Non-commercial (ESPEN CC BY-NC-SA 3.0 IGO).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "sch_endemicity_rank_lga is not null"
+      - name: lf_endemicity_rank_lga
+        data_type: integer
+        description: >
+          Per-LGA ESPEN lymphatic filariasis endemicity rank, 0-3 (see the
+          ntd_endemicity_rank seed); null when the LGA was never reported with
+          a known status, never 0. Non-commercial (ESPEN CC BY-NC-SA 3.0 IGO).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "lf_endemicity_rank_lga is not null"
+      - name: oncho_endemicity_rank_lga
+        data_type: integer
+        description: >
+          Per-LGA ESPEN onchocerciasis endemicity rank, 0-3 (see the
+          ntd_endemicity_rank seed); null when the LGA was never reported with
+          a known status, never 0. Non-commercial (ESPEN CC BY-NC-SA 3.0 IGO).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "oncho_endemicity_rank_lga is not null"
+      - name: loa_endemicity_rank_lga
+        data_type: integer
+        description: >
+          Per-LGA ESPEN Loa loa endemicity rank, 0-3 (see the
+          ntd_endemicity_rank seed); null when the LGA was never reported with
+          a known status, never 0. Non-commercial (ESPEN CC BY-NC-SA 3.0 IGO).
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3]
+                quote: false
+              config:
+                where: "loa_endemicity_rank_lga is not null"
       - name: priority_high_burden_thin_coverage
         data_type: boolean
         description: >

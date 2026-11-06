@@ -26,16 +26,18 @@ flowchart TD
         RF["frame_master_index"]
         RX["lga_alias_crosswalk"]
         RN["ntd_sth_state"]
-        RE["ntd_espen_lga<br/>flood_event_affected_lga<br/>births_lga<br/>(loaded + tested, not yet joined)"]
+        RE["ntd_espen_lga"]
+        RF2["flood_event_affected_lga<br/>births_lga<br/>(loaded + tested, not yet joined)"]
     end
 
     subgraph staging["staging (dbt)"]
         AUTH["stg_facilities_authority<br/>per-state v3/v2 switch<br/>contract + tests"]
         LIN["stg_version_lineage<br/>v2 to v3 spatial match<br/>carry-over / dropped / appeared"]
+        NTD["stg_ntd_endemicity_lga<br/>5-disease endemicity per LGA<br/>ranked by seed, unknown stays null"]
     end
 
     subgraph marts["marts (dbt, the product)"]
-        COV["lga_coverage_burden<br/>coverage x NTD burden<br/>priority flag"]
+        COV["lga_coverage_burden<br/>coverage x NTD burden<br/>per-LGA endemicity ranks<br/>priority flag"]
         LINM["lga_version_drift<br/>queryable lineage"]
         CHO["lga_coverage_choropleth<br/>coverage + LGA polygons<br/>one row per polygon part"]
     end
@@ -46,6 +48,7 @@ flowchart TD
     XW --> RX
     ES --> NB --> RN
     EN --> RE
+    EN --> RF2
 
     R2 --> AUTH
     R3 --> AUTH
@@ -56,6 +59,9 @@ flowchart TD
     AUTH --> COV
     RF --> COV
     RN --> COV
+    RE --> NTD
+    SEED["seed: ntd_endemicity_rank<br/>label to 0-3 rank"] --> NTD
+    NTD --> COV
     LIN --> LINM
     RF --> LINM
 
@@ -108,7 +114,7 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | Layer | Holds | Guarantee |
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
-| staging | authority layer, version lineage | one source version per state, unique facility id, crosswalk-resolved LGA |
+| staging | authority layer, version lineage, per-LGA NTD endemicity | one source version per state, unique facility id, crosswalk-resolved LGA; endemicity one row per (LGA, disease), every known label ranked, unknown never ranked |
 | marts | coverage-burden, version drift, coverage-choropleth | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
 ## Data-quality gate
@@ -124,6 +130,6 @@ The carry-over gate fails the run when the match collapses. It is enforced insid
 ## Boundaries that hold
 
 - Raw third-party data is fetched, never committed. Derived outputs are Produced Works. A downloaded geopackage enters data/raw/ through `scripts/fetch_sources.py --place`, which validates it opens as a geopackage and moves it in with one atomic rename, so the loader and the new-vintage sensor never read a half-written file at the final path.
-- ESPEN content stays non-commercial; only the derived per-state summary ships.
+- ESPEN content stays non-commercial; only derived summaries ship (the per-state STH summary and the per-LGA endemicity table), never the raw IU data.
 - Missing is not zero at every layer: a stale state, an unsurveyed IU, an unmatched LGA is an absence, never a measured zero.
 - Every published mart has a written, tested contract before it is called done.

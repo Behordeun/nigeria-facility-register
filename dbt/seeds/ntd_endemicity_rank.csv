@@ -1,0 +1,25 @@
+disease_code,endemicity,endemicity_rank,rank_basis
+STH,Non-endemic,0,prevalence band
+STH,Low prevalence (less than 20%),1,prevalence band
+STH,Moderate prevalence (20%-49%),2,prevalence band
+STH,High prevalence (50% and above),3,prevalence band
+SCH,Non-endemic,0,prevalence band
+SCH,Low prevalence (less than 10%),1,prevalence band
+SCH,Moderate prevalence (10%-49%),2,prevalence band
+SCH,High prevalence (50% and above),3,prevalence band
+Loa,Non-endemic,0,prevalence band
+Loa,Hypo-endemic,1,prevalence band
+Loa,Meso-endemic,2,prevalence band
+Loa,Hyper-endemic,3,prevalence band
+lf,Non-endemic,0,programme stage
+lf,Endemic (under post-intervention surveillance),1,programme stage
+lf,Endemic (pending IA),2,programme stage
+lf,Endemic (under MDA),2,programme stage
+lf,Endemic (under targeted treatment),2,programme stage
+lf,Endemic (MDA not delivered),3,programme stage
+Oncho,Non-endemic,0,programme stage
+Oncho,Endemic (under post-intervention surveillance),1,programme stage
+Oncho,Endemic (pending IA),2,programme stage
+Oncho,Endemic (under MDA),2,programme stage
+Oncho,Endemic (under targeted treatment),2,programme stage
+Oncho,Endemic (MDA not delivered),3,programme stage

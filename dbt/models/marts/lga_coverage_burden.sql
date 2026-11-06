@@ -8,6 +8,13 @@
 -- facility-source LGA spellings and former names to the canonical frame name
 -- (Municipal Area Council -> AMAC, Shomolu -> Somolu), so a known variant joins
 -- instead of showing a false zero.
+--
+-- Burden comes at two resolutions. sth_high_share_pct_state is a state figure
+-- broadcast to every LGA in the state and drives the priority flag, unchanged.
+-- The *_endemicity_rank_lga columns are true per-LGA ESPEN endemicity ranks
+-- (0-3, null when the LGA's status was never known) for five diseases, pivoted
+-- from stg_ntd_endemicity_lga. They sit alongside the state column rather than
+-- replacing it, so the existing column keeps its meaning.
 
 with xwalk_raw as (
     select state, facility_lga, canonical_lga
@@ -74,6 +81,19 @@ ntd as (
     from {{ source('raw', 'ntd_sth_state') }}
 ),
 
+ntd_lga as (
+    select
+        state_key,
+        lga_key,
+        max(endemicity_rank) filter (where disease_code = 'STH')   as sth_endemicity_rank_lga,
+        max(endemicity_rank) filter (where disease_code = 'SCH')   as sch_endemicity_rank_lga,
+        max(endemicity_rank) filter (where disease_code = 'lf')    as lf_endemicity_rank_lga,
+        max(endemicity_rank) filter (where disease_code = 'Oncho') as oncho_endemicity_rank_lga,
+        max(endemicity_rank) filter (where disease_code = 'Loa')   as loa_endemicity_rank_lga
+    from {{ ref('stg_ntd_endemicity_lga') }}
+    group by state_key, lga_key
+),
+
 joined as (
     select
         frame.canonical_lga,
@@ -83,10 +103,17 @@ joined as (
         fac.facility_source_version,
         coalesce(fac.facility_status, 'unmatched') as facility_status,
         ntd.sth_high_share_pct             as sth_high_share_pct_state,
-        ntd.sth_survey_years               as sth_survey_years_state
+        ntd.sth_survey_years               as sth_survey_years_state,
+        ntd_lga.sth_endemicity_rank_lga,
+        ntd_lga.sch_endemicity_rank_lga,
+        ntd_lga.lf_endemicity_rank_lga,
+        ntd_lga.oncho_endemicity_rank_lga,
+        ntd_lga.loa_endemicity_rank_lga
     from frame
     left join fac  on frame.state_key = fac.state_key and frame.lga_key = fac.lga_key
     left join ntd  on frame.state_key = ntd.state_key
+    left join ntd_lga
+      on frame.state_key = ntd_lga.state_key and frame.lga_key = ntd_lga.lga_key
 ),
 
 cut as (
