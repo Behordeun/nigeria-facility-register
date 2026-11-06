@@ -3,7 +3,9 @@
 -- rank, which downstream reads as "status unknown": a measured status silently
 -- turned into missing. A new ESPEN label fails the build here until it is
 -- ranked in the seed. Also guards the seed itself: one rank per
--- (disease_code, endemicity), so the rank join can never fan rows out.
+-- (disease_code, endemicity) and one rank_basis per disease, so neither the
+-- rank join nor the per-disease basis join in stg_ntd_endemicity_lga can fan
+-- rows out.
 -- Returns one row per violation.
 with known as (
     select distinct disease_code, endemicity_latest_known as endemicity
@@ -24,3 +26,10 @@ select disease_code, endemicity, 'seed ranks this label more than once'
 from {{ ref('ntd_endemicity_rank') }}
 group by disease_code, endemicity
 having count(*) > 1
+
+union all
+
+select disease_code, null, 'seed gives this disease more than one rank_basis'
+from {{ ref('ntd_endemicity_rank') }}
+group by disease_code
+having count(distinct rank_basis) > 1
