@@ -16,6 +16,7 @@ flowchart TD
         FR["774-LGA master index<br/>+ centroids, CC BY"]
         XW["LGA alias crosswalk"]
         NB["ESPEN per-state summary<br/>derived, non-commercial"]
+        GEO["774-LGA boundary polygons<br/>simplified, CC BY"]
     end
 
     subgraph raw["raw (DuckDB, immutable)"]
@@ -34,6 +35,7 @@ flowchart TD
     subgraph marts["marts (dbt, the product)"]
         COV["lga_coverage_burden<br/>coverage x NTD burden<br/>priority flag"]
         LINM["lga_version_drift<br/>queryable lineage"]
+        CHO["lga_coverage_choropleth<br/>coverage + LGA polygons<br/>one row per polygon part"]
     end
 
     G2 --> R2
@@ -54,8 +56,14 @@ flowchart TD
     LIN --> LINM
     RF --> LINM
 
+    COV --> CHO
+    RF --> CHO
+    GEO --> CHO
+
     COV --> OUT["Published marts<br/>DATA_CONTRACT.md"]
     LINM --> OUT
+    CHO --> OUT
+    OUT --> BI["Superset dashboards<br/>read-only"]
 ```
 
 ## Spatial matching (why lineage needs it)
@@ -98,7 +106,7 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
 | staging | authority layer, version lineage | one source version per state, unique facility id, crosswalk-resolved LGA |
-| marts | coverage-burden, version drift, coverage-choropleth | one row per LGA, missing is not zero, enforced column contract (DATA_CONTRACT.md); the choropleth carries each LGA's boundary polygon for mapping |
+| marts | coverage-burden, version drift, coverage-choropleth | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
 ## Data-quality gate
 
