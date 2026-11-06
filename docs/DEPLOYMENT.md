@@ -89,40 +89,49 @@ through the mount with no restart.
 
 ## Superset (dashboards)
 
-The compose stack includes an Apache Superset service for the dashboards: the
-coverage x burden choropleth (from `lga_coverage_choropleth`, which carries each
-LGA's boundary polygon as GeoJSON) and the version-drift breakdown (from
-`lga_version_drift`). It reads the live register **read-only** (the `build`
-volume mounted at `/app/register`), so a dashboard query can never alter the
-published data.
+The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
 
-Bring it up with the rest of the stack (`docker compose up -d`), then at
-`http://127.0.0.1:8088`:
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, five datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `register_summary`), 19 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has four tabs:
 
-1. Set real credentials first. Copy `.env.example` to `.env` beside the compose
-   file and fill in `SUPERSET_SECRET_KEY` and `SUPERSET_ADMIN_PASSWORD`
-   (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires the
-   secret key and the admin password, so `docker compose up` aborts with a clear
-   message if either is unset rather than booting with a guessable default. The
-   real `.env` is gitignored. **Never commit real credentials.**
-2. Add the database connection (Settings -> Database Connections -> + Database,
-   "Other"): SQLAlchemy URI `duckdb:////app/register/nfr.duckdb?access_mode=read_only`.
-   The `read_only` access mode matches the read-only mount and lets Superset
-   open the file even while the daemon holds it.
-3. Add the two datasets from that connection: `lga_coverage_choropleth` and
-   `lga_version_drift`. The choropleth's `geometry_feature` column feeds a
-   deck.gl Geojson chart (it carries the geometry and properties that layer
-   reads); colour by `facilities`, `sth_high_share_pct_state`, or
-   `priority_high_burden_thin_coverage`.
+- **Coverage**: facilities in the register, LGAs matched and unmatched, priority LGAs, a facilities-per-LGA map, a priority-LGA map and a by-state table.
+- **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table.
+- **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
+- **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
 
-The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a
-Mapbox public token (`pk...`) for the map background; without it the tiles do
-not load, though non-map charts and the data layer are unaffected. The token
-stays in the gitignored `.env`, never committed.
+State and facility-status filters apply across the tabs.
 
-Superset keeps its own metadata (users, charts, dashboards) in the
-`superset_home` volume; it is independent of the register and survives a
-register rebuild.
+To bring it up:
+
+1. Set real credentials first. Copy `.env.example` to `.env` beside the compose file and fill in `SUPERSET_SECRET_KEY` and `SUPERSET_ADMIN_PASSWORD` (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires both, so `docker compose up` aborts with a clear message if either is unset rather than booting with a guessable default. The real `.env` is gitignored. **Never commit real credentials.**
+2. Start the stack (`docker compose up -d`) and let a refresh publish the register.
+3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It zips the bundle, copies it into the `superset` container and runs `superset import-dashboards`, which creates the connection, datasets, charts and dashboard, or updates them in place by UUID on a re-run. Then open `http://127.0.0.1:8088` and log in.
+
+To change the dashboard, edit it in the Superset UI, then run `make dashboard-export` (or `python scripts/superset_dashboard.py export`). That exports only this dashboard, selected by UUID so other dashboards on the instance never land in the repo, and rewrites the bundle directory with stable filenames; review the diff and commit it. `tests/test_superset_bundle.py` checks the bundle in CI: every reference resolves, the connection stays read-only, and every column a dataset or chart names exists in the dbt contract, so renaming a mart column fails the tests instead of breaking a chart.
+
+The live summary is a Table chart whose single cell is HTML built in SQL by a calculated column on the `register_summary` dataset, rendered with the table's sanitised HTML option. Superset's Handlebars chart would read more naturally but compiles its template with `eval`, which Superset's own Content Security Policy blocks; loosening the policy for one panel is not worth weakening it for the whole app.
+
+The map charts use the deck.gl Polygon layer, which needs each polygon's coordinate rings rather than a GeoJSON object, so the choropleth dataset adds a calculated `polygon_coordinates` column (`json_extract(geometry_geojson, '$.coordinates')`). The map rows are polygon parts (800 over 774 LGAs), so the map metrics use `MAX`, never `SUM`.
+
+Hovering an LGA on any map shows a one-line summary: LGA and state, facility count with register version and status, the five endemicity ranks (`unknown` where no status is known), and the priority flag, followed by the map's own value. The Polygon layer's built-in tooltip prints a row's `name` field as plain text and only renders when the chart has a metric, so the choropleth dataset defines a calculated `name` column holding that summary, every map passes it through `js_columns`, and the priority map carries a constant metric (1 for each flagged LGA, drawn in a single red bucket). This needs no JavaScript controls and stays within Superset's Content Security Policy. `tests/test_superset_bundle.py` fails if a map loses its metric or the hover column.
+
+The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a Mapbox public token (`pk...`) for the map background; without it the tiles do not load, though the polygons, non-map charts and the data layer are unaffected. The token stays in the gitignored `.env`, never committed.
+
+Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
+
+### Who can see what
+
+The bundle's connection is exposed to SQL Lab on purpose, read-only; see [ADR 0001](adr/0001-superset-sql-lab-access.md). Access is controlled with Superset roles, not by hiding the connection:
+
+- **Viewers**: the Gamma role plus access to the dashboard's datasets. They see the dashboard and can export chart data, but cannot run SQL.
+- **Analysts**: additionally the `sql_lab` role, which lets them query every table in the register (marts, staging, raw), read-only. Grant it only to named people who have accepted the ESPEN non-commercial terms, since SQL Lab makes the full per-LGA endemicity table easy to export.
+- **Admins**: manage roles and import the bundle.
+
+Before opening the dashboard to anyone outside the team (self-registration, a public or guest role, embedding), check each of these:
+
+1. Self-registration stays off (`AUTH_USER_REGISTRATION = False`, the default), or new users default to a role without `sql_lab`.
+2. Any public or guest role (`PUBLIC_ROLE_LIKE`, guest tokens) is limited to the dashboard's datasets and has no `sql_lab`.
+3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
+4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
 
 ## Not covered here
 

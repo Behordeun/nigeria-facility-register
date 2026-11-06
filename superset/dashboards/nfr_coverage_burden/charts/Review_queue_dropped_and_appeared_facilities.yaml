@@ -1,0 +1,42 @@
+slice_name: 'Review queue: dropped and appeared facilities'
+description: null
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 3__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - state
+  - canonical_lga
+  - source_lga
+  - lineage_status
+  - v2_name
+  - v3_name
+  order_by_cols:
+  - '["state", true]'
+  - '["canonical_lga", true]'
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: lineage_status IN ('dropped', 'appeared')
+    filterOptionName: filter_3ba72da071da
+  row_limit: 50000
+  server_pagination: true
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 2bf515ff-d6f8-5049-99f7-6734584c72a8
+version: 1.0.0
+dataset_uuid: 4c124e6e-44f9-58c0-9bb3-022f79d12a60
