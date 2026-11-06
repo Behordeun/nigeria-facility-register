@@ -34,6 +34,7 @@ params:
   percent_metrics: []
   order_desc: true
   allow_render_html: false
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 2bf515ff-d6f8-5049-99f7-6734584c72a8

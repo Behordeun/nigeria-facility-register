@@ -1,0 +1,29 @@
+slice_name: Register status
+description: Live summary of the published register, read from register_summary.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 5__table
+  viz_type: table
+  query_mode: raw
+  all_columns:
+  - status_html
+  groupby: []
+  metrics: []
+  adhoc_filters: []
+  order_by_cols: []
+  row_limit: 1
+  server_pagination: false
+  server_page_length: 10
+  include_search: false
+  show_cell_bars: false
+  allow_render_html: true
+  percent_metrics: []
+  table_timestamp_format: smart_date
+  extra_form_data: {}
+query_context: null
+cache_timeout: null
+uuid: fb31b5fd-4ca5-53f4-8be9-ce113e789f58
+version: 1.0.0
+dataset_uuid: 73bcc381-957f-531e-8473-56f3367d0c59

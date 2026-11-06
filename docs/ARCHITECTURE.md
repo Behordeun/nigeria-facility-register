@@ -40,6 +40,7 @@ flowchart TD
         COV["lga_coverage_burden<br/>coverage x NTD burden<br/>per-LGA endemicity ranks<br/>priority flag"]
         LINM["lga_version_drift<br/>queryable lineage"]
         CHO["lga_coverage_choropleth<br/>coverage + LGA polygons<br/>one row per polygon part"]
+        SUMM["register_summary<br/>one row: build time, versions,<br/>totals, known-status counts"]
     end
 
     G2 --> R2
@@ -69,10 +70,16 @@ flowchart TD
     RF --> CHO
     GEO --> CHO
 
+    COV --> SUMM
+    AUTH --> SUMM
+    NTD --> SUMM
+    LINM --> SUMM
+
     COV --> OUT["Published marts<br/>DATA_CONTRACT.md"]
     LINM --> OUT
     CHO --> OUT
-    OUT --> BI["Superset dashboard<br/>read-only, committed bundle<br/>coverage / NTD burden / drift"]
+    SUMM --> OUT
+    OUT --> BI["Superset dashboard<br/>read-only, committed bundle<br/>coverage / NTD burden / drift / status"]
 ```
 
 ## Spatial matching (why lineage needs it)
@@ -115,7 +122,7 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
 | staging | authority layer, version lineage, per-LGA NTD endemicity | one source version per state, unique facility id, crosswalk-resolved LGA; endemicity one row per (LGA, disease), every known label ranked, unknown never ranked |
-| marts | coverage-burden, version drift, coverage-choropleth | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
+| marts | coverage-burden, version drift, coverage-choropleth, register summary | coverage-burden one row per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part, register summary exactly one row that agrees with the tables it summarises; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
 ## Data-quality gate
 

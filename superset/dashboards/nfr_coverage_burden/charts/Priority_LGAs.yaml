@@ -23,6 +23,7 @@ params:
   y_axis_format: SMART_NUMBER
   time_format: smart_date
   subheader: high STH burden, thin coverage
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 43a579da-6996-53f9-870f-21cb29cc3153

@@ -91,12 +91,12 @@ through the mount with no restart.
 
 The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
 
-The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, four datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_version_drift`, `stg_ntd_endemicity_lga`), 18 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has four tabs:
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, five datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `register_summary`), 19 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has four tabs:
 
 - **Coverage**: facilities in the register, LGAs matched and unmatched, priority LGAs, a facilities-per-LGA map, a priority-LGA map and a by-state table.
 - **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table.
 - **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
-- **About**: sources, licences (ESPEN is non-commercial) and the "missing is not zero" rule.
+- **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
 
 State and facility-status filters apply across the tabs.
 
@@ -107,6 +107,8 @@ To bring it up:
 3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It zips the bundle, copies it into the `superset` container and runs `superset import-dashboards`, which creates the connection, datasets, charts and dashboard, or updates them in place by UUID on a re-run. Then open `http://127.0.0.1:8088` and log in.
 
 To change the dashboard, edit it in the Superset UI, then run `make dashboard-export` (or `python scripts/superset_dashboard.py export`). That exports only this dashboard, selected by UUID so other dashboards on the instance never land in the repo, and rewrites the bundle directory with stable filenames; review the diff and commit it. `tests/test_superset_bundle.py` checks the bundle in CI: every reference resolves, the connection stays read-only, and every column a dataset or chart names exists in the dbt contract, so renaming a mart column fails the tests instead of breaking a chart.
+
+The live summary is a Table chart whose single cell is HTML built in SQL by a calculated column on the `register_summary` dataset, rendered with the table's sanitised HTML option. Superset's Handlebars chart would read more naturally but compiles its template with `eval`, which Superset's own Content Security Policy blocks; loosening the policy for one panel is not worth weakening it for the whole app.
 
 The map charts use the deck.gl Polygon layer, which needs each polygon's coordinate rings rather than a GeoJSON object, so the choropleth dataset adds a calculated `polygon_coordinates` column (`json_extract(geometry_geojson, '$.coordinates')`). The map rows are polygon parts (800 over 774 LGAs), so the map metrics use `MAX`, never `SUM`.
 

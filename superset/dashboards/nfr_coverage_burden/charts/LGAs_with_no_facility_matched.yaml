@@ -23,6 +23,7 @@ params:
   y_axis_format: SMART_NUMBER
   time_format: smart_date
   subheader: a name-join miss, not a measured zero
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: b892dd02-e155-5286-8085-14caa108abee

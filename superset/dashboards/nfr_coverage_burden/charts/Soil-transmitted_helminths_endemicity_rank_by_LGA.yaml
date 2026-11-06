@@ -77,6 +77,7 @@ params:
   js_data_mutator: ''
   js_tooltip: ''
   js_onclick_href: ''
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 6eb0c1ff-33f4-5f4a-96a9-23213be160d7

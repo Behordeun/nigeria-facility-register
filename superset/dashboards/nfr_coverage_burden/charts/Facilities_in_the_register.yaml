@@ -19,6 +19,7 @@ params:
   y_axis_format: SMART_NUMBER
   time_format: smart_date
   subheader: authority layer, all LGAs
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 03a38381-ecfd-5d2d-87bc-1ad067631a05

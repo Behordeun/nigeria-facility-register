@@ -42,7 +42,11 @@ ROOT = Path(__file__).resolve().parent.parent
 BUNDLE_DIR = ROOT / "superset" / "dashboards" / "nfr_coverage_burden"
 DASHBOARD_UUID = "435de0dd-d46c-52d5-a5c1-e75ed9f32288"
 SERVICE = "superset"
-CONTAINER_ZIP = "/tmp/nfr_dashboard_bundle.zip"
+# Separate container paths per direction: `docker compose cp` writes the import
+# zip as root, and the export runs as the superset user, which could not
+# overwrite a root-owned file left at a shared path.
+CONTAINER_IMPORT_ZIP = "/tmp/nfr_dashboard_import.zip"
+CONTAINER_EXPORT_ZIP = "/tmp/nfr_dashboard_export.zip"
 BUNDLE_ROOT = "nfr_dashboard"
 # Superset suffixes chart and dashboard filenames with the instance's numeric id.
 _ID_SUFFIX = re.compile(r"_\d+(\.yaml)$")
@@ -66,7 +70,7 @@ with app.app_context():
     dash = db.session.query(Dashboard).filter_by(uuid="{DASHBOARD_UUID}").one_or_none()
     if dash is None:
         sys.exit("dashboard {DASHBOARD_UUID} is not in this Superset; run the import first")
-    with ZipFile("{CONTAINER_ZIP}", "w") as bundle:
+    with ZipFile("{CONTAINER_EXPORT_ZIP}", "w") as bundle:
         for name, content in ExportDashboardsCommand([dash.id]).run():
             with bundle.open("{BUNDLE_ROOT}/" + name, "w") as fp:
                 fp.write(content().encode())
@@ -136,10 +140,10 @@ def do_import(project: str | None) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = Path(tmp) / "bundle.zip"
         count = build_zip(BUNDLE_DIR, zip_path)
-        _run(_compose(project) + ["cp", str(zip_path), f"{SERVICE}:{CONTAINER_ZIP}"])
+        _run(_compose(project) + ["cp", str(zip_path), f"{SERVICE}:{CONTAINER_IMPORT_ZIP}"])
     _run(_compose(project) + [
         "exec", "-T", SERVICE, "sh", "-c",
-        f'superset import-dashboards -p {CONTAINER_ZIP} -u "$SUPERSET_ADMIN_USERNAME"',
+        f'superset import-dashboards -p {CONTAINER_IMPORT_ZIP} -u "$SUPERSET_ADMIN_USERNAME"',
     ])
     print(f"imported {count} bundle files into Superset ({BUNDLE_DIR.relative_to(ROOT)})")
 
@@ -148,7 +152,7 @@ def do_export(project: str | None) -> None:
     _run(_compose(project) + ["exec", "-T", SERVICE, "python", "-"], stdin=_EXPORT_PROGRAM)
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = Path(tmp) / "export.zip"
-        _run(_compose(project) + ["cp", f"{SERVICE}:{CONTAINER_ZIP}", str(zip_path)])
+        _run(_compose(project) + ["cp", f"{SERVICE}:{CONTAINER_EXPORT_ZIP}", str(zip_path)])
         count = normalise_export(zip_path, BUNDLE_DIR)
     print(f"exported {count} files to {BUNDLE_DIR.relative_to(ROOT)}; review the diff before committing")
 

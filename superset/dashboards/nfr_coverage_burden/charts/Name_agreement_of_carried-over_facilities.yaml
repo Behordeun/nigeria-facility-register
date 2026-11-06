@@ -34,6 +34,7 @@ params:
   outerRadius: 80
   innerRadius: 40
   donut: true
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: d291a91a-5d7f-57e8-b7e4-d7428226887b

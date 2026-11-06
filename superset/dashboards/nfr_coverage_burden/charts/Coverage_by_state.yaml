@@ -42,6 +42,7 @@ params:
   percent_metrics: []
   timeseries_limit_metric: null
   table_timestamp_format: smart_date
+  annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 28f9e326-f34f-5773-8be2-2e46fe49dd8d
