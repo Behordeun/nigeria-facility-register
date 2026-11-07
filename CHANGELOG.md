@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-07
+
 ### Added
 
 - A population outlook. The new `lga_coverage_outlook` mart has one row per LGA for every WorldPop year the register carries (2025-2030), holding today's facility count fixed: population, facilities per 10,000 people, and the change in each from the register's own year, whose rows equal the published coverage mart. At today's count, national coverage falls from 2.59 facilities per 10,000 people in 2025 to 2.35 in 2030, LGAs below 2 per 10,000 rise from 207 to 267, and 47 LGAs at or above 2 today fall below it by 2030. A dbt test checks that every year covers the 774 LGAs once, the register-year rows match the coverage mart, facilities stay fixed and every rate and change recomputes. The dashboard adds an Outlook tab with national coverage by year, LGAs below 2 per 10,000 by year, and the LGAs falling below it by 2030.
@@ -14,7 +16,13 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Changed
 
 - The `refresh_register` job selects its two assets by name rather than every asset, so the upstream check can never run inside a refresh.
+- The README opens with status badges: the CI workflow on `development` and `main`, the SonarCloud, GitGuardian and Amazon Q checks, all checks together, the latest release, the licence and the supported Python versions.
 - Dashboard labels no longer name a fixed population year: population columns read "Population (WorldPop)", and the year is stated on the Data status page.
+
+### Notes
+
+- The register's population year now follows the calendar year within the WorldPop years carried (2025-2030). A register built in 2026 reports 2026 population, so population, per-capita rates, travel-time figures and priority scores move from the 2025 values published in 0.2.0 (for example 2.59 to 2.54 facilities per 10,000 people nationally). Set the `population_year` dbt var to build a specific year; `population_year: 2025` reproduces the 0.2.0 figures.
+- Every other contract change adds columns or a new mart (`lga_coverage_outlook`); no published column changes meaning or type. To upgrade a running deployment, rebuild the register and re-run `make dashboard`.
 
 ## [0.2.0] - 2026-11-07
 
@@ -95,6 +103,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...development
+[0.3.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Behordeun/nigeria-facility-register/releases/tag/v0.1.0
