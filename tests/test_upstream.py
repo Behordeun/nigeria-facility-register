@@ -4,6 +4,7 @@ The parsers are fed small copies of what each publisher returns, so the tests ru
 without the network. check_upstream is driven through an injected fetcher.
 """
 import json
+import urllib.error
 from datetime import date
 from pathlib import Path
 
@@ -44,8 +45,8 @@ def test_worldpop_reports_a_newer_release_in_order():
     assert finding.detail.startswith("R2025B, R2026A"), "newer releases are listed oldest first"
 
 
-def test_worldpop_index_without_releases_is_unreachable_not_current():
-    assert u.worldpop_finding("<html>maintenance</html>", "R2025A").status is u.Status.UNREACHABLE
+def test_worldpop_index_without_releases_is_unreadable_not_current():
+    assert u.worldpop_finding("<html>maintenance</html>", "R2025A").status is u.Status.UNREADABLE
 
 
 def test_grid3_reports_a_new_nigeria_version_and_ignores_other_countries():
@@ -62,8 +63,8 @@ def test_grid3_is_current_when_hdx_lists_only_pinned_versions():
     assert finding.status is u.Status.CURRENT
 
 
-def test_grid3_empty_search_is_unreachable():
-    assert u.grid3_finding({"result": {"results": []}}, PINNED.grid3_versions).status is u.Status.UNREACHABLE
+def test_grid3_empty_search_is_unreadable():
+    assert u.grid3_finding({"result": {"results": []}}, PINNED.grid3_versions).status is u.Status.UNREADABLE
 
 
 def test_map_reports_an_unpinned_travel_time_coverage():
@@ -137,7 +138,7 @@ def test_espen_years_rejects_a_body_without_a_year_column():
 def test_check_upstream_keeps_going_when_one_publisher_fails():
     def get(url: str) -> str:
         if url == u.HDX_SEARCH_URL:
-            raise OSError("timed out")
+            raise urllib.error.URLError("timed out")
         return _pages()[url]
 
     findings = {f.source: f for f in u.check_upstream(PINNED, get=get, today=TODAY)}
@@ -159,3 +160,76 @@ def test_read_pinned_refuses_a_sources_file_without_a_worldpop_release(tmp_path:
     path.write_text("sources:\n  access_population_lga:\n    upstream:\n      worldpop: {}\n")
     with pytest.raises(ValueError, match="worldpop.release"):
         u.read_pinned(path)
+
+
+def test_espen_years_rejects_a_non_numeric_year():
+    with pytest.raises(ValueError, match="'N/A' is not a number"):
+        u.espen_years(ESPEN_HEADER + "1,NG,1,N/A,x\n")
+
+
+def test_a_reply_in_an_unexpected_format_is_unreadable_not_unreachable():
+    body = ESPEN_HEADER + "1,NG,36337,N/A,x\n"
+    finding = u.check_upstream(PINNED, get=_pages(body).__getitem__, today=TODAY)[-1]
+    assert finding.status is u.Status.UNREADABLE, "the portal answered, so the problem is the format, not the network"
+    assert "N/A" in finding.detail
+
+
+def test_malformed_json_from_hdx_is_unreadable():
+    pages = _pages()
+    pages[u.HDX_SEARCH_URL] = "<html>not json</html>"
+    findings = {f.source: f for f in u.check_upstream(PINNED, get=pages.__getitem__, today=TODAY)}
+    assert findings["GRID3 health facilities"].status is u.Status.UNREADABLE
+
+
+class _Body:
+    def __init__(self, text):
+        self.text = text
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self.text.encode()
+
+
+def test_http_get_retries_a_refused_connection_then_succeeds(monkeypatch):
+    replies = [urllib.error.URLError(ConnectionRefusedError(61, "Connection refused")), _Body("ok")]
+
+    def urlopen(*_args, **_kwargs):
+        reply = replies.pop(0)
+        if isinstance(reply, Exception):
+            raise reply
+        return reply
+
+    waits = []
+    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    assert u.http_get("https://example.invalid", sleep=waits.append) == "ok"
+    assert waits == [2.0], "one backoff before the second attempt"
+
+
+def test_http_get_gives_up_after_its_attempts(monkeypatch):
+    def urlopen(*_args, **_kwargs):
+        raise urllib.error.URLError("down")
+
+    waits = []
+    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    with pytest.raises(urllib.error.URLError):
+        u.http_get("https://example.invalid", sleep=waits.append)
+    assert waits == [2.0, 4.0], "exponential backoff between three attempts"
+
+
+def test_http_get_does_not_retry_an_http_error(monkeypatch):
+    calls = []
+
+    def urlopen(*_args, **_kwargs):
+        calls.append(1)
+        raise urllib.error.HTTPError("https://example.invalid", 404, "Not Found", {}, None)
+
+    monkeypatch.setattr(u.urllib.request, "urlopen", urlopen)
+    with pytest.raises(urllib.error.HTTPError):
+        u.http_get("https://example.invalid", sleep=lambda _s: None)
+    assert len(calls) == 1, "an HTTP error status is an answer, not a transient refusal"
+

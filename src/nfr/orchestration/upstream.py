@@ -21,8 +21,10 @@ publisher lists today:
   new year to review.
 
 Nothing here downloads data or changes the register. A publisher that cannot be
-reached is reported as unreachable rather than raising, so one slow site never
-hides the others. The parsers are pure and tested without the network.
+reached is reported as unreachable, and one that answers in a shape the parsers
+do not recognise as unreadable, rather than raising, so one failing site never
+hides the others and an operator can tell a network fault from a format change.
+The parsers are pure and tested without the network.
 """
 from __future__ import annotations
 
@@ -31,6 +33,8 @@ import datetime as dt
 import io
 import json
 import re
+import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
@@ -42,6 +46,8 @@ import yaml
 
 SOURCES = Path(__file__).resolve().parents[3] / "data" / "sources.yml"
 REQUEST_TIMEOUT_S = 30
+REQUEST_ATTEMPTS = 3
+RETRY_BACKOFF_S = 2.0
 USER_AGENT = "nigeria-facility-register upstream check"
 
 WORLDPOP_INDEX_URL = "https://data.worldpop.org/GIS/Population/Global_2015_2030/"
@@ -66,6 +72,7 @@ class Status(str, Enum):
     CURRENT = "current"
     NEW_RELEASE = "new_release"
     UNREACHABLE = "unreachable"
+    UNREADABLE = "unreadable"
 
 
 @dataclass(frozen=True)
@@ -121,7 +128,7 @@ def worldpop_finding(index_html: str, pinned_release: str) -> Finding:
     """Compare the WorldPop release folders listed in index_html with the pinned release."""
     releases = {f"R{y}{s}" for y, s in _WORLDPOP_RELEASE.findall(index_html)}
     if not releases:
-        return Finding("WorldPop", Status.UNREACHABLE, "the release index listed no releases")
+        return Finding("WorldPop", Status.UNREADABLE, "the release index listed no releases")
     newer = sorted((r for r in releases if _release_key(r) > _release_key(pinned_release)), key=_release_key)
     if newer:
         return Finding("WorldPop", Status.NEW_RELEASE,
@@ -137,7 +144,7 @@ def grid3_finding(search_json: dict, pinned_versions: frozenset[tuple[int, int]]
         if match := _GRID3_NGA_HEALTH.match(str(package.get("name", ""))):
             listed.add((int(match[1]), int(match[2])))
     if not listed:
-        return Finding("GRID3 health facilities", Status.UNREACHABLE, "HDX listed no GRID3 Nigeria health-facility dataset")
+        return Finding("GRID3 health facilities", Status.UNREADABLE, "HDX listed no GRID3 Nigeria health-facility dataset")
     latest_pinned = max(pinned_versions)
     newer = sorted(v for v in listed if v > latest_pinned)
     if newer:
@@ -152,7 +159,7 @@ def map_finding(capabilities_xml: str, pinned_coverages: frozenset[str]) -> Find
     """Compare MAP's advertised travel-time-to-healthcare coverages with the pinned ones."""
     listed = set(_MAP_HEALTHCARE.findall(capabilities_xml))
     if not listed:
-        return Finding("Malaria Atlas Project", Status.UNREACHABLE, "the WCS listed no travel-time-to-healthcare coverage")
+        return Finding("Malaria Atlas Project", Status.UNREADABLE, "the WCS listed no travel-time-to-healthcare coverage")
     unpinned = sorted(listed - pinned_coverages)
     if unpinned:
         return Finding("Malaria Atlas Project", Status.NEW_RELEASE,
@@ -167,7 +174,17 @@ def espen_years(csv_text: str) -> set[int]:
     reader = csv.DictReader(io.StringIO(csv_text))
     if "year" not in (reader.fieldnames or []):
         raise ValueError("ESPEN download has no year column")
-    return {int(row["year"]) for row in reader if row.get("year")}
+    years = set()
+    for row in reader:
+        value = (row.get("year") or "").strip()
+        if not value:
+            continue
+        if not value.isdigit():
+            # A non-numeric year means the download's format changed; raise so the
+            # finding says so (unreadable) instead of dropping rows silently.
+            raise ValueError(f"ESPEN year {value!r} is not a number")
+        years.add(int(value))
+    return years
 
 
 def espen_finding(years_by_disease: dict[str, set[int]], pinned_latest_year: int) -> Finding:
@@ -180,11 +197,26 @@ def espen_finding(years_by_disease: dict[str, set[int]], pinned_latest_year: int
     return Finding("ESPEN", Status.CURRENT, f"no Nigeria IU data after {pinned_latest_year}")
 
 
-def http_get(url: str) -> str:
-    """GET url as text, with a timeout and an identifying user agent."""
+def http_get(url: str, attempts: int = REQUEST_ATTEMPTS, sleep: Callable[[float], None] = time.sleep) -> str:
+    """GET url as text, with a timeout, an identifying user agent and retries.
+
+    Network errors are retried with exponential backoff (2 s, then 4 s): some
+    publishers' gateways refuse an occasional connection, and a single refusal
+    should not read as the publisher being down. An HTTP error status is not a
+    transient refusal, so it is raised at once.
+    """
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_S) as response:  # noqa: S310 - fixed https URLs
-        return response.read().decode("utf-8", errors="replace")
+    for attempt in range(1, attempts + 1):
+        try:
+            with urllib.request.urlopen(request, timeout=REQUEST_TIMEOUT_S) as response:  # noqa: S310 - fixed https URLs
+                return response.read().decode("utf-8", errors="replace")
+        except urllib.error.HTTPError:
+            raise
+        except _NETWORK_ERRORS:
+            if attempt == attempts:
+                raise
+            sleep(RETRY_BACKOFF_S * 2 ** (attempt - 1))
+    raise AssertionError("unreachable: the loop returns or raises")
 
 
 def _espen(pinned: Pinned, get: Callable[[str], str], this_year: int) -> Finding:
@@ -211,12 +243,21 @@ def check_upstream(
     ]
     findings = []
     for source, url, judge in checks:
-        try:
-            findings.append(judge(get(url)))
-        except Exception as exc:  # one failing publisher must not hide the others
-            findings.append(Finding(source, Status.UNREACHABLE, f"{type(exc).__name__}: {exc}"[:300]))
-    try:
-        findings.append(_espen(pinned, get, this_year))
-    except Exception as exc:
-        findings.append(Finding("ESPEN", Status.UNREACHABLE, f"{type(exc).__name__}: {exc}"[:300]))
+        findings.append(_guarded(source, lambda url=url, judge=judge: judge(get(url))))
+    findings.append(_guarded("ESPEN", lambda: _espen(pinned, get, this_year)))
     return findings
+
+
+# Network and HTTP failures: the publisher could not be reached. Anything else
+# raised while reading a response means it answered in an unexpected shape.
+_NETWORK_ERRORS = (urllib.error.URLError, TimeoutError, ConnectionError)
+
+
+def _guarded(source: str, check: Callable[[], Finding]) -> Finding:
+    """Run one publisher's check; turn a failure into a finding so it cannot hide the others."""
+    try:
+        return check()
+    except _NETWORK_ERRORS as exc:
+        return Finding(source, Status.UNREACHABLE, f"{type(exc).__name__}: {exc}"[:300])
+    except Exception as exc:  # a parse failure: the publisher answered, but not as expected
+        return Finding(source, Status.UNREADABLE, f"{type(exc).__name__}: {exc}"[:300])

@@ -537,28 +537,40 @@ def upstream_releases(context) -> None:
     } | {
         "needs_review": sum(f.status is upstream.Status.NEW_RELEASE for f in findings),
         "unreachable": sum(f.status is upstream.Status.UNREACHABLE for f in findings),
+        "unreadable": sum(f.status is upstream.Status.UNREADABLE for f in findings),
     })
 
 
 @asset_check(asset=upstream_releases, blocking=False)
 def no_unreviewed_upstream_release(context) -> AssetCheckResult:
-    """Warn (never fail a job) while a newer upstream release is waiting for review.
+    """Warn (never fail a job) while a newer upstream release is waiting for review, a
+    publisher is unreachable or unreadable, or no check has run yet.
 
     Reads the findings the latest upstream_releases materialisation recorded, so
     the check does not hit the network a second time.
     """
     event = context.instance.get_latest_materialization_event(upstream_releases.key)
-    metadata = event.asset_materialization.metadata if event and event.asset_materialization else {}
-    needs_review = int(getattr(metadata.get("needs_review"), "value", 0) or 0)
-    unreachable = int(getattr(metadata.get("unreachable"), "value", 0) or 0)
+    if event is None or event.asset_materialization is None:
+        # Nothing has been checked yet, which is not the same as nothing to review.
+        return AssetCheckResult(
+            passed=False,
+            severity=AssetCheckSeverity.WARN,
+            description="upstream_releases has never been materialised; run check_upstream_releases first",
+        )
+    metadata = event.asset_materialization.metadata
+    counts = {
+        name: int(getattr(metadata.get(name), "value", 0) or 0)
+        for name in ("needs_review", "unreachable", "unreadable")
+    }
     return AssetCheckResult(
-        passed=needs_review == 0 and unreachable == 0,
+        passed=not any(counts.values()),
         severity=AssetCheckSeverity.WARN,
         description=(
-            f"{needs_review} upstream release(s) to review, {unreachable} publisher(s) unreachable; "
+            f"{counts['needs_review']} upstream release(s) to review, {counts['unreachable']} publisher(s) "
+            f"unreachable, {counts['unreadable']} answering in an unexpected format; "
             "see the upstream_releases materialisation for details"
         ),
-        metadata={"needs_review": needs_review, "unreachable": unreachable},
+        metadata=counts,
     )
 
 
