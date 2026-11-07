@@ -216,16 +216,17 @@ def test_check_accepts_a_table_with_several_complete_years():
 
 
 def test_check_rejects_a_year_that_misses_an_lga():
-    short = _table().assign(population_year=2026).iloc[1:]
+    table = pd.concat([_table(), _table().assign(population_year=2026).iloc[1:]], ignore_index=True)
     with pytest.raises(ap.SourceError, match="2026: expected 774 unique LGAs"):
-        ap.check(pd.concat([_table(), short], ignore_index=True))
+        ap.check(table)
 
 
 def test_check_rejects_years_that_cover_different_lgas():
     other = _table().assign(population_year=2026)
     other.loc[0, "shapeID"] = "elsewhere"
+    table = pd.concat([_table(), other], ignore_index=True)
     with pytest.raises(ap.SourceError, match="different set of LGAs"):
-        ap.check(pd.concat([_table(), other], ignore_index=True))
+        ap.check(table)
 
 
 def test_committed_table_has_every_year_pinned_in_sources():
