@@ -103,8 +103,10 @@ def test_check_within_bbox_rejects_lgas_outside_the_cut_out(lgas):
 
 def test_map_coverage_url_cuts_to_the_bbox():
     url = ap.map_coverage_url("Cov_Id", (2.5, 4.0, 14.9, 14.0))
-    assert "request=GetCoverage" in url and "coverageId=Cov_Id" in url
-    assert "Lat%284.0000%2C14.0000%29" in url and "Long%282.5000%2C14.9000%29" in url
+    assert "request=GetCoverage" in url
+    assert "coverageId=Cov_Id" in url
+    assert "Lat%284.0000%2C14.0000%29" in url, "latitude must be cut to the box"
+    assert "Long%282.5000%2C14.9000%29" in url, "longitude must be cut to the box"
 
 
 class _Response(io.BytesIO):
@@ -131,8 +133,9 @@ def test_fetch_rejects_a_download_that_does_not_match_the_pin(tmp_path, monkeypa
     dest = tmp_path / "f.tif"
     dest.write_bytes(b"old")
     monkeypatch.setattr(ap.urllib.request, "urlopen", lambda *_a, **_k: _Response(b"changed upstream"))
+    pin = hashlib.sha256(b"expected").hexdigest()
     with pytest.raises(ap.SourceError, match="does not match the pinned"):
-        ap.fetch("https://example.invalid/f.tif", dest, hashlib.sha256(b"expected").hexdigest())
+        ap.fetch("https://example.invalid/f.tif", dest, pin)
     assert dest.read_bytes() == b"old", "a rejected download must not replace the existing file"
     assert not list(tmp_path.glob(".f.tif.*.part")), "the temp file must be cleaned up"
 
@@ -170,8 +173,9 @@ def test_check_accepts_a_well_formed_table():
     ("walking_over_60min_share", 1.5, "outside 0-1"),
 ])
 def test_check_rejects_a_broken_table(col, value, match):
+    table = _table(**{col: value})
     with pytest.raises(ap.SourceError, match=match):
-        ap.check(_table(**{col: value}))
+        ap.check(table)
 
 
 def test_load_lgas_requires_the_full_frame(tmp_path, lgas):
