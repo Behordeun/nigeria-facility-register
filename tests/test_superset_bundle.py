@@ -133,6 +133,38 @@ def test_build_zip_nests_the_bundle_under_one_root(tmp_path):
     assert all(n.startswith(f"{sd.BUNDLE_ROOT}/") for n in names)
 
 
+def test_build_zip_marks_the_import_as_an_assets_bundle(tmp_path):
+    # ImportAssetsCommand overwrites charts, datasets and the connection by UUID,
+    # and accepts only a bundle typed "assets"; the committed bundle stays typed
+    # "Dashboard", so the type is set at zip time and nothing else changes.
+    out = tmp_path / "bundle.zip"
+    sd.build_zip(BUNDLE, out)
+    committed = _load(BUNDLE / "metadata.yaml")
+    with zipfile.ZipFile(out) as zf:
+        zipped = yaml.safe_load(zf.read(f"{sd.BUNDLE_ROOT}/metadata.yaml"))
+        others = {n: zf.read(n) for n in zf.namelist() if not n.endswith("/metadata.yaml")}
+    assert zipped["type"] == "assets", "the import zip must declare the assets bundle type"
+    assert {k: v for k, v in zipped.items() if k != "type"} == {
+        k: v for k, v in committed.items() if k != "type"
+    }, "only the metadata type may differ from the committed bundle"
+    for name, content in others.items():
+        source = BUNDLE / Path(name).relative_to(sd.BUNDLE_ROOT)
+        assert content == source.read_bytes(), f"{name} must be zipped unchanged"
+
+
+def test_import_runs_the_overwriting_assets_command():
+    program = sd._IMPORT_PROGRAM
+    assert "ImportAssetsCommand(contents).run()" in program, "import must use the overwriting assets command"
+    assert "import-dashboards" not in program, "import-dashboards keeps existing charts and datasets"
+    assert sd.CONTAINER_IMPORT_ZIP in program, "the program must read the zip copied into the container"
+    compile(program, "<import program>", "exec")
+
+
+def test_as_assets_metadata_rejects_a_non_mapping():
+    with pytest.raises(SystemExit, match="not a mapping"):
+        sd.as_assets_metadata("- just\n- a list\n")
+
+
 def test_build_zip_rejects_a_directory_without_metadata(tmp_path):
     with pytest.raises(SystemExit, match="not a Superset bundle"):
         sd.build_zip(tmp_path, tmp_path / "x.zip")
