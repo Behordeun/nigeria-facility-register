@@ -41,7 +41,7 @@ data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
 scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
                   build_access_population.py, superset_dashboard.py
-superset/         Superset dashboard import bundle (connection, datasets, charts, layout)
+superset/         Superset image and config (server-side downloads), and the dashboard import bundle
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)
 ```
 

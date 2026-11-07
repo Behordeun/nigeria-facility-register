@@ -7,16 +7,16 @@ schedule and sensor must keep running so the register refreshes on its own.
 
 ## What runs
 
-Three services (`docker-compose.yml`); the first two share the project image
-(`Dockerfile`):
+Five services (`docker-compose.yml`). The first two share the project image (`Dockerfile`); the two Superset services share `nfr-superset:local`, built from `superset/Dockerfile`:
 
 - **webserver** — the Dagster UI, on `127.0.0.1:3000`.
 - **daemon** — runs the weekly schedule and the new-vintage sensor, and launches
   the `refresh_register` job.
-- **superset** — Apache Superset (official image), on `127.0.0.1:8088`, reading
-  the register read-only for dashboards. See the Superset section below.
+- **superset** — Apache Superset, on `127.0.0.1:8088`, reading the register read-only for dashboards. See the Superset section below.
+- **superset-worker** — a Celery worker that renders dashboard downloads (PDF and image) in headless Chromium.
+- **redis** — the worker's queue and the cache for rendered downloads; not published on any host port.
 
-Both share a `DAGSTER_HOME` volume (one instance, one run store, one set of
+The Dagster webserver and daemon share a `DAGSTER_HOME` volume (one instance, one run store, one set of
 schedule/sensor state) and the `build/` volume (the live DuckDB database, the
 run-scoped staging databases, and the per-run snapshots). The refresh stays
 serialised by the `QueuedRunCoordinator` in `dagster.yaml`, so the schedule, the
@@ -37,7 +37,7 @@ they are visible read-only inside the containers at `/app/data/raw`.
 ## Run it
 
 ```bash
-# build the image and start both services
+# build the images and start every service
 docker compose up -d --build
 
 # the UI (localhost only)
@@ -122,6 +122,14 @@ The map charts use the deck.gl Polygon layer, which needs each polygon's coordin
 Hovering an LGA on any map shows a one-line summary: LGA and state, facility count with register version and status, facilities per 10,000 people, the five endemicity ranks (`unknown` where no status is known), travel time, the 2024 flood flag and access risk, the priority score with its burden, coverage and access points and its tier, and the original priority flag, followed by the map's own value. The Polygon layer's built-in tooltip prints a row's `name` field as plain text and only renders when the chart has a metric, so the choropleth dataset defines a calculated `name` column holding that summary, every map passes it through `js_columns`, and the priority map carries a constant metric (1 for each flagged LGA, drawn in a single red bucket). This needs no JavaScript controls and stays within Superset's Content Security Policy. `tests/test_superset_bundle.py` fails if a map loses its metric or the hover column.
 
 The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a Mapbox public token (`pk...`) for the map background; without it the tiles do not load, though the polygons, non-map charts and the data layer are unaffected. The token stays in the gitignored `.env`, never committed.
+
+### Downloads
+
+Download as PDF or image is rendered on the server, so it works on every tab, maps included. The browser's own exporter cannot capture the map tabs: the Mapbox attribution styles embed SVG references that it tries to fetch as URLs, and the export aborts. `superset/superset_config.py` turns on Superset's webdriver downloads instead: the Download menu queues a job, `superset-worker` opens the dashboard as the requesting user in headless Chromium (Playwright, which renders the deck.gl layers), with the same tab and filter state, takes the screenshot and caches it in Redis for a day, and the page downloads it from there. A download takes a few seconds longer than the browser's exporter, mostly waiting for the map tiles to load. The worker loads the Mapbox basemap itself, so it needs the same `MAPBOX_API_KEY` and outbound HTTPS to Mapbox; without them the download shows the maps without their background.
+
+Superset serves the screenshot endpoints only with its `THUMBNAILS` flag on as well, so the dashboard and chart lists can also show card thumbnails, rendered by the same worker.
+
+The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver, Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF) and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
 
 Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
 

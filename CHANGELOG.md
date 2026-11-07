@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Dashboard downloads (PDF and image) are rendered on the server, so every tab downloads, maps included. A new `superset-worker` service opens the dashboard in headless Chromium as the requesting user, with the same tab and filters, and caches the screenshot in a new `redis` service for the page to fetch. Superset now runs from `nfr-superset:local`, built from `superset/Dockerfile`: the digest-pinned upstream image plus the `duckdb-engine` driver (previously installed at every start), Playwright with Chromium, Pillow for the PDF, and `superset/superset_config.py`. The image grows from about 1.3 GB to 2.75 GB.
+
 ### Changed
 
 - Dependabot is configured in `.github/dependabot.yml`: weekly uv and GitHub Actions updates against `development`, assigned to the maintainer, with dagster and dagster-webserver, and the dbt packages, each updated as one group for security fixes as well as version updates, so packages that must stay in step always move together and the lockfile stays resolvable.
