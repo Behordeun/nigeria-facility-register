@@ -67,6 +67,8 @@ sources:
     url: https://espen.afro.who.int/countries/nigeria
     license: CC BY-NC-SA 3.0 IGO (upstream ESPEN)
     format: csv
+    latest_year: 2025
+    download: https://espen.afro.who.int/api/download-data/NG/{disease}/iu/{from_year}/{to_year} (public, no key; the portal's own download route; disease codes STH, SCH, lf, Oncho, Loa)
     derived_from: Geospatial/espen_ntd/data/espen_long.csv (ESPEN IU-level, 2014-2025)
     upstream_sha256: a438ade2dc971c785416f500961c57aaab892f58b4c89fcb747167b5d0f1e412
     sha256: 4c8c3d9d0d426bb34cb341e07a5306991eb881952e9ffc2629246549f7d02a4a

@@ -56,6 +56,8 @@ new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
 materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
 placed.
 
+The daemon also runs `monthly_upstream_check` (07:00 on the 1st), which launches the `check_upstream_releases` job. It reads public catalogue pages only, so it needs outbound HTTPS to data.worldpop.org, data.humdata.org, data.malariaatlas.org and espen.afro.who.int; without it the check reports those publishers as unreachable and the refresh is unaffected. A warning on its `no_unreviewed_upstream_release` check means a newer upstream release is waiting for review.
+
 The population year needs no action: each refresh uses the current calendar year from the committed WorldPop years (2025-2030). To build a specific year, pass it to dbt, for example `dbt build --vars 'population_year: 2026'`.
 
 The orchestrated job always builds from the real inputs in `data/raw/`. It has
