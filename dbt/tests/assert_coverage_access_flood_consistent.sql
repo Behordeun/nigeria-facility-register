@@ -29,7 +29,7 @@ keyed as (
 ),
 
 access as (
-    select * from {{ source('raw', 'access_population_lga') }}
+    select * from {{ ref('stg_access_population_lga') }}
 ),
 
 flood as (

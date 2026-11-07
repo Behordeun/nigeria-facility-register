@@ -16,7 +16,8 @@
 -- from stg_ntd_endemicity_lga. They sit alongside the state column rather than
 -- replacing it, so the existing column keeps its meaning.
 --
--- Per-capita coverage: population (WorldPop 2025) and births (WorldPop 2015)
+-- Per-capita coverage: population (WorldPop, the year stg_access_population_lga
+-- selects) and births (WorldPop 2015)
 -- give facilities per 10,000 people and per 10,000 births, so a large LGA with
 -- many facilities is not mistaken for a well-served one.
 --
@@ -118,7 +119,7 @@ population as (
         walking_minutes,
         walking_over_60min_share,
         access_population_share
-    from {{ source('raw', 'access_population_lga') }}
+    from {{ ref('stg_access_population_lga') }}
 ),
 
 -- One row per LGA, both events pivoted. The source covers all 774 LGAs for

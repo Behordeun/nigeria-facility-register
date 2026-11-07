@@ -9,6 +9,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_facilities_authority` | staging | one facility | one per facility in the authoritative set |
 | `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
 | `stg_ntd_endemicity_lga` | staging | one (LGA, disease) | exactly 774 x 5 = 3,870 |
+| `stg_access_population_lga` | staging | one LGA, for one population year | exactly 774 |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
 | `register_summary` | mart | the published register | exactly 1 |
@@ -92,6 +93,25 @@ Guarantees:
 - Every known label is ranked. A label ESPEN publishes that the seed does not rank fails the build, rather than silently becoming a null rank that reads as unknown.
 - Unknown is not zero. An LGA whose only reports are "Unknown ..." statuses carries a null label, year and rank. A recent "Unknown" does not erase an earlier known status: the rank follows the latest known label, and the latest published label is kept alongside in `endemicity_latest`.
 
+## `stg_access_population_lga`
+
+Per-LGA population (WorldPop R2025A) and population-weighted travel time to healthcare (Malaria Atlas Project) for the one population year the register describes. The raw table carries one row per LGA for every pinned WorldPop year (2025-2030); this model selects one.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `shapeID` | varchar | no | the frame LGA's geoBoundaries id; unique |
+| `shapeName` | varchar | yes | the LGA name in the boundary set |
+| `population_year` | bigint | no | the selected year, the same on every row |
+| `population` | bigint | no | WorldPop population of the LGA for that year; always positive |
+| `motorised_minutes`, `walking_minutes` | double | yes | population-weighted mean travel time to the nearest health facility; null where no population sits on valid travel-time cells |
+| `walking_over_60min_share`, `access_population_share` | double | yes | shares, 0-1 |
+
+Guarantees:
+
+- Exactly one population year, covering all 774 frame LGAs.
+- The year is chosen, not assumed: the `population_year` dbt var when set (a build of a year the table does not carry fails), otherwise the calendar year of the build, capped to the years available. A weekly refresh therefore moves to the new year on 1 January, and stays on the last available year once the table runs out rather than failing.
+- Every year in the raw table covers the same 774 LGAs, once each, so whichever year is selected is complete.
+
 ## `lga_coverage_burden`
 
 Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 present.
@@ -111,8 +131,8 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `lf_endemicity_rank_lga` | integer | yes | as above, lymphatic filariasis (programme-stage basis) |
 | `oncho_endemicity_rank_lga` | integer | yes | as above, onchocerciasis (programme-stage basis) |
 | `loa_endemicity_rank_lga` | integer | yes | as above, Loa loa |
-| `population` | bigint | no | WorldPop R2025A population of the LGA, summed at 100 m; always positive (year in `population_year`) |
-| `population_year` | bigint | no | year of the population figure (2025) |
+| `population` | bigint | no | WorldPop R2025A population of the LGA for `population_year`, summed at 100 m; always positive |
+| `population_year` | bigint | no | the year `population` and the travel-time columns describe, selected by `stg_access_population_lga` |
 | `births` | double | no | WorldPop annual births in the LGA for 2015 (UN-adjusted); always positive |
 | `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
 | `facilities_per_10k_births` | double | yes | `facilities` x 10,000 / `births`; null where `facility_status = 'unmatched'` |
@@ -231,6 +251,7 @@ Missing is not zero. A stale state, an unsurveyed ESPEN IU, an LGA that matched 
 ## Freshness and versioning
 
 - Freshness follows the source releases, not a clock. `source_date` on each facility says which GRID3 vintage it came from; a state marked `stale-awaiting-v3` is waiting for GRID3 to extend v3.0 coverage, not for a pipeline run.
+- The population year is the one exception: it follows the build's calendar year within the WorldPop years the register carries (see `stg_access_population_lga`), and `register_summary.population_year` states which year a register uses.
 - The contract is versioned with the project (SemVer). Adding a column or relaxing nullability is a minor bump. Removing or renaming a column, tightening a domain, or changing a grain is a major bump and is announced in the CHANGELOG before release.
 - dbt model contracts enforce the column names and types at build time. A model whose output drifts from the declared contract fails the build rather than shipping a silent schema change.
 - A data-quality gate backs the guarantees a type cannot express. Blocking dbt tests fail the build when the raw inputs fall outside their row-count bounds, when the version-drift mart resolves an LGA absent from the frame, or when the NTD burden table or the alias crosswalk names a state the frame does not know; a blocking run check fails the pipeline when the carry-over rate collapses past a hard floor. These stop a bad build from publishing, as distinct from the advisory run metrics, which only warn. See docs/ARCHITECTURE.md.

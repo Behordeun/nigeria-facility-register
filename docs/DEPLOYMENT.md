@@ -56,6 +56,8 @@ new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
 materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
 placed.
 
+The population year needs no action: each refresh uses the current calendar year from the committed WorldPop years (2025-2030). To build a specific year, pass it to dbt, for example `dbt build --vars 'population_year: 2026'`.
+
 The orchestrated job always builds from the real inputs in `data/raw/`. It has
 no fixture mode, so `raw_sources` fails fast with a "missing raw inputs" message
 when `data/raw/` is empty rather than building an empty register. The committed

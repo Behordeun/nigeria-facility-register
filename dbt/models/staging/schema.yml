@@ -213,3 +213,39 @@ models:
         description: Number of distinct years ESPEN reported this LGA and disease.
         constraints:
           - type: not_null
+
+  - name: stg_access_population_lga
+    description: >
+      Per-LGA population (WorldPop R2025A) and population-weighted travel time to
+      healthcare (Malaria Atlas Project) for the one population year the register
+      describes: the population_year var when set, otherwise the build's calendar
+      year capped to the years raw.access_population_lga carries. One row per
+      frame LGA; every row carries the selected population_year.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: shapeID
+        data_type: varchar
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
+      - name: shapeName
+        data_type: varchar
+      - name: population_year
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: population
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: motorised_minutes
+        data_type: double
+      - name: walking_minutes
+        data_type: double
+      - name: walking_over_60min_share
+        data_type: double
+      - name: access_population_share
+        data_type: double

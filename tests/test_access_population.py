@@ -7,6 +7,7 @@ coarse travel-time grid. The fetcher is tested without the network.
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import io
 import os
 from pathlib import Path
@@ -24,6 +25,13 @@ from nfr.enrichment import access_population as ap  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 DERIVED = ROOT / "data" / "derived" / "access_population_lga.csv"
+
+
+def _build_script():
+    spec = importlib.util.spec_from_file_location("build_access_population", ROOT / "scripts" / "build_access_population.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _write(path: Path, values: np.ndarray, cell: float, nodata: float | None = None) -> Path:
@@ -201,3 +209,35 @@ def test_fetch_closes_its_temp_file_when_the_request_fails(tmp_path, monkeypatch
         ap.fetch("https://example.invalid/f.tif", tmp_path / "f.tif")
     assert len(os.listdir("/dev/fd")) == open_before, "a failed request must not leave a file descriptor open"
     assert not list(tmp_path.iterdir()), "a failed request must leave no temp file behind"
+
+
+def test_check_accepts_a_table_with_several_complete_years():
+    ap.check(pd.concat([_table(), _table().assign(population_year=2026)], ignore_index=True))
+
+
+def test_check_rejects_a_year_that_misses_an_lga():
+    table = pd.concat([_table(), _table().assign(population_year=2026).iloc[1:]], ignore_index=True)
+    with pytest.raises(ap.SourceError, match="2026: expected 774 unique LGAs"):
+        ap.check(table)
+
+
+def test_check_rejects_years_that_cover_different_lgas():
+    other = _table().assign(population_year=2026)
+    other.loc[0, "shapeID"] = "elsewhere"
+    table = pd.concat([_table(), other], ignore_index=True)
+    with pytest.raises(ap.SourceError, match="different set of LGAs"):
+        ap.check(table)
+
+
+def test_committed_table_has_every_year_pinned_in_sources():
+    build = _build_script()
+    table = pd.read_csv(DERIVED)
+    worldpop_pins, _ = build.pins()
+    assert sorted(table.population_year.unique()) == sorted(worldpop_pins), \
+        "the committed table and the WorldPop pins in data/sources.yml must name the same years"
+
+
+def test_parse_years_accepts_ranges_and_lists():
+    build = _build_script()
+    assert build.parse_years("2025-2027") == [2025, 2026, 2027]
+    assert build.parse_years("2030,2025-2026") == [2025, 2026, 2030]
