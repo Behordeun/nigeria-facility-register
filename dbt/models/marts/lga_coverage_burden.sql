@@ -1,4 +1,4 @@
--- Mart: one row per LGA with facility coverage, NTD burden and the priority flag.
+-- Mart: one row per LGA with facility coverage, NTD burden, access, the priority flag and the priority score.
 -- Facility counts come from the version-aware authority layer, joined to the
 -- canonical 774-LGA frame. The join keys on (canonical state, normalised LGA).
 --
@@ -192,20 +192,78 @@ cut as (
     select quantile_cont(facilities, 0.33) as thin_cut
     from joined
     where facilities > 0
+),
+
+rate_quartiles as (
+    -- National quartiles of facilities per 10,000 people over the LGAs that
+    -- matched a facility (the rate is null elsewhere).
+    select
+        quantile_cont(facilities_per_10k_population, 0.25) as q1,
+        quantile_cont(facilities_per_10k_population, 0.50) as q2,
+        quantile_cont(facilities_per_10k_population, 0.75) as q3
+    from joined
+    where facilities_per_10k_population is not null
+),
+
+flagged as (
+    select
+        j.*,
+        case
+            when j.sth_high_share_pct_state >= 40
+             and j.facilities > 0
+             and j.facilities <= (select thin_cut from cut)
+            then true else false
+        end as priority_high_burden_thin_coverage,
+        -- 0-2: one point for being hard to reach on foot, one for the 2024 flood.
+        -- Null when hard_to_reach is null, so an unmeasured LGA is not scored as
+        -- low risk. The state-level 2022 flag is left out: it marks 727 of 774 LGAs
+        -- and so does not separate one LGA from another.
+        cast(j.hard_to_reach as integer) + cast(j.flood_affected_2024 as integer)
+            as access_risk_score,
+        -- How many of the five diseases have a known status, so a burden score
+        -- built from fewer than five can be read as such.
+        cast(
+            (j.sth_endemicity_rank_lga   is not null)::integer
+          + (j.sch_endemicity_rank_lga   is not null)::integer
+          + (j.lf_endemicity_rank_lga    is not null)::integer
+          + (j.oncho_endemicity_rank_lga is not null)::integer
+          + (j.loa_endemicity_rank_lga   is not null)::integer
+        as integer) as ntd_diseases_known,
+        -- Burden points: the highest known endemicity rank across the five
+        -- diseases (greatest ignores nulls), so one severe burden is not
+        -- outranked by several mild ones. Null only when no status is known.
+        greatest(
+            j.sth_endemicity_rank_lga, j.sch_endemicity_rank_lga, j.lf_endemicity_rank_lga,
+            j.oncho_endemicity_rank_lga, j.loa_endemicity_rank_lga
+        ) as priority_burden_points,
+        -- Coverage points: 3 in the lowest national quartile of facilities per
+        -- 10,000 people, down to 0 in the highest. A value on a quartile
+        -- boundary takes the less urgent band. Null where the rate is null (no
+        -- facility matched), never scored as thin coverage.
+        case
+            when j.facilities_per_10k_population is null then null
+            when j.facilities_per_10k_population < q.q1 then 3
+            when j.facilities_per_10k_population < q.q2 then 2
+            when j.facilities_per_10k_population < q.q3 then 1
+            else 0
+        end as priority_coverage_points
+    from joined j
+    cross join rate_quartiles q
 )
 
+-- priority_score (0-8) adds burden (0-3), coverage (0-3) and access (0-2)
+-- points; any unscored part leaves the score null rather than low.
+-- priority_tier reads the score on fixed cut-offs: high 6-8 (about the top
+-- tenth on the current data), medium 4-5, low 0-3. It sits beside the
+-- original priority flag, which is unchanged.
 select
-    j.*,
+    f.*,
+    f.priority_burden_points + f.priority_coverage_points + f.access_risk_score
+        as priority_score,
     case
-        when j.sth_high_share_pct_state >= 40
-         and j.facilities > 0
-         and j.facilities <= (select thin_cut from cut)
-        then true else false
-    end as priority_high_burden_thin_coverage,
-    -- 0-2: one point for being hard to reach on foot, one for the 2024 flood.
-    -- Null when hard_to_reach is null, so an unmeasured LGA is not scored as
-    -- low risk. The state-level 2022 flag is left out: it marks 727 of 774 LGAs
-    -- and so does not separate one LGA from another.
-    cast(j.hard_to_reach as integer) + cast(j.flood_affected_2024 as integer)
-        as access_risk_score
-from joined j
+        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score is null then null
+        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score >= 6 then 'high'
+        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score >= 4 then 'medium'
+        else 'low'
+    end as priority_tier
+from flagged f

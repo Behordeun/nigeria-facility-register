@@ -193,6 +193,42 @@ models:
                 quote: false
               config:
                 where: "access_risk_score is not null"
+      - name: ntd_diseases_known
+        data_type: integer
+        description: How many of the five diseases have a known ESPEN status in the LGA (0-5).
+        constraints:
+          - type: not_null
+      - name: priority_burden_points
+        data_type: integer
+        description: 0-3, the highest known endemicity rank across the five diseases. Null only when no status is known.
+      - name: priority_coverage_points
+        data_type: integer
+        description: >
+          0-3 from national quartiles of facilities_per_10k_population over the
+          matched LGAs: 3 in the lowest quartile, 0 in the highest; a value on a
+          boundary takes the less urgent band. Null where the rate is null.
+      - name: priority_score
+        data_type: integer
+        description: >
+          0-8: priority_burden_points + priority_coverage_points +
+          access_risk_score. Null when any part is null, never scored low for
+          lack of data. Higher is more urgent.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+                quote: false
+              config:
+                where: "priority_score is not null"
+      - name: priority_tier
+        data_type: varchar
+        description: high (score 6-8), medium (4-5) or low (0-3); null where priority_score is null.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: ['high', 'medium', 'low']
+              config:
+                where: "priority_tier is not null"
 
   - name: lga_version_drift
     description: >
@@ -341,6 +377,21 @@ models:
       - name: access_risk_score
         data_type: integer
         description: As in lga_coverage_burden.
+      - name: ntd_diseases_known
+        data_type: integer
+        description: As in lga_coverage_burden.
+      - name: priority_burden_points
+        data_type: integer
+        description: As in lga_coverage_burden.
+      - name: priority_coverage_points
+        data_type: integer
+        description: As in lga_coverage_burden.
+      - name: priority_score
+        data_type: integer
+        description: As in lga_coverage_burden.
+      - name: priority_tier
+        data_type: varchar
+        description: As in lga_coverage_burden.
       # The two geometry columns are attached by a LEFT JOIN to the boundaries,
       # so they are nullable at the type level: a not_null contract here would
       # fail enforcement with a blunt error on a join miss. The completeness
@@ -352,7 +403,7 @@ models:
         description: The LGA boundary polygon as a GeoJSON text string (a map layer reads it as a string and parses it; a json type returns a parsed object the layer cannot consume), from the vendored simplified geoBoundaries set.
       - name: geometry_feature
         data_type: varchar
-        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage, the five *_endemicity_rank_lga columns, population, facilities_per_10k_population, the travel-time columns, flood_affected_2024, hard_to_reach and access_risk_score for colouring and tooltips.
+        description: The LGA as a complete GeoJSON Feature string (type, geometry, properties), for the deck.gl Geojson layer, which reads geometry and properties off each row. properties carries canonical_lga, state, facilities, facility_status, sth_high_share_pct_state, priority_high_burden_thin_coverage, the five *_endemicity_rank_lga columns, population, facilities_per_10k_population, the travel-time columns, flood_affected_2024, hard_to_reach, access_risk_score and the priority score with its parts and tier for colouring and tooltips.
 
   - name: register_summary
     description: >
@@ -424,6 +475,12 @@ models:
           - type: not_null
       - name: priority_lgas
         data_type: bigint
+        description: LGAs with the original priority flag (priority_high_burden_thin_coverage) set.
+        constraints:
+          - type: not_null
+      - name: priority_high_tier_lgas
+        data_type: bigint
+        description: LGAs in the high priority tier (priority_score 6-8).
         constraints:
           - type: not_null
       - name: population

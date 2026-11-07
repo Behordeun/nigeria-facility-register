@@ -125,6 +125,11 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `hard_to_reach` | boolean | yes | `walking_over_60min_share >= 0.25`; null where that share is null |
 | `priority_high_burden_thin_coverage` | boolean | no | true where burden is high and coverage is thin; see rule below |
 | `access_risk_score` | integer | yes | 0-2: one point for `hard_to_reach`, one for `flood_affected_2024`; null where `hard_to_reach` is null |
+| `ntd_diseases_known` | integer | no | how many of the five diseases have a known ESPEN status in the LGA, 0-5 |
+| `priority_burden_points` | integer | yes | 0-3, the highest known endemicity rank across the five diseases; null only when no status is known |
+| `priority_coverage_points` | integer | yes | 0-3 by national quartile of `facilities_per_10k_population` over the matched LGAs: 3 in the lowest quartile, 0 in the highest; a value on a boundary takes the less urgent band; null where the rate is null |
+| `priority_score` | integer | yes | 0-8: `priority_burden_points` + `priority_coverage_points` + `access_risk_score`; null when any part is null; higher is more urgent |
+| `priority_tier` | varchar | yes | `high` (score 6-8), `medium` (4-5) or `low` (0-3); null where `priority_score` is null |
 
 Guarantees:
 
@@ -135,7 +140,8 @@ Guarantees:
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The `*_endemicity_rank_lga` columns are true per-LGA measurements, equal to the rank in `stg_ntd_endemicity_lga` for that LGA and disease. A null means the LGA's status was never known, not that the disease is absent; a non-endemic LGA is `0`. They are non-commercial (ESPEN CC BY-NC-SA 3.0 IGO). They do not feed the priority flag, which is unchanged.
-- The priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
+- The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the rate quartiles and the access score, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
+- The original priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
 ## `lga_version_drift`
 
@@ -173,9 +179,9 @@ Guarantees:
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
 | `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
-| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, the travel-time columns, `flood_affected_2024`, `hard_to_reach` and `access_risk_score` |
+| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, the travel-time columns, `flood_affected_2024`, `hard_to_reach`, `access_risk_score`, `ntd_diseases_known`, the two priority point columns, `priority_score` and `priority_tier` |
 
-The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, `motorised_minutes`, `walking_minutes`, `walking_over_60min_share`, `flood_affected_2024`, `hard_to_reach` and `access_risk_score`) are exactly as in `lga_coverage_burden` above.
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, `motorised_minutes`, `walking_minutes`, `walking_over_60min_share`, `flood_affected_2024`, `hard_to_reach`, `access_risk_score`, `ntd_diseases_known`, `priority_burden_points`, `priority_coverage_points`, `priority_score` and `priority_tier`) are exactly as in `lga_coverage_burden` above.
 
 Guarantees:
 
@@ -202,7 +208,8 @@ One row describing the published register as a whole, rebuilt on every refresh s
 | `facilities_v3` | bigint | no | authority-layer facilities from v3.0 |
 | `facilities_v2` | bigint | no | authority-layer facilities from v2.0 |
 | `lgas_unmatched` | bigint | no | LGAs with `facility_status = 'unmatched'` |
-| `priority_lgas` | bigint | no | LGAs with the priority flag set |
+| `priority_lgas` | bigint | no | LGAs with the original priority flag set |
+| `priority_high_tier_lgas` | bigint | no | LGAs with `priority_tier = 'high'` |
 | `population` | bigint | no | total WorldPop population across the 774 LGAs |
 | `population_year` | bigint | no | year of that population figure |
 | `hard_to_reach_lgas` | bigint | no | LGAs with `hard_to_reach` true |

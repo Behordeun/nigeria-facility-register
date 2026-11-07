@@ -76,6 +76,11 @@ select
     c.flood_affected_2024,
     c.hard_to_reach,
     c.access_risk_score,
+    c.ntd_diseases_known,
+    c.priority_burden_points,
+    c.priority_coverage_points,
+    c.priority_score,
+    c.priority_tier,
     b.geometry_geojson,
     -- A complete GeoJSON Feature per LGA: the deck.gl Geojson layer reads
     -- .geometry and .properties off each row, so a bare geometry (what
@@ -106,7 +111,12 @@ select
                 'walking_over_60min_share', c.walking_over_60min_share,
                 'flood_affected_2024', c.flood_affected_2024,
                 'hard_to_reach', c.hard_to_reach,
-                'access_risk_score', c.access_risk_score
+                'access_risk_score', c.access_risk_score,
+                'ntd_diseases_known', c.ntd_diseases_known,
+                'priority_burden_points', c.priority_burden_points,
+                'priority_coverage_points', c.priority_coverage_points,
+                'priority_score', c.priority_score,
+                'priority_tier', c.priority_tier
             )
         ) as varchar
     )                                       as geometry_feature
