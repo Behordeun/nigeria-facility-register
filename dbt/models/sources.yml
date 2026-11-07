@@ -60,7 +60,8 @@ sources:
           (the state's flag repeated to each LGA) and the 2024 event
           LGA-resolution, as the resolution column says. affected is a 0/1
           exposure flag, not a severity. Source NASA MODIS flood products (open).
-          Not yet consumed by any mart.
+          Pivoted into lga_coverage_burden as flood_affected_2022_state and
+          flood_affected_2024.
         columns:
           - name: state
             data_tests: [not_null]
@@ -99,8 +100,8 @@ sources:
           derived by scripts/build_access_population.py and keyed on shapeID.
           Null travel figures mean no population on valid travel-time cells,
           never 0 minutes. Its population feeds lga_coverage_burden's
-          population and facilities_per_10k_population; the travel figures are
-          not yet joined into a mart.
+          population and facilities_per_10k_population, and its travel figures
+          its access columns and access_risk_score.
         columns:
           - name: shapeID
             data_tests: [not_null, unique]

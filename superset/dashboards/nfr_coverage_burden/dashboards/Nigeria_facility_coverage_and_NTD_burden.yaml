@@ -47,7 +47,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 2
+      chartId: 3
       width: 3
       height: 30
       sliceName: Facilities in the register
@@ -62,7 +62,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 7
+      chartId: 10
       width: 3
       height: 30
       sliceName: LGAs with facilities matched
@@ -77,7 +77,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 8
+      chartId: 11
       width: 3
       height: 30
       sliceName: LGAs with no facility matched
@@ -92,7 +92,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 14
+      chartId: 17
       width: 3
       height: 30
       sliceName: Priority LGAs
@@ -121,7 +121,7 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 3
+      chartId: 5
       width: 4
       height: 90
       sliceName: Facilities per LGA
@@ -136,7 +136,7 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 15
+      chartId: 18
       width: 4
       height: 90
       sliceName: Priority LGAs (high STH burden, thin coverage)
@@ -164,7 +164,7 @@ position:
     - ROW-overview-3
     children: []
     meta:
-      chartId: 1
+      chartId: 2
       width: 12
       height: 70
       sliceName: Coverage by state
@@ -242,7 +242,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 19
+      chartId: 23
       width: 4
       height: 70
       sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
@@ -257,7 +257,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 18
+      chartId: 21
       width: 4
       height: 70
       sliceName: 'Schistosomiasis: endemicity rank by LGA'
@@ -272,7 +272,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 11
+      chartId: 14
       width: 4
       height: 70
       sliceName: 'Lymphatic filariasis: endemicity rank by LGA'
@@ -300,7 +300,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 13
+      chartId: 16
       width: 4
       height: 70
       sliceName: 'Onchocerciasis: endemicity rank by LGA'
@@ -315,7 +315,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 10
+      chartId: 13
       width: 4
       height: 70
       sliceName: 'Loa loa: endemicity rank by LGA'
@@ -330,7 +330,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 6
+      chartId: 8
       width: 4
       height: 70
       sliceName: LGAs by endemicity rank, per disease
@@ -358,7 +358,7 @@ position:
     - ROW-burden-3
     children: []
     meta:
-      chartId: 5
+      chartId: 7
       width: 12
       height: 80
       sliceName: LGA burden profile
@@ -427,7 +427,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 4
+      chartId: 6
       width: 4
       height: 60
       sliceName: Facility lineage, v2.0 to v3.0
@@ -442,7 +442,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 12
+      chartId: 15
       width: 4
       height: 60
       sliceName: Name agreement of carried-over facilities
@@ -457,7 +457,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 9
+      chartId: 12
       width: 4
       height: 120
       sliceName: Lineage status by state
@@ -485,7 +485,7 @@ position:
     - ROW-drift-2
     children: []
     meta:
-      chartId: 17
+      chartId: 20
       width: 12
       height: 80
       sliceName: 'Review queue: dropped and appeared facilities'
@@ -541,6 +541,7 @@ position:
     children:
     - TAB-overview
     - TAB-burden
+    - TAB-access
     - TAB-drift
     - TAB-about
     meta: {}
@@ -565,7 +566,7 @@ position:
     - ROW-about-0
     children: []
     meta:
-      chartId: 16
+      chartId: 19
       width: 12
       height: 62
       sliceName: Register status
@@ -630,11 +631,133 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 20
+      chartId: 4
       width: 4
       height: 90
       sliceName: Facilities per 10,000 people
       uuid: 093d6704-044a-5fb8-b49f-a004fbf6cdf5
+  MARKDOWN-access_note:
+    id: MARKDOWN-access_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    - ROW-access-0
+    children: []
+    meta:
+      width: 12
+      height: 36
+      code: '### Access and flood exposure
+
+
+        Travel time is the population-weighted time to the nearest health facility
+        from the Malaria Atlas Project (2020 release), set against WorldPop 2025 residents.
+        An LGA is hard to reach when a quarter or more of its residents live over
+        an hour''s walk from a facility. Flood exposure is the NASA MODIS 2024 event
+        at LGA level; the 2022 event is only state-level, so it is in the data but
+        not in the score.
+
+
+        The access risk score counts these two LGA-level signals, 0 to 2. Blank means
+        not measured, never low risk.
+
+
+        Colour key, score map: palest is 0 (legend band 0 - 1), mid red 1, dark red
+        2. The table lists every LGA scoring 1 or 2, hardest to reach on foot first.'
+  ROW-access-0:
+    id: ROW-access-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    children:
+    - MARKDOWN-access_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-map_walk_share:
+    id: CHART-map_walk_share
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    - ROW-access-1
+    children: []
+    meta:
+      chartId: 22
+      width: 6
+      height: 90
+      sliceName: Share of people over an hour's walk from a facility
+      uuid: 5d4310df-d683-55c1-b6f4-a2eb518e1ecd
+  CHART-map_access_risk:
+    id: CHART-map_access_risk
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    - ROW-access-1
+    children: []
+    meta:
+      chartId: 1
+      width: 6
+      height: 90
+      sliceName: Access risk score
+      uuid: a8d287ff-bac3-5fea-96cc-ee40be46ea0b
+  ROW-access-1:
+    id: ROW-access-1
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    children:
+    - CHART-map_walk_share
+    - CHART-map_access_risk
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-table_access_risk:
+    id: CHART-table_access_risk
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    - ROW-access-2
+    children: []
+    meta:
+      chartId: 9
+      width: 12
+      height: 70
+      sliceName: LGAs with access risk
+      uuid: 31ee02f4-2097-5b94-ba06-5551b9eeb1a6
+  ROW-access-2:
+    id: ROW-access-2
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-access
+    children:
+    - CHART-table_access_risk
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-access:
+    id: TAB-access
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-access-0
+    - ROW-access-1
+    - ROW-access-2
+    meta:
+      text: Access
+      defaultText: Tab title
+      placeholder: Tab title
 metadata:
   native_filter_configuration:
   - id: NATIVE_FILTER-state
@@ -660,7 +783,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 16
+      - 19
     chartsInScope:
     - 1
     - 2
@@ -684,6 +807,7 @@ metadata:
     tabsInScope:
     - TAB-overview
     - TAB-burden
+    - TAB-access
     - TAB-drift
     - TAB-about
     description: ''
@@ -710,12 +834,12 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 4
       - 6
-      - 9
+      - 8
       - 12
-      - 17
-      - 16
+      - 15
+      - 20
+      - 19
     chartsInScope:
     - 1
     - 2
@@ -734,6 +858,7 @@ metadata:
     tabsInScope:
     - TAB-overview
     - TAB-burden
+    - TAB-access
     - TAB-drift
     - TAB-about
     description: ''

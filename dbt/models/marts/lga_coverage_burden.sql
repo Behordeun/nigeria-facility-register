@@ -19,6 +19,13 @@
 -- Per-capita coverage: population (WorldPop 2025) and births (WorldPop 2015)
 -- give facilities per 10,000 people and per 10,000 births, so a large LGA with
 -- many facilities is not mistaken for a well-served one.
+--
+-- Access and flood exposure: population-weighted travel time to the nearest
+-- health facility (Malaria Atlas Project, from the same per-LGA table as the
+-- population) and the flood-event flags. The 2022 flood flag is state-level
+-- (the state's flag repeated to each LGA) and the 2024 flag LGA-level, so the
+-- column names say which. access_risk_score combines only LGA-resolution
+-- signals: being hard to reach on foot and the 2024 flood.
 
 with xwalk_raw as (
     select state, facility_lga, canonical_lga
@@ -103,8 +110,27 @@ ntd_lga as (
 -- all 774 LGAs with a positive figure (tested at the source), so a rate is null
 -- only where the facility count itself is not a measurement (see below).
 population as (
-    select shapeID as shape_id, population, population_year
+    select
+        shapeID as shape_id,
+        population,
+        population_year,
+        motorised_minutes,
+        walking_minutes,
+        walking_over_60min_share,
+        access_population_share
     from {{ source('raw', 'access_population_lga') }}
+),
+
+-- One row per LGA, both events pivoted. The source covers all 774 LGAs for
+-- each event (tested at the source), so a flag is never missing for a frame LGA.
+flood as (
+    select
+        {{ norm_state('state') }}            as state_key,
+        {{ norm_lga_key('canonical_lga') }}  as lga_key,
+        bool_or(affected = 1) filter (where event_year = 2022) as flood_affected_2022_state,
+        bool_or(affected = 1) filter (where event_year = 2024) as flood_affected_2024
+    from {{ source('raw', 'flood_event_affected_lga') }}
+    group by all
 ),
 
 births as (
@@ -130,6 +156,16 @@ joined as (
         pop.population,
         pop.population_year,
         b.births,
+        pop.motorised_minutes,
+        pop.walking_minutes,
+        pop.walking_over_60min_share,
+        pop.access_population_share,
+        fl.flood_affected_2022_state,
+        fl.flood_affected_2024,
+        -- Hard to reach: at least a quarter of residents live more than an
+        -- hour's walk from the nearest facility. Null where the travel figures
+        -- are null (no population on valid travel-time cells), never false.
+        pop.walking_over_60min_share >= 0.25 as hard_to_reach,
         -- Rates are null, not 0, where no facility matched the LGA: a zero count
         -- there may be a name-join miss, so a rate of 0 would assert an absence
         -- the data has not established (the same reasoning as the priority flag).
@@ -146,6 +182,8 @@ joined as (
       on frame.state_key = ntd_lga.state_key and frame.lga_key = ntd_lga.lga_key
     left join population pop on frame.shape_id = pop.shape_id
     left join births b       on frame.shape_id = b.shape_id
+    left join flood fl
+      on frame.state_key = fl.state_key and frame.lga_key = fl.lga_key
 ),
 
 cut as (
@@ -163,5 +201,11 @@ select
          and j.facilities > 0
          and j.facilities <= (select thin_cut from cut)
         then true else false
-    end as priority_high_burden_thin_coverage
+    end as priority_high_burden_thin_coverage,
+    -- 0-2: one point for being hard to reach on foot, one for the 2024 flood.
+    -- Null when hard_to_reach is null, so an unmeasured LGA is not scored as
+    -- low risk. The state-level 2022 flag is left out: it marks 727 of 774 LGAs
+    -- and so does not separate one LGA from another.
+    cast(j.hard_to_reach as integer) + cast(j.flood_affected_2024 as integer)
+        as access_risk_score
 from joined j
