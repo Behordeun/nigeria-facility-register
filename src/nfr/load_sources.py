@@ -137,8 +137,9 @@ def main() -> None:
         # Enrichment inputs (derived per-LGA tables built by
         # scripts/build_enrichment_sources.py and build_access_population.py).
         # ntd_espen_lga feeds the coverage mart through stg_ntd_endemicity_lga,
-        # and births_lga and access_population_lga give it its per-capita
-        # denominators; flood_event_affected_lga is loaded and tested only.
+        # births_lga and access_population_lga give it its per-capita
+        # denominators and travel time, and flood_event_affected_lga its
+        # flood flags.
         ("ntd_espen_lga", derived / "ntd_espen_lga.csv", read_csv),
         ("flood_event_affected_lga", derived / "flood_event_affected_lga.csv", read_csv),
         ("births_lga", derived / "births_lga.csv", read_csv),

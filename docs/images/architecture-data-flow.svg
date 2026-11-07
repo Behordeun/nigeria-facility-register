@@ -29,7 +29,7 @@
 
   <rect width="1540" height="1030" fill="#fff"/>
   <text x="40" y="50" class="h1">Data flow</text>
-  <text x="40" y="76" class="sub">From public sources to the published register and the dashboard. Solid arrows carry data. The flood flags are loaded and tested but not yet joined into a mart.</text>
+  <text x="40" y="76" class="sub">From public sources to the published register and the dashboard. Solid arrows carry data.</text>
 
   <!-- column backgrounds and headers -->
   <rect x="30" y="100" width="210" height="904" rx="14" fill="#eef4fd"/>
@@ -174,7 +174,7 @@
     <use href="#i-db" xlink:href="#i-db" x="530" y="882" width="26" height="26" color="#6a4fd1"/>
     <text x="564" y="900" class="ct">flood, births, access</text>
     <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga,</tspan><tspan x="532" y="956">access_population_lga</tspan></text>
-    <text x="532" y="982" class="ft">births, population feed coverage</text>
+    <text x="532" y="982" class="ft">all three feed coverage</text>
   </g>
 
   <!-- ========== STAGING (dbt) ========== -->
@@ -202,7 +202,7 @@
     <rect x="1090" y="152" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
     <use href="#i-table" xlink:href="#i-table" x="1100" y="162" width="26" height="26" color="#2f6fd6"/>
     <text x="1134" y="180" class="ct">lga_coverage_burden</text>
-    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">per-10k population, five NTD</tspan><tspan x="1102" y="236">ranks, priority flag</tspan></text>
+    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">per-10k population, NTD ranks,</tspan><tspan x="1102" y="236">access risk, priority flag</tspan></text>
   </g>
   <g>
     <rect x="1090" y="272" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
@@ -234,7 +234,7 @@
     <rect x="1368" y="152" width="154" height="336" rx="10" fill="#fff" stroke="#bfe3cc"/>
     <use href="#i-chart" xlink:href="#i-chart" x="1378" y="162" width="26" height="26" color="#1f8a4c"/>
     <text x="1412" y="180" class="ct">Superset</text>
-    <text class="cb"><tspan x="1380" y="206">read-only dashboard</tspan><tspan x="1380" y="236" font-weight="700" fill="#1a6e3d">Coverage</tspan><tspan x="1380" y="256" font-weight="700" fill="#1a6e3d">NTD burden</tspan><tspan x="1380" y="276" font-weight="700" fill="#1a6e3d">Version drift</tspan><tspan x="1380" y="296" font-weight="700" fill="#1a6e3d">Data status</tspan><tspan x="1380" y="326">state and status filters,</tspan><tspan x="1380" y="342">LGA hover summaries,</tspan><tspan x="1380" y="358">live status panel</tspan><tspan x="1380" y="388">kept as a committed</tspan><tspan x="1380" y="404">import bundle</tspan></text>
+    <text class="cb"><tspan x="1380" y="206">read-only dashboard</tspan><tspan x="1380" y="236" font-weight="700" fill="#1a6e3d">Coverage</tspan><tspan x="1380" y="256" font-weight="700" fill="#1a6e3d">NTD burden</tspan><tspan x="1380" y="276" font-weight="700" fill="#1a6e3d">Access</tspan><tspan x="1380" y="296" font-weight="700" fill="#1a6e3d">Version drift</tspan><tspan x="1380" y="316" font-weight="700" fill="#1a6e3d">Data status</tspan><tspan x="1380" y="346">state and status filters,</tspan><tspan x="1380" y="362">LGA hover summaries,</tspan><tspan x="1380" y="378">live status panel</tspan><tspan x="1380" y="408">kept as a committed</tspan><tspan x="1380" y="424">import bundle</tspan></text>
     <text x="1380" y="470" class="ft">make dashboard</text>
   </g>
   <g>

@@ -46,10 +46,15 @@ columns:
     \ varchar), 'unknown') || ' \xB7 ' || 'LF ' || coalesce(cast(lf_endemicity_rank_lga\
     \ as varchar), 'unknown') || ' \xB7 ' || 'Oncho ' || coalesce(cast(oncho_endemicity_rank_lga\
     \ as varchar), 'unknown') || ' \xB7 ' || 'Loa ' || coalesce(cast(loa_endemicity_rank_lga\
-    \ as varchar), 'unknown') || ' \xB7 priority: ' || CASE WHEN priority_high_burden_thin_coverage\
-    \ THEN 'yes' ELSE 'no' END"
+    \ as varchar), 'unknown') || ' \xB7 ' || CASE WHEN walking_minutes IS NULL THEN\
+    \ 'travel time n/a' ELSE printf('%.0f', walking_minutes) || ' min walk, ' || printf('%.0f',\
+    \ walking_over_60min_share * 100) || '% over an hour' END || ' \xB7 flood 2024:\
+    \ ' || CASE WHEN flood_affected_2024 THEN 'yes' ELSE 'no' END || ' \xB7 access\
+    \ risk ' || coalesce(cast(access_risk_score as varchar), 'n/a') || ' \xB7 priority:\
+    \ ' || CASE WHEN priority_high_burden_thin_coverage THEN 'yes' ELSE 'no' END"
   description: 'Hover text for the maps: LGA, state, facilities, register version,
-    the five endemicity ranks and the priority flag.'
+    per-capita rate, the five endemicity ranks, travel time, the 2024 flood flag,
+    access risk and the priority flag.'
   python_date_format: null
   extra: null
 - column_name: priority_high_burden_thin_coverage
@@ -76,6 +81,18 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: walking_over_60min_share
+  verbose_name: Share over an hour's walk
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: sth_high_share_pct_state
   verbose_name: STH high-prevalence share (state, %)
   is_dttm: false
@@ -85,6 +102,42 @@ columns:
   groupby: true
   filterable: true
   expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: motorised_minutes
+  verbose_name: Motorised minutes to a facility
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: walking_minutes
+  verbose_name: Walking minutes to a facility
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: access_risk_score
+  verbose_name: Access risk score (0-2)
+  is_dttm: false
+  is_active: true
+  type: INTEGER
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
   description: null
   python_date_format: null
   extra: null
@@ -136,11 +189,35 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: flood_affected_2024
+  verbose_name: Flood-affected 2024 (LGA)
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: population
   verbose_name: Population (WorldPop 2025)
   is_dttm: false
   is_active: true
   type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: hard_to_reach
+  verbose_name: Hard to reach
+  is_dttm: false
+  is_active: true
+  type: BOOLEAN
   advanced_data_type: null
   groupby: true
   filterable: true

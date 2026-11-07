@@ -70,6 +70,12 @@ select
     c.loa_endemicity_rank_lga,
     c.population,
     c.facilities_per_10k_population,
+    c.motorised_minutes,
+    c.walking_minutes,
+    c.walking_over_60min_share,
+    c.flood_affected_2024,
+    c.hard_to_reach,
+    c.access_risk_score,
     b.geometry_geojson,
     -- A complete GeoJSON Feature per LGA: the deck.gl Geojson layer reads
     -- .geometry and .properties off each row, so a bare geometry (what
@@ -94,7 +100,13 @@ select
                 'oncho_endemicity_rank_lga', c.oncho_endemicity_rank_lga,
                 'loa_endemicity_rank_lga', c.loa_endemicity_rank_lga,
                 'population', c.population,
-                'facilities_per_10k_population', c.facilities_per_10k_population
+                'facilities_per_10k_population', c.facilities_per_10k_population,
+                'motorised_minutes', c.motorised_minutes,
+                'walking_minutes', c.walking_minutes,
+                'walking_over_60min_share', c.walking_over_60min_share,
+                'flood_affected_2024', c.flood_affected_2024,
+                'hard_to_reach', c.hard_to_reach,
+                'access_risk_score', c.access_risk_score
             )
         ) as varchar
     )                                       as geometry_feature

@@ -52,19 +52,22 @@ columns:
     || ''</b> carry the priority flag.</p>'' || ''<p>WorldPop counts <b>'' || format(''{:,}'',
     population) || ''</b> people in '' || population_year || '', so the register holds
     <b>'' || printf(''%.2f'', facilities_in_lgas * 10000.0 / population) || ''</b>
-    facilities per 10,000 people nationally.</p>'' || ''<h4>NTD endemicity (ESPEN,
-    latest year '' || coalesce(cast(espen_latest_year as varchar), ''unknown'') ||
-    '')</h4>'' || ''<table><tr><th>Disease</th><th>LGAs with a known status</th></tr>''
-    || ''<tr><td>Soil-transmitted helminths</td><td>'' || sth_known_lgas || '' of
-    '' || lgas || ''</td></tr>'' || ''<tr><td>Schistosomiasis</td><td>'' || sch_known_lgas
-    || '' of '' || lgas || ''</td></tr>'' || ''<tr><td>Lymphatic filariasis</td><td>''
-    || lf_known_lgas || '' of '' || lgas || ''</td></tr>'' || ''<tr><td>Onchocerciasis</td><td>''
-    || oncho_known_lgas || '' of '' || lgas || ''</td></tr>'' || ''<tr><td>Loa loa</td><td>''
-    || loa_known_lgas || '' of '' || lgas || ''</td></tr>'' || ''</table><p>The remaining
-    LGAs have no known status and are shown as unknown, never as 0.</p>'' || ''<h4>Changes
-    between register versions</h4>'' || ''<p>Matching v2.0 to v3.0 facilities within
-    100 m: <b>'' || format(''{:,}'', lineage_carried_over) || ''</b> carried over,
-    <b>'' || format(''{:,}'', lineage_dropped) || ''</b> dropped and <b>'' || format(''{:,}'',
+    facilities per 10,000 people nationally.</p>'' || ''<p><b>'' || hard_to_reach_lgas
+    || ''</b> LGAs are hard to reach (a quarter or more of residents over an hour''''s
+    walk from a facility, Malaria Atlas Project) and <b>'' || flood_affected_2024_lgas
+    || ''</b> were flood-affected in 2024.</p>'' || ''<h4>NTD endemicity (ESPEN, latest
+    year '' || coalesce(cast(espen_latest_year as varchar), ''unknown'') || '')</h4>''
+    || ''<table><tr><th>Disease</th><th>LGAs with a known status</th></tr>'' || ''<tr><td>Soil-transmitted
+    helminths</td><td>'' || sth_known_lgas || '' of '' || lgas || ''</td></tr>'' ||
+    ''<tr><td>Schistosomiasis</td><td>'' || sch_known_lgas || '' of '' || lgas ||
+    ''</td></tr>'' || ''<tr><td>Lymphatic filariasis</td><td>'' || lf_known_lgas ||
+    '' of '' || lgas || ''</td></tr>'' || ''<tr><td>Onchocerciasis</td><td>'' || oncho_known_lgas
+    || '' of '' || lgas || ''</td></tr>'' || ''<tr><td>Loa loa</td><td>'' || loa_known_lgas
+    || '' of '' || lgas || ''</td></tr>'' || ''</table><p>The remaining LGAs have
+    no known status and are shown as unknown, never as 0.</p>'' || ''<h4>Changes between
+    register versions</h4>'' || ''<p>Matching v2.0 to v3.0 facilities within 100 m:
+    <b>'' || format(''{:,}'', lineage_carried_over) || ''</b> carried over, <b>''
+    || format(''{:,}'', lineage_dropped) || ''</b> dropped and <b>'' || format(''{:,}'',
     lineage_appeared) || ''</b> appeared. Dropped and appeared records are candidates
     to review, not confirmed closures or openings.</p>'''
   description: null
@@ -84,6 +87,30 @@ columns:
   extra: null
 - column_name: population
   verbose_name: Population (WorldPop 2025)
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: flood_affected_2024_lgas
+  verbose_name: Flood-affected LGAs 2024
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: hard_to_reach_lgas
+  verbose_name: Hard-to-reach LGAs
   is_dttm: false
   is_active: true
   type: BIGINT

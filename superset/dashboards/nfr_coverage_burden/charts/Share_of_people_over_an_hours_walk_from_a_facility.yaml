@@ -1,0 +1,88 @@
+slice_name: Share of people over an hour's walk from a facility
+description: Percent of each LGA's WorldPop 2025 residents more than 60 minutes' walk
+  from the nearest health facility (Malaria Atlas Project, 2020 release), population-weighted.
+certified_by: null
+certification_details: null
+viz_type: deck_polygon
+params:
+  datasource: 2__table
+  viz_type: deck_polygon
+  extra_form_data: {}
+  line_column: polygon_coordinates
+  line_type: json
+  metric:
+    expressionType: SQL
+    sqlExpression: MAX(walking_over_60min_share) * 100
+    label: '% over an hour''s walk'
+    hasCustomLabel: true
+    optionName: metric_ca09e5c7b9b3
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: walking_over_60min_share IS NOT NULL
+    filterOptionName: filter_26f4724cb8c5
+  row_limit: 5000
+  time_range: No filter
+  reverse_long_lat: false
+  mapbox_style: mapbox://styles/mapbox/light-v9
+  viewport:
+    longitude: 8.4
+    latitude: 9.1
+    zoom: 4.5
+    bearing: 0
+    pitch: 0
+    width: 800
+    height: 600
+    altitude: 1.5
+    maxZoom: 20
+    minZoom: 0
+    maxPitch: 60
+    minPitch: 0
+    maxLatitude: 85.05113
+    minLatitude: -85.05113
+  autozoom: false
+  filled: true
+  stroked: true
+  extruded: false
+  fill_color_picker:
+    r: 3
+    g: 65
+    b: 73
+    a: 1
+  stroke_color_picker:
+    r: 255
+    g: 255
+    b: 255
+    a: 1
+  line_width: 1
+  line_width_unit: pixels
+  multiplier: 1
+  point_radius_fixed:
+    type: fix
+    value: 0
+  linear_color_scheme: schemeYlOrRd
+  opacity: 80
+  break_points:
+  - '0'
+  - '5'
+  - '10'
+  - '25'
+  - '50'
+  - '75'
+  - '100'
+  num_buckets: '6'
+  table_filter: false
+  toggle_polygons: true
+  legend_position: tr
+  legend_format: .0f
+  js_columns:
+  - name
+  js_data_mutator: ''
+  js_tooltip: ''
+  js_onclick_href: ''
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 5d4310df-d683-55c1-b6f4-a2eb518e1ecd
+version: 1.0.0
+dataset_uuid: 698033d9-20bf-5060-84b1-ce546855b85a

@@ -68,6 +68,8 @@ select
     (select count(*) from coverage where priority_high_burden_thin_coverage)     as priority_lgas,
     cast((select sum(population) from coverage) as bigint)                       as population,
     (select max(population_year) from coverage)                                  as population_year,
+    (select count(*) from coverage where hard_to_reach)                          as hard_to_reach_lgas,
+    (select count(*) from coverage where flood_affected_2024)                    as flood_affected_2024_lgas,
     ntd.sth_known_lgas,
     ntd.sch_known_lgas,
     ntd.lf_known_lgas,

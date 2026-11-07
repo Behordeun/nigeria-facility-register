@@ -1,0 +1,49 @@
+slice_name: LGAs with access risk
+description: LGAs scoring 1 or 2, hardest to reach on foot first.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - state
+  - canonical_lga
+  - population
+  - walking_minutes
+  - walking_over_60min_share
+  - motorised_minutes
+  - flood_affected_2024
+  - access_risk_score
+  - facilities
+  - facilities_per_10k_population
+  order_by_cols:
+  - '["access_risk_score", false]'
+  - '["walking_over_60min_share", false]'
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: access_risk_score >= 1
+    filterOptionName: filter_access_risk
+  row_limit: 50000
+  server_pagination: true
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+  column_config:
+    walking_over_60min_share:
+      d3NumberFormat: .0%
+query_context: null
+cache_timeout: null
+uuid: 31ee02f4-2097-5b94-ba06-5551b9eeb1a6
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
