@@ -130,7 +130,6 @@ services:
     depends_on:
       - daemon
       - redis
-      - superset-worker
 
   # Renders dashboard downloads (PDF and image) on the server. The Download menu
   # queues a job; this worker opens the dashboard in headless Chromium as the

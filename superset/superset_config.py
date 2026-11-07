@@ -29,11 +29,14 @@ FEATURE_FLAGS = {
 class CeleryConfig:  # pylint: disable=too-few-public-methods
     """Celery broker and result store for the screenshot worker."""
 
+    # Queue, results and the screenshot cache each get their own Redis database.
     broker_url = f"{REDIS_URL}/0"
-    result_backend = f"{REDIS_URL}/0"
+    result_backend = f"{REDIS_URL}/2"
     imports = ("superset.tasks.thumbnails",)
     worker_prefetch_multiplier = 1
-    task_acks_late = False
+    # Acknowledge a screenshot job only once it finishes, so a worker that dies
+    # mid-render hands the job back to the queue instead of dropping it.
+    task_acks_late = True
     # The worker may start before Redis accepts connections; keep retrying.
     broker_connection_retry_on_startup = True
 

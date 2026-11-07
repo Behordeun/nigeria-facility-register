@@ -22,6 +22,7 @@ USER root
 RUN pip install --no-cache-dir duckdb-engine==0.17.0 playwright==1.44.0 Pillow==10.4.0 \
     && playwright install --with-deps chromium \
     && chmod -R a+rX /opt/ms-playwright \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 COPY superset_config.py /app/pythonpath/superset_config.py
