@@ -23,6 +23,7 @@ from pathlib import Path
 
 from dagster import (
     AssetCheckResult,
+    AssetSelection,
     AssetCheckSeverity,
     DagsterRunStatus,
     DefaultScheduleStatus,
@@ -41,7 +42,7 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import metrics, publish, snapshot
+from nfr.orchestration import metrics, publish, snapshot, upstream
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
@@ -385,7 +386,10 @@ def carryover_gate_check(context) -> AssetCheckResult:
 # the tag is what makes that limit apply to every launch path).
 refresh_job = define_asset_job(
     "refresh_register",
-    selection="*",
+    # The two refresh assets (and their checks) by name, not "*": the upstream
+    # release watch below is a separate job and must never run inside, or hold
+    # up, a refresh.
+    selection=AssetSelection.assets("raw_sources", "dbt_models"),
     tags={"dagster/concurrency_key": "refresh_register"},
 )
 
@@ -515,6 +519,76 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     )
 
 
+@asset(group_name="upstream_watch")
+def upstream_releases(context) -> None:
+    """Record whether each upstream publisher has released something newer than what is pinned.
+
+    Reads only public catalogue pages (WorldPop's release index, HDX's catalogue
+    API, MAP's WCS capabilities); it downloads no data and never touches the
+    register, so a new release reaches the register only through a reviewed
+    change to data/sources.yml and the committed tables. See nfr.orchestration.upstream.
+    """
+    findings = upstream.check_upstream()
+    for finding in findings:
+        log = context.log.warning if finding.status is not upstream.Status.CURRENT else context.log.info
+        log(f"{finding.source}: {finding.status.value}: {finding.detail}")
+    context.add_output_metadata({
+        f.source: MetadataValue.text(f"{f.status.value}: {f.detail}") for f in findings
+    } | {
+        "needs_review": sum(f.status is upstream.Status.NEW_RELEASE for f in findings),
+        "unreachable": sum(f.status is upstream.Status.UNREACHABLE for f in findings),
+        "unreadable": sum(f.status is upstream.Status.UNREADABLE for f in findings),
+    })
+
+
+@asset_check(asset=upstream_releases, blocking=False)
+def no_unreviewed_upstream_release(context) -> AssetCheckResult:
+    """Warn (never fail a job) while a newer upstream release is waiting for review, a
+    publisher is unreachable or unreadable, or no check has run yet.
+
+    Reads the findings the latest upstream_releases materialisation recorded, so
+    the check does not hit the network a second time.
+    """
+    event = context.instance.get_latest_materialization_event(upstream_releases.key)
+    if event is None or event.asset_materialization is None:
+        # Nothing has been checked yet, which is not the same as nothing to review.
+        return AssetCheckResult(
+            passed=False,
+            severity=AssetCheckSeverity.WARN,
+            description="upstream_releases has never been materialised; run check_upstream_releases first",
+        )
+    metadata = event.asset_materialization.metadata
+    counts = {
+        name: int(getattr(metadata.get(name), "value", 0) or 0)
+        for name in ("needs_review", "unreachable", "unreadable")
+    }
+    return AssetCheckResult(
+        passed=not any(counts.values()),
+        severity=AssetCheckSeverity.WARN,
+        description=(
+            f"{counts['needs_review']} upstream release(s) to review, {counts['unreachable']} publisher(s) "
+            f"unreachable, {counts['unreadable']} answering in an unexpected format; "
+            "see the upstream_releases materialisation for details"
+        ),
+        metadata=counts,
+    )
+
+
+upstream_check_job = define_asset_job(
+    "check_upstream_releases",
+    selection=AssetSelection.assets("upstream_releases"),
+)
+
+# Monthly: upstream publishers release a few times a year at most, and the check
+# only reads catalogue pages, so a monthly look is timely without being noisy.
+monthly_upstream_check = ScheduleDefinition(
+    job=upstream_check_job,
+    cron_schedule="0 7 1 * *",  # 1st of the month, 07:00
+    name="monthly_upstream_check",
+    default_status=DefaultScheduleStatus.RUNNING,
+)
+
+
 @run_failure_sensor(monitored_jobs=[refresh_job], default_status=DefaultSensorStatus.RUNNING)
 def refresh_failure_sensor(context) -> None:
     """Log a failed refresh so the failure is visible in the sensor timeline.
@@ -533,9 +607,11 @@ def refresh_failure_sensor(context) -> None:
 
 
 defs = Definitions(
-    assets=[raw_sources, dbt_models],
-    asset_checks=[lga_resolve_rate_check, carryover_rate_check, carryover_gate_check],
-    jobs=[refresh_job],
-    schedules=[weekly_refresh],
+    assets=[raw_sources, dbt_models, upstream_releases],
+    asset_checks=[
+        lga_resolve_rate_check, carryover_rate_check, carryover_gate_check, no_unreviewed_upstream_release,
+    ],
+    jobs=[refresh_job, upstream_check_job],
+    schedules=[weekly_refresh, monthly_upstream_check],
     sensors=[new_vintage_sensor, refresh_failure_sensor],
 )
