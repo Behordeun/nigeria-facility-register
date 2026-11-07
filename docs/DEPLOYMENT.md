@@ -7,16 +7,16 @@ schedule and sensor must keep running so the register refreshes on its own.
 
 ## What runs
 
-Three services (`docker-compose.yml`); the first two share the project image
-(`Dockerfile`):
+Five services (`docker-compose.yml`). The first two share the project image (`Dockerfile`); the two Superset services share `nfr-superset:local`, built from `superset/Dockerfile`:
 
 - **webserver** — the Dagster UI, on `127.0.0.1:3000`.
 - **daemon** — runs the weekly schedule and the new-vintage sensor, and launches
   the `refresh_register` job.
-- **superset** — Apache Superset (official image), on `127.0.0.1:8088`, reading
-  the register read-only for dashboards. See the Superset section below.
+- **superset** — Apache Superset, on `127.0.0.1:8088`, reading the register read-only for dashboards. See the Superset section below.
+- **superset-worker** — a Celery worker that renders dashboard downloads (PDF and image) in headless Chromium.
+- **redis** — the worker's queue and the cache for rendered downloads; not published on any host port.
 
-Both share a `DAGSTER_HOME` volume (one instance, one run store, one set of
+The Dagster webserver and daemon share a `DAGSTER_HOME` volume (one instance, one run store, one set of
 schedule/sensor state) and the `build/` volume (the live DuckDB database, the
 run-scoped staging databases, and the per-run snapshots). The refresh stays
 serialised by the `QueuedRunCoordinator` in `dagster.yaml`, so the schedule, the
@@ -37,7 +37,7 @@ they are visible read-only inside the containers at `/app/data/raw`.
 ## Run it
 
 ```bash
-# build the image and start both services
+# build the images and start every service
 docker compose up -d --build
 
 # the UI (localhost only)
@@ -95,15 +95,18 @@ through the mount with no restart.
 
 The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
 
-The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, seven datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_coverage_outlook`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `stg_facilities_authority`, `register_summary`), 31 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has seven tabs:
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, seven datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_coverage_outlook`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `stg_facilities_authority`, `register_summary`), 35 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has eight tabs:
 
-- **Coverage**: facilities in the register, LGAs matched and unmatched, high-priority LGAs; maps of facilities per LGA, facilities per 10,000 people (WorldPop 2025; LGAs with no matched facility left blank) and the 0-8 priority score; the original priority flag's map beside a note explaining the score; and a by-state table with population, the state's facilities per 10,000 people and its high-priority LGAs.
+- **Coverage**: facilities in the register, LGAs matched and unmatched, high-priority LGAs; maps of facilities per LGA, facilities per 10,000 people (WorldPop 2025; LGAs with no matched facility left blank) and the 0-8 priority score; the original priority flag's map beside a note explaining the score; a ranked table of the high-priority LGAs, highest score and thinnest coverage first, with a plain-language reason for each part of the score; and a by-state table with population, the state's facilities per 10,000 people and its high-priority LGAs.
+- **LGA profile**: everything the register holds for one LGA, chosen in the LGA filter (required; it opens on the highest-priority LGA): a card with facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and the priority score, the score's three parts, and the LGA's facilities per 10,000 people to 2030.
 - **Facility mix**: maps of secondary and tertiary facilities per 100,000 people and of the share of facilities recorded as not functional (shading only LGAs with at least five facilities of known status, since GRID3 records status only in v3.0 and often as Unknown), facilities by level per state, and a point map of every facility with coordinates coloured by level.
 - **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table with population and facilities per 10,000 people.
 - **Access**: maps of the share of people over an hour's walk from a facility (Malaria Atlas Project travel time against WorldPop 2025) and of the 0-2 access risk score (hard to reach on foot, flood-affected in 2024), and a table of LGAs with access risk, hardest to reach first. Every map's hover summary also gives walking time, the 2024 flood flag and the score.
 - **Outlook**: national facilities per 10,000 people for each WorldPop year to 2030 at today's facility count, LGAs below 2 per 10,000 by year, and the LGAs at or above 2 today that fall below it by 2030.
 - **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
 - **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, the national population and facilities per 10,000 people, hard-to-reach and 2024 flood-affected LGAs, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
+
+Filters in the left panel: State, Facility status, Priority tier and Hard to reach apply across the dashboard; LGA applies to the LGA profile tab only.
 
 State and facility-status filters apply across the tabs.
 
@@ -122,6 +125,14 @@ The map charts use the deck.gl Polygon layer, which needs each polygon's coordin
 Hovering an LGA on any map shows a one-line summary: LGA and state, facility count with register version and status, facilities per 10,000 people, the five endemicity ranks (`unknown` where no status is known), travel time, the 2024 flood flag and access risk, the priority score with its burden, coverage and access points and its tier, and the original priority flag, followed by the map's own value. The Polygon layer's built-in tooltip prints a row's `name` field as plain text and only renders when the chart has a metric, so the choropleth dataset defines a calculated `name` column holding that summary, every map passes it through `js_columns`, and the priority map carries a constant metric (1 for each flagged LGA, drawn in a single red bucket). This needs no JavaScript controls and stays within Superset's Content Security Policy. `tests/test_superset_bundle.py` fails if a map loses its metric or the hover column.
 
 The deck.gl basemap tiles come from Mapbox. Set `MAPBOX_API_KEY` in `.env` to a Mapbox public token (`pk...`) for the map background; without it the tiles do not load, though the polygons, non-map charts and the data layer are unaffected. The token stays in the gitignored `.env`, never committed.
+
+### Downloads
+
+Download as PDF or image is rendered on the server, so it works on every tab, maps included. The browser's own exporter cannot capture the map tabs: the Mapbox attribution styles embed SVG references that it tries to fetch as URLs, and the export aborts. `superset/superset_config.py` turns on Superset's webdriver downloads instead: the Download menu queues a job, `superset-worker` opens the dashboard as the requesting user in headless Chromium (Playwright, which renders the deck.gl layers), with the same tab and filter state, takes the screenshot and caches it in Redis for a day, and the page downloads it from there. A download takes a few seconds longer than the browser's exporter, mostly waiting for the map tiles to load. The worker loads the Mapbox basemap itself, so it needs the same `MAPBOX_API_KEY` and outbound HTTPS to Mapbox; without them the download shows the maps without their background.
+
+Superset serves the screenshot endpoints only with its `THUMBNAILS` flag on as well, so the dashboard and chart lists can also show card thumbnails, rendered by the same worker.
+
+The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver, Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF) and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
 
 Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
 

@@ -21,6 +21,13 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
+      - name: lga_label
+        data_type: varchar
+        description: "'<canonical_lga>, <state>': a unique, readable key for selecting one LGA (six LGA names recur across states)."
+        constraints:
+          - type: not_null
+        data_tests:
+          - unique
       - name: espen_iu_id
         data_type: bigint
         description: ESPEN IU id where the frame carries one; null otherwise.
@@ -289,6 +296,9 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
+      - name: lga_label
+        data_type: varchar
+        description: As in lga_coverage_burden.
       - name: canonical_lga
         data_type: varchar
         constraints:
@@ -419,6 +429,9 @@ models:
         data_type: varchar
         constraints:
           - type: not_null
+      - name: lga_label
+        data_type: varchar
+        description: As in lga_coverage_burden.
       - name: espen_iu_id
         data_type: bigint
       - name: facilities

@@ -1,0 +1,46 @@
+slice_name: High-priority LGAs, ranked
+description: LGAs in the high priority tier (score 6-8), highest score first and thinnest
+  coverage first within a score, with the reason for each part.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - lga_label
+  - priority_score
+  - priority_burden_points
+  - priority_coverage_points
+  - access_risk_score
+  - facilities_per_10k_population
+  - population
+  - priority_reasons
+  order_by_cols:
+  - '["priority_score", false]'
+  - '["priority_coverage_points", false]'
+  - '["facilities_per_10k_population", true]'
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: priority_tier = 'high'
+    filterOptionName: filter_high_tier
+  row_limit: 50000
+  server_pagination: true
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: eb79df4f-fc7f-58e3-9b44-08e71d517a85
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

@@ -4,6 +4,23 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
+### Added
+
+- An LGA profile and a ranked priority list. `lga_coverage_burden`, `lga_coverage_choropleth` and `lga_coverage_outlook` gain `lga_label` ("LGA, State"), a unique, readable key for picking one LGA, since six LGA names recur across states; a dbt test keeps it unique. The dashboard adds an LGA profile tab, driven by a required LGA filter that opens on the highest-priority LGA (Maiduguri, Borno today): one card with the LGA's facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and priority score, beside the score's three parts and the LGA's facilities per 10,000 people to 2030. The Coverage tab gains a ranked table of the 78 high-priority LGAs, highest score and thinnest coverage first, with a plain-language reason for each part. Two dashboard-wide filters are added: Priority tier and Hard to reach.
+- Dashboard downloads (PDF and image) are rendered on the server, so every tab downloads, maps included. A new `superset-worker` service opens the dashboard in headless Chromium as the requesting user, with the same tab and filters, and caches the screenshot in a new `redis` service for the page to fetch. Superset now runs from `nfr-superset:local`, built from `superset/Dockerfile`: the digest-pinned upstream image plus the `duckdb-engine` driver (previously installed at every start), Playwright with Chromium, Pillow for the PDF, and `superset/superset_config.py`. The image grows from about 1.3 GB to 2.75 GB.
+
+### Changed
+
+- Dependabot is configured in `.github/dependabot.yml`: weekly uv and GitHub Actions updates against `development`, assigned to the maintainer, with dagster and dagster-webserver, and the dbt packages, each updated as one group for security fixes as well as version updates, so packages that must stay in step always move together and the lockfile stays resolvable.
+- Dependencies: scipy 1.17.1, pyyaml 6.0.3, pytest 9.2.0 and pytest-cov 7.1.0. Every CI action is pinned to the commit behind its release (actions/checkout v7.0.1, astral-sh/setup-uv v7.6.0, the SonarCloud scan action v8.4.1), so the workflow runs exactly the reviewed code even if a tag moves.
+
+### Notes
+
+- The contract change is additive: `lga_label` is a new column on `lga_coverage_burden`, `lga_coverage_choropleth` and `lga_coverage_outlook`; no published column changes meaning or type.
+- To upgrade a running deployment, rebuild the register, then `docker compose up -d --build` (Superset now builds its own image and the stack gains the `superset-worker` and `redis` services), then re-run `make dashboard`. The worker loads the Mapbox basemap itself, so downloads need the same `MAPBOX_API_KEY` and outbound HTTPS to Mapbox.
+
 ## [0.3.0] - 2026-11-07
 
 ### Added
@@ -103,7 +120,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...development
+[0.4.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Behordeun/nigeria-facility-register/releases/tag/v0.1.0

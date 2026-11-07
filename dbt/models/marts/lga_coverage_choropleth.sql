@@ -56,6 +56,7 @@ frame_keyed as (
 select
     c.canonical_lga,
     c.state,
+    c.lga_label,
     c.espen_iu_id,
     c.facilities,
     c.facility_source_version,

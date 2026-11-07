@@ -27,6 +27,76 @@ metrics:
   extra: null
   warning_text: null
 columns:
+- column_name: profile_html
+  verbose_name: LGA profile
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: '''<h3>'' || replace(replace(replace(lga_label, ''&'', ''&amp;''), ''<'',
+    ''&lt;''), ''>'', ''&gt;'') || ''</h3>'' || ''<p><b>Priority score '' || coalesce(cast(priority_score
+    as varchar), ''n/a'') || '' of 8</b> ('' || coalesce(cast(replace(replace(replace(priority_tier,
+    ''&'', ''&amp;''), ''<'', ''&lt;''), ''>'', ''&gt;'') as varchar), ''not scored'')
+    || ''): burden '' || coalesce(cast(priority_burden_points as varchar), ''n/a'')
+    || '' + coverage '' || coalesce(cast(priority_coverage_points as varchar), ''n/a'')
+    || '' + access '' || coalesce(cast(access_risk_score as varchar), ''n/a'') ||
+    ''. Original flag: '' || CASE WHEN priority_high_burden_thin_coverage THEN ''yes''
+    ELSE ''no'' END || ''.</p>'' || ''<h4>Facilities</h4><table>'' || ''<tr><td>In
+    the register</td><td>'' || format(''{:,}'', facilities) || '' (GRID3 '' || coalesce(replace(replace(replace(facility_source_version,
+    ''&'', ''&amp;''), ''<'', ''&lt;''), ''>'', ''&gt;''), ''none matched'') || '',
+    '' || replace(replace(replace(facility_status, ''&'', ''&amp;''), ''<'', ''&lt;''),
+    ''>'', ''&gt;'') || '')'' || ''</td></tr>'' || ''<tr><td>By level</td><td>'' ||
+    facilities_primary || '' primary, '' || facilities_secondary || '' secondary,
+    '' || facilities_tertiary || '' tertiary, '' || facilities_level_unknown || ''
+    not recorded'' || ''</td></tr>'' || ''<tr><td>Per 10,000 people</td><td>'' ||
+    coalesce(cast(facilities_per_10k_population as varchar), ''n/a'') || ''</td></tr>''
+    || ''<tr><td>Secondary and tertiary per 100,000</td><td>'' || coalesce(cast(secondary_tertiary_per_100k_population
+    as varchar), ''n/a'') || ''</td></tr>'' || ''<tr><td>Not functional (of known
+    status)</td><td>'' || CASE WHEN not_functional_share IS NULL THEN ''status not
+    recorded'' ELSE printf(''%.0f'', not_functional_share * 100) || ''% of '' || (facilities_functional
+    + facilities_not_functional) || '' with a recorded status'' END || ''</td></tr>''
+    || ''</table><h4>People and access</h4><table>'' || ''<tr><td>Population (WorldPop
+    '' || population_year || '')</td><td>'' || format(''{:,}'', population) || ''</td></tr>''
+    || ''<tr><td>Walking time to a facility</td><td>'' || CASE WHEN walking_minutes
+    IS NULL THEN ''not measured'' ELSE printf(''%.0f'', walking_minutes) || '' min;
+    '' || printf(''%.0f'', walking_over_60min_share * 100) || ''% over an hour'' END
+    || ''</td></tr>'' || ''<tr><td>Motorised time</td><td>'' || CASE WHEN motorised_minutes
+    IS NULL THEN ''not measured'' ELSE printf(''%.0f'', motorised_minutes) || '' min''
+    END || ''</td></tr>'' || ''<tr><td>Flood-affected 2024 (LGA)</td><td>'' || CASE
+    WHEN flood_affected_2024 THEN ''yes'' ELSE ''no'' END || ''</td></tr>'' || ''</table><h4>NTD
+    endemicity rank (0-3)</h4><table>'' || ''<tr><td>Soil-transmitted helminths</td><td>''
+    || coalesce(cast(sth_endemicity_rank_lga as varchar), ''unknown'') || ''</td></tr>''
+    || ''<tr><td>Schistosomiasis</td><td>'' || coalesce(cast(sch_endemicity_rank_lga
+    as varchar), ''unknown'') || ''</td></tr>'' || ''<tr><td>Lymphatic filariasis</td><td>''
+    || coalesce(cast(lf_endemicity_rank_lga as varchar), ''unknown'') || ''</td></tr>''
+    || ''<tr><td>Onchocerciasis</td><td>'' || coalesce(cast(oncho_endemicity_rank_lga
+    as varchar), ''unknown'') || ''</td></tr>'' || ''<tr><td>Loa loa</td><td>'' ||
+    coalesce(cast(loa_endemicity_rank_lga as varchar), ''unknown'') || ''</td></tr>''
+    || ''</table>'''
+  description: One LGA's figures as an HTML card for the LGA profile tab. Text fields
+    are HTML-escaped before they are placed in the markup.
+  python_date_format: null
+  extra: null
+- column_name: priority_reasons
+  verbose_name: Why
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: "'burden ' || priority_burden_points || ' (highest of ' || ntd_diseases_known\
+    \ || ' known disease ranks)' || ' \xB7 coverage ' || priority_coverage_points\
+    \ || ' (' || coalesce(printf('%.1f', facilities_per_10k_population), 'n/a') ||\
+    \ ' facilities per 10,000 people)' || ' \xB7 access ' || access_risk_score ||\
+    \ CASE WHEN hard_to_reach THEN ' (hard to reach on foot' || CASE WHEN flood_affected_2024\
+    \ THEN ', flooded in 2024)' ELSE ')' END WHEN flood_affected_2024 THEN ' (flooded\
+    \ in 2024)' ELSE '' END"
+  description: The three priority-score parts with the figures behind them.
+  python_date_format: null
+  extra: null
 - column_name: priority_high_burden_thin_coverage
   verbose_name: Priority (high STH burden, thin coverage)
   is_dttm: false
@@ -392,6 +462,18 @@ columns:
   is_dttm: false
   is_active: true
   type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: lga_label
+  verbose_name: LGA, State
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
   advanced_data_type: null
   groupby: true
   filterable: true
