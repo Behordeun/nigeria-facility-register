@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-07
+
 ### Added
 
 - A priority score per LGA. `lga_coverage_burden` gains `priority_score`, 0-8, the sum of `priority_burden_points` (0-3, the highest known endemicity rank across the five diseases), `priority_coverage_points` (0-3, by national quartile of facilities per 10,000 people, lowest quarter 3) and `access_risk_score` (0-2), plus `priority_tier` (high 6-8, medium 4-5, low 0-3) and `ntd_diseases_known`. A part that is not measured leaves the score and tier null, never low. On the current data 78 LGAs are high priority; the original flag marks 56, of which 14 are high. `priority_high_burden_thin_coverage` is unchanged and kept alongside for comparison. `lga_coverage_choropleth` carries the score, its parts and the tier, and `register_summary` counts high-priority LGAs. A dbt test recomputes every part, the score and the tier. On the dashboard the Coverage tab's priority count and map move to the score, the original flag's map sits beside a note explaining the score, the by-state and burden tables gain the score, and every map's hover summary shows the score's breakdown.
@@ -14,6 +16,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Changed
 
 - `make dashboard` (`scripts/superset_dashboard.py import`) now loads the bundle with Superset's assets importer, which overwrites the database connection, every dataset, every chart and the dashboard by UUID, so re-running it on an upgraded deployment brings existing charts and datasets in line with the bundle instead of updating only the dashboard layout. The import zip declares the assets bundle type; the committed bundle and `make dashboard-export` are unchanged. `tests/test_superset_bundle.py` checks the import zip and the in-container import program.
+
+### Notes
+
+- Every contract change in this release adds columns; no published column changes meaning or type. `priority_high_burden_thin_coverage` keeps its definition and sits beside the new `priority_score` and `priority_tier`.
+- To upgrade a running deployment, rebuild the register and re-run `make dashboard`, which now updates the existing charts and datasets in place.
 
 ## [0.1.0] - 2026-11-06
 
@@ -76,5 +83,6 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...development
+[0.2.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Behordeun/nigeria-facility-register/releases/tag/v0.1.0
