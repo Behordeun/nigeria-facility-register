@@ -6,7 +6,15 @@
 -- recomputes, and each is null exactly where its denominator is not a
 -- measurement. Returns one row per violation.
 with c as (
-    select * from {{ ref('lga_coverage_burden') }}
+    select
+        *,
+        -- Expected values, computed once. A present rate whose expected value
+        -- cannot be computed (a null input) is reported, not passed silently.
+        (facilities_secondary + facilities_tertiary) * 100000.0 / population          as expected_higher_per_100k,
+        (facilities_functional + facilities_not_functional) * 1.0 / nullif(facilities, 0) as expected_known_share,
+        facilities_not_functional * 1.0
+            / nullif(facilities_functional + facilities_not_functional, 0)            as expected_not_functional_share
+    from {{ ref('lga_coverage_burden') }}
 )
 
 select state, canonical_lga, 'level counts do not sum to facilities' as problem
@@ -34,20 +42,23 @@ union all
 select state, canonical_lga, 'secondary_tertiary_per_100k_population does not recompute (null exactly when unmatched)'
 from c
 where (secondary_tertiary_per_100k_population is null) <> (facility_status = 'unmatched')
-   or abs(secondary_tertiary_per_100k_population
-          - (facilities_secondary + facilities_tertiary) * 100000.0 / population) > 0.001
+   or (secondary_tertiary_per_100k_population is not null
+       and (expected_higher_per_100k is null
+            or abs(secondary_tertiary_per_100k_population - expected_higher_per_100k) > 0.001))
 
 union all
 select state, canonical_lga, 'functional_status_known_share does not recompute (null exactly when unmatched)'
 from c
 where (functional_status_known_share is null) <> (facility_status = 'unmatched')
-   or abs(functional_status_known_share
-          - (facilities_functional + facilities_not_functional) * 1.0 / facilities) > 0.0001
+   or (functional_status_known_share is not null
+       and (expected_known_share is null
+            or abs(functional_status_known_share - expected_known_share) > 0.0001))
 
 union all
 select state, canonical_lga, 'not_functional_share does not recompute (null exactly when no status is known)'
 from c
 where (not_functional_share is null) <> (facilities_functional + facilities_not_functional = 0)
-   or abs(not_functional_share
-          - facilities_not_functional * 1.0 / nullif(facilities_functional + facilities_not_functional, 0)) > 0.0001
+   or (not_functional_share is not null
+       and (expected_not_functional_share is null
+            or abs(not_functional_share - expected_not_functional_share) > 0.0001))
    or not_functional_share < 0 or not_functional_share > 1
