@@ -1,6 +1,7 @@
 slice_name: Share of people over an hour's walk from a facility
-description: Percent of each LGA's WorldPop residents (year on the Data status page) more than 60 minutes' walk
-  from the nearest health facility (Malaria Atlas Project, 2020 release), population-weighted.
+description: Percent of each LGA's WorldPop residents (year on the Data status page)
+  more than 60 minutes' walk from the nearest health facility (Malaria Atlas Project,
+  2020 release), population-weighted.
 certified_by: null
 certification_details: null
 viz_type: deck_polygon

@@ -37,4 +37,4 @@ where greatest(sth_known_lgas, sch_known_lgas, lf_known_lgas, oncho_known_lgas, 
 
 union all
 select 'a count is negative' from s
-where least(states_on_v3, states_on_v2, states_without_facilities, lgas_unmatched, priority_lgas, priority_high_tier_lgas, hard_to_reach_lgas, flood_affected_2024_lgas) < 0
+where least(states_on_v3, states_on_v2, states_without_facilities, lgas_unmatched, priority_lgas, priority_high_tier_lgas, hard_to_reach_lgas, facilities_secondary_tertiary, facilities_level_unknown, facilities_functional_status_known, facilities_not_functional, flood_affected_2024_lgas) < 0
