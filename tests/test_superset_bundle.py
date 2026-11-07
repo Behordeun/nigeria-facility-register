@@ -75,7 +75,8 @@ def test_sql_lab_exposure_matches_the_recorded_decision():
     assert database["expose_in_sqllab"] is True, (
         "SQL Lab exposure changed; update docs/adr/0001-superset-sql-lab-access.md and this test together"
     )
-    assert database["allow_dml"] is False and database["sqlalchemy_uri"].endswith("access_mode=read_only"), (
+    assert database["allow_dml"] is False, "SQL Lab exposure is only acceptable while DML is disallowed"
+    assert database["sqlalchemy_uri"].endswith("access_mode=read_only"), (
         "SQL Lab exposure is only acceptable while the connection is read-only"
     )
 

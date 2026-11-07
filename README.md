@@ -1,5 +1,17 @@
 # Nigeria Facility Register
 
+[![CI (development)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml?query=branch%3Adevelopment)
+[![CI (main)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml?query=branch%3Amain)
+[![SonarCloud](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=SonarCloud%20Code%20Analysis&label=SonarCloud)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![GitGuardian](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=GitGuardian%20Security%20Checks&label=GitGuardian)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![Amazon Q review](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=Amazon%20Q%20Developer&label=Amazon%20Q%20review)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![All checks (development)](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?label=all%20checks)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![Release](https://img.shields.io/github/v/release/Behordeun/nigeria-facility-register)](https://github.com/Behordeun/nigeria-facility-register/releases/latest)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+[![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](pyproject.toml)
+
+The CI badges track the build workflow on each branch: lint, unit tests, the SonarCloud scan and the sample dbt build. The SonarCloud, GitGuardian and Amazon Q badges show each check's result on the latest `development` commit (the SonarCloud quality gate, the GitGuardian secret scan and the automated code review), and "All checks" turns red if any check there fails.
+
 A version-aware health-facility register for Nigeria, built from GRID3's published releases and composed with neglected-tropical-disease burden at LGA resolution.
 
 GRID3 publishes its health-facility data in versions that cover different states and share no common identifier. v2.0 is national (51,022 facilities, to October 2024). v3.0 covers 24 states (41,778 facilities, to December 2025) and supersedes v2.0 in those states. This project keeps each state on its most current version, reconstructs how facilities change between versions, and joins the result to disease burden.
@@ -8,8 +20,8 @@ GRID3 publishes its health-facility data in versions that cover different states
 
 - A single authoritative facility layer that switches source per state: v3.0 where it exists, v2.0 elsewhere. Every row records its source version and whether that state's data is current or stale.
 - A v2-to-v3 lineage table. The two versions share no carry-over id (v2 keys on `globalid`, v3 on `unique_id`), so lineage is rebuilt by spatial and name matching. 89.8% of v2.0 facilities match a v3.0 point within 100 m, with 89.9% name agreement.
-- A per-LGA table joining facility coverage to burden and population: facility counts and facilities per 10,000 people (WorldPop 2025), the ESPEN endemicity rank of five neglected tropical diseases, the state-level soil-transmitted-helminths share, travel time to the nearest facility and flood exposure with a 0-2 access risk score, and a 0-8 priority score (high, medium or low) that adds burden, per-capita coverage and access, beside the original flag for LGAs where burden is high and coverage is thin.
-- A one-row register summary and a Superset dashboard over the published tables (coverage, NTD burden, access, version drift, and a live data-status page).
+- A per-LGA table joining facility coverage to burden and population: facility counts, facilities per 10,000 people, the mix of primary, secondary and tertiary facilities and the share recorded as not functional (WorldPop, rolling forward each calendar year through 2030), the ESPEN endemicity rank of five neglected tropical diseases, the state-level soil-transmitted-helminths share, travel time to the nearest facility and flood exposure with a 0-2 access risk score, and a 0-8 priority score (high, medium or low) that adds burden, per-capita coverage and access, beside the original flag for LGAs where burden is high and coverage is thin.
+- A one-row register summary and a Superset dashboard over the published tables (coverage, facility mix, NTD burden, access, a 2025-2030 population outlook, version drift, and a live data-status page).
 
 ## How it is built
 

@@ -1,0 +1,65 @@
+slice_name: Facilities by level, per state
+description: GRID3 facility level by state; Not recorded covers blank and Unknown
+  levels.
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 1__table
+  viz_type: echarts_timeseries_bar
+  extra_form_data: {}
+  x_axis: state
+  metrics:
+  - expressionType: SQL
+    sqlExpression: SUM(facilities_primary)
+    label: Primary
+    hasCustomLabel: true
+    optionName: metric_facilities_primary
+  - expressionType: SQL
+    sqlExpression: SUM(facilities_secondary)
+    label: Secondary
+    hasCustomLabel: true
+    optionName: metric_facilities_secondary
+  - expressionType: SQL
+    sqlExpression: SUM(facilities_tertiary)
+    label: Tertiary
+    hasCustomLabel: true
+    optionName: metric_facilities_tertiary
+  - expressionType: SQL
+    sqlExpression: SUM(facilities_level_unknown)
+    label: Not recorded
+    hasCustomLabel: true
+    optionName: metric_facilities_level_unknown
+  groupby: []
+  adhoc_filters: []
+  row_limit: 10000
+  order_desc: true
+  stack: Stack
+  orientation: horizontal
+  x_axis_sort_asc: true
+  x_axis_sort_series: name
+  x_axis_sort_series_ascending: true
+  show_legend: true
+  legendType: plain
+  legendOrientation: top
+  color_scheme: supersetColors
+  y_axis_format: SMART_NUMBER
+  truncateXAxis: true
+  y_axis_bounds:
+  - null
+  - null
+  rich_tooltip: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  only_total: true
+  sort_series_type: sum
+  truncate_metric: true
+  x_axis_title_margin: 15
+  y_axis_title_margin: 15
+  y_axis_title_position: Left
+query_context: null
+cache_timeout: null
+uuid: 5aa63b4e-b6d1-5681-bfd2-6f2548efa6fd
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

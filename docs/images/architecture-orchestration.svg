@@ -132,4 +132,10 @@
     <text x="1062" y="612" class="ct">Live register</text>
     <text class="cb"><tspan x="1026" y="640">published marts, read by</tspan><tspan x="1026" y="658">the Superset dashboard over</tspan><tspan x="1026" y="676">a read-only connection; the</tspan><tspan x="1026" y="694">sensor now sees this vintage</tspan><tspan x="1026" y="712">as built</tspan></text>
   </g>
+  <g>
+    <rect x="40" y="630" width="410" height="108" rx="12" fill="#fff8ec" stroke="#f1d7a6" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <use href="#i-radar" xlink:href="#i-radar" x="56" y="644" width="28" height="28" color="#c98a12"/>
+    <text x="94" y="664" class="ct">monthly_upstream_check</text>
+    <text class="cb"><tspan x="58" y="690">a separate job: compares WorldPop, GRID3, MAP and ESPEN</tspan><tspan x="58" y="708">with the pins and warns on a newer release; downloads</tspan><tspan x="58" y="726">nothing and never runs inside a refresh</tspan></text>
+  </g>
 </svg>

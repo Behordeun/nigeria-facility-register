@@ -67,6 +67,8 @@ sources:
     url: https://espen.afro.who.int/countries/nigeria
     license: CC BY-NC-SA 3.0 IGO (upstream ESPEN)
     format: csv
+    latest_year: 2025
+    download: https://espen.afro.who.int/api/download-data/NG/{disease}/iu/{from_year}/{to_year} (public, no key; the portal's own download route; disease codes STH, SCH, lf, Oncho, Loa)
     derived_from: Geospatial/espen_ntd/data/espen_long.csv (ESPEN IU-level, 2014-2025)
     upstream_sha256: a438ade2dc971c785416f500961c57aaab892f58b4c89fcb747167b5d0f1e412
     sha256: 4c8c3d9d0d426bb34cb341e07a5306991eb881952e9ffc2629246549f7d02a4a
@@ -108,14 +110,21 @@ sources:
     license: CC BY 4.0 (WorldPop); CC BY (Malaria Atlas Project)
     format: csv
     built_by: scripts/build_access_population.py
-    population_year: 2025
+    population_years: 2025-2030 (one row per LGA per year; the dbt build selects the year)
     upstream:
       worldpop:
-        name: WorldPop Global2 R2025A constrained population, Nigeria, 2025, 100 m
-        url: https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/NGA/v1/100m/constrained/nga_pop_2025_CN_100m_R2025A_v1.tif
+        name: WorldPop Global2 R2025A constrained population, Nigeria, 100 m, one raster per year
+        release: R2025A
+        url: https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/{year}/NGA/v1/100m/constrained/nga_pop_{year}_CN_100m_R2025A_v1.tif
         doi: 10.5258/SOTON/WP00839
         license: CC BY 4.0
-        sha256: abc7e897aff7de024d851a24613eebf28e710dbfe4dea9c3e02ee285d75d4f8b
+        sha256_by_year:
+          2025: abc7e897aff7de024d851a24613eebf28e710dbfe4dea9c3e02ee285d75d4f8b
+          2026: faf500222458db1fad3baf5012c70c935ea0e5fedc4c1e78fa8d4565cb0994b0
+          2027: 73cf624e00fc9b774dba5d60b76178fe8f4553ffa86ed55591ddfd652a3c9dd7
+          2028: bdae1963834aecab778d7c299fefac1e285dfdfac7fb97aabf78857490dbe23d
+          2029: 14d46fa1e6ecefee8f85791bd3e85a4b5339abf954c4372b1d5d76e9b6df1d7c
+          2030: 50fe68d86a3a40ee3ff956638c50cefab41a1f05071905cb08ae7461e1916f66
       map_motorised:
         name: Malaria Atlas Project motorised travel time to healthcare (2020 release), Nigeria cut-out
         coverage_id: Accessibility__202001_Global_Motorized_Travel_Time_to_Healthcare
@@ -135,7 +144,7 @@ sources:
         derived_from: Geospatial/_shared_frame/nigeria_adm2_lga_boundaries.geojson
         license: CC BY 4.0
         sha256: bef7f2cfa45e012f4772eaa61c7b99e5188aeba4d5c6badae7e9f9aae8c02fcd
-    sha256: 07d7f1d33521c906f973469da76557592ab64fb904d29bbb19c9618d5c4676ab
+    sha256: 782d915132fcaa386095f7da345f82fb385a7040885c5686e0601bff143df73f
     note: >
       Rasters are fetched into data/raw/rasters/ and never committed. The build
       refuses a download whose hash differs from the pins above. Population is

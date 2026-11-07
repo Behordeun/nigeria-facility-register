@@ -29,7 +29,7 @@ keyed as (
 select state, canonical_lga, 'population differs from the source' as problem
 from keyed k
 where k.population is distinct from (
-    select a.population from {{ source('raw', 'access_population_lga') }} a where a.shapeID = k.shape_id
+    select a.population from {{ ref('stg_access_population_lga') }} a where a.shapeID = k.shape_id
 )
 
 union all

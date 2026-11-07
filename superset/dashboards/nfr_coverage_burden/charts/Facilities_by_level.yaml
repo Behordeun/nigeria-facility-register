@@ -1,0 +1,62 @@
+slice_name: Facilities by level
+description: Each facility in the authority layer with coordinates, coloured by GRID3
+  level. Facilities without coordinates are not shown.
+certified_by: null
+certification_details: null
+viz_type: deck_scatter
+params:
+  datasource: 6__table
+  viz_type: deck_scatter
+  extra_form_data: {}
+  spatial:
+    latCol: latitude
+    lonCol: longitude
+    type: latlong
+  row_limit: 70000
+  size: count
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: latitude IS NOT NULL AND longitude IS NOT NULL
+    filterOptionName: filter_has_coordinates
+  mapbox_style: mapbox://styles/mapbox/light-v9
+  viewport:
+    longitude: 8.4
+    latitude: 9.1
+    zoom: 4.5
+    bearing: 0
+    pitch: 0
+    width: 800
+    height: 600
+    altitude: 1.5
+    maxZoom: 20
+    minZoom: 0
+    maxPitch: 60
+    minPitch: 0
+    maxLatitude: 85.05113
+    minLatitude: -85.05113
+  autozoom: false
+  point_radius_fixed:
+    type: fix
+    value: '1500'
+  point_unit: square_m
+  min_radius: 1
+  max_radius: 250
+  multiplier: 1
+  dimension: level
+  color_scheme: supersetColors
+  color_picker:
+    r: 0
+    g: 122
+    b: 135
+    a: 1
+  js_columns: []
+  js_data_mutator: ''
+  js_tooltip: ''
+  js_onclick_href: ''
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 73d53718-7605-5bf0-88ba-7cbf2139d281
+version: 1.0.0
+dataset_uuid: 16908126-9740-5e36-87db-0d1cb0b8a669

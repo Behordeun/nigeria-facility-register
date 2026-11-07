@@ -11,7 +11,7 @@ derived artifacts must carry this attribution.
 | ESPEN (WHO/AFRO) | NTD endemicity: a per-state STH summary, and a per-LGA summary for STH, schistosomiasis, lymphatic filariasis, onchocerciasis and Loa loa | CC BY-NC-SA 3.0 IGO | [ESPEN Nigeria](https://espen.afro.who.int/countries/nigeria) |
 | NASA MODIS flood products | Per-LGA flood-event exposure flags (2022, 2024), summarised in the author's flood_health project | NASA open data | [NASA Earthdata](https://www.earthdata.nasa.gov) |
 | WorldPop | Annual births per LGA (2015, UN-adjusted), zonal-summed into the 774 LGAs | CC BY 4.0 | [WorldPop](https://www.worldpop.org) |
-| WorldPop Global2 R2025A | Constrained population counts (about 100 m), summed per LGA for 2025 | CC BY 4.0 | [WorldPop](https://hub.worldpop.org/geodata/listing?id=135), DOI 10.5258/SOTON/WP00839 |
+| WorldPop Global2 R2025A | Constrained population counts (about 100 m), summed per LGA for each year 2025-2030 | CC BY 4.0 | [WorldPop](https://hub.worldpop.org/geodata/listing?id=135), DOI 10.5258/SOTON/WP00839 |
 | Malaria Atlas Project | Travel time to the nearest health facility (2020 release, motorised and walking-only, about 1 km), population-weighted per LGA | CC BY (MAP catalogue: 4.0; MAP open-access policy: 3.0) | [MAP](https://malariaatlas.org), Weiss et al., Nature Medicine 26, 1835-1838 (2020) |
 
 GRID3 datasets are produced by the Center for Integrated Earth System

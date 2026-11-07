@@ -56,6 +56,10 @@ new vintage in `data/raw/`; trigger one immediately from the UI (Assets ->
 materialize, or Jobs -> `refresh_register` -> launch) once the geopackages are
 placed.
 
+The daemon also runs `monthly_upstream_check` (07:00 on the 1st), which launches the `check_upstream_releases` job. It reads public catalogue pages only, so it needs outbound HTTPS to data.worldpop.org, data.humdata.org, data.malariaatlas.org and espen.afro.who.int; without it the check reports those publishers as unreachable and the refresh is unaffected. A warning on its `no_unreviewed_upstream_release` check means a newer upstream release is waiting for review.
+
+The population year needs no action: each refresh uses the current calendar year from the committed WorldPop years (2025-2030). To build a specific year, pass it to dbt, for example `dbt build --vars 'population_year: 2026'`.
+
 The orchestrated job always builds from the real inputs in `data/raw/`. It has
 no fixture mode, so `raw_sources` fails fast with a "missing raw inputs" message
 when `data/raw/` is empty rather than building an empty register. The committed
@@ -91,11 +95,13 @@ through the mount with no restart.
 
 The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
 
-The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, five datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `register_summary`), 24 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has five tabs:
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, seven datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_coverage_outlook`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `stg_facilities_authority`, `register_summary`), 31 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has seven tabs:
 
 - **Coverage**: facilities in the register, LGAs matched and unmatched, high-priority LGAs; maps of facilities per LGA, facilities per 10,000 people (WorldPop 2025; LGAs with no matched facility left blank) and the 0-8 priority score; the original priority flag's map beside a note explaining the score; and a by-state table with population, the state's facilities per 10,000 people and its high-priority LGAs.
+- **Facility mix**: maps of secondary and tertiary facilities per 100,000 people and of the share of facilities recorded as not functional (shading only LGAs with at least five facilities of known status, since GRID3 records status only in v3.0 and often as Unknown), facilities by level per state, and a point map of every facility with coordinates coloured by level.
 - **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table with population and facilities per 10,000 people.
 - **Access**: maps of the share of people over an hour's walk from a facility (Malaria Atlas Project travel time against WorldPop 2025) and of the 0-2 access risk score (hard to reach on foot, flood-affected in 2024), and a table of LGAs with access risk, hardest to reach first. Every map's hover summary also gives walking time, the 2024 flood flag and the score.
+- **Outlook**: national facilities per 10,000 people for each WorldPop year to 2030 at today's facility count, LGAs below 2 per 10,000 by year, and the LGAs at or above 2 today that fall below it by 2030.
 - **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
 - **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, the national population and facilities per 10,000 people, hard-to-reach and 2024 flood-affected LGAs, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
 

@@ -49,6 +49,41 @@ models:
           - accepted_values:
               arguments:
                 values: ['current', 'stale-awaiting-v3', 'unmatched']
+      - name: facilities_primary
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities in the LGA whose GRID3 level is Primary.
+      - name: facilities_secondary
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities whose level is Secondary.
+      - name: facilities_tertiary
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities whose level is Tertiary.
+      - name: facilities_level_unknown
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities whose level is blank, "Unknown" or missing; counted, never assigned a level.
+      - name: facilities_functional
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities recorded as Functional or Partially Functional (GRID3 v3.0 only).
+      - name: facilities_not_functional
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities recorded as Not-Functional or Closed (GRID3 v3.0 only).
+      - name: facilities_status_unknown
+        data_type: bigint
+        constraints:
+          - type: not_null
+        description: Facilities with no recorded functional status, including every facility in a v2.0 state.
       - name: sth_high_share_pct_state
         data_type: double
         description: State-level ESPEN STH high-prevalence share, broadcast to each LGA in the state.
@@ -121,11 +156,12 @@ models:
                 where: "loa_endemicity_rank_lga is not null"
       - name: population
         data_type: bigint
-        description: WorldPop R2025A population of the LGA (year in population_year), summed at 100 m; always positive.
+        description: WorldPop R2025A population of the LGA for population_year, summed at 100 m; always positive.
         constraints:
           - type: not_null
       - name: population_year
         data_type: bigint
+        description: The year population and the travel figures describe, chosen by stg_access_population_lga (the build's calendar year capped to the years available, or the population_year var).
         constraints:
           - type: not_null
       - name: births
@@ -142,6 +178,15 @@ models:
       - name: facilities_per_10k_births
         data_type: double
         description: facilities x 10,000 / births (2015). Null where facility_status is 'unmatched'.
+      - name: secondary_tertiary_per_100k_population
+        data_type: double
+        description: (facilities_secondary + facilities_tertiary) x 100,000 / population. Null where facility_status is 'unmatched'.
+      - name: functional_status_known_share
+        data_type: double
+        description: Share of the LGA's facilities with a recorded functional status (0-1); 0 throughout v2.0 states, null where no facility matched.
+      - name: not_functional_share
+        data_type: double
+        description: facilities_not_functional over the facilities with a recorded status (0-1). Null where no status is recorded, never 0.
       - name: motorised_minutes
         data_type: double
         description: Population-weighted mean travel time to the nearest health facility by motorised transport, in minutes (Malaria Atlas Project, 2020 release). Null where no population sits on valid travel-time cells, never 0.
@@ -229,6 +274,62 @@ models:
                 values: ['high', 'medium', 'low']
               config:
                 where: "priority_tier is not null"
+
+  - name: lga_coverage_outlook
+    description: >
+      Per-LGA coverage for every WorldPop population year the register carries
+      (2025-2030), holding today's facility count fixed: one row per (LGA,
+      population_year). The register-year row matches lga_coverage_burden. See
+      docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: state
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: canonical_lga
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: population_year
+        data_type: bigint
+        constraints:
+          - type: not_null
+      - name: is_register_year
+        data_type: boolean
+        description: True on the rows for the population year the published register describes.
+        constraints:
+          - type: not_null
+      - name: is_last_projection_year
+        data_type: boolean
+        description: True on the rows for the last WorldPop year the register carries (2030 today).
+        constraints:
+          - type: not_null
+      - name: population
+        data_type: bigint
+        description: WorldPop R2025A population of the LGA for population_year.
+        constraints:
+          - type: not_null
+      - name: facilities
+        data_type: bigint
+        description: Today's facility count for the LGA (from lga_coverage_burden), held fixed across years.
+        constraints:
+          - type: not_null
+      - name: facility_status
+        data_type: varchar
+        constraints:
+          - type: not_null
+      - name: facilities_per_10k_population
+        data_type: double
+        description: facilities x 10,000 / population for population_year; null where facility_status is 'unmatched'.
+      - name: population_change_from_register_year
+        data_type: double
+        description: population / the register year's population - 1 (0 on the register-year row).
+      - name: facilities_per_10k_change_from_register_year
+        data_type: double
+        description: facilities_per_10k_population minus the register year's value; null where the rate is null.
 
   - name: lga_version_drift
     description: >
@@ -377,6 +478,21 @@ models:
       - name: access_risk_score
         data_type: integer
         description: As in lga_coverage_burden.
+      - name: facilities_secondary
+        data_type: bigint
+        description: As in lga_coverage_burden.
+      - name: facilities_tertiary
+        data_type: bigint
+        description: As in lga_coverage_burden.
+      - name: secondary_tertiary_per_100k_population
+        data_type: double
+        description: As in lga_coverage_burden.
+      - name: functional_status_known_share
+        data_type: double
+        description: As in lga_coverage_burden.
+      - name: not_functional_share
+        data_type: double
+        description: As in lga_coverage_burden.
       - name: ntd_diseases_known
         data_type: integer
         description: As in lga_coverage_burden.
@@ -490,6 +606,26 @@ models:
           - type: not_null
       - name: population_year
         data_type: bigint
+        constraints:
+          - type: not_null
+      - name: facilities_secondary_tertiary
+        data_type: bigint
+        description: Facilities in LGAs whose level is Secondary or Tertiary.
+        constraints:
+          - type: not_null
+      - name: facilities_level_unknown
+        data_type: bigint
+        description: Facilities in LGAs with no recorded level.
+        constraints:
+          - type: not_null
+      - name: facilities_functional_status_known
+        data_type: bigint
+        description: Facilities in LGAs with a recorded functional status (GRID3 v3.0 only).
+        constraints:
+          - type: not_null
+      - name: facilities_not_functional
+        data_type: bigint
+        description: Facilities recorded as Not-Functional or Closed.
         constraints:
           - type: not_null
       - name: hard_to_reach_lgas

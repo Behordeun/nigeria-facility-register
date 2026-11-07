@@ -9,8 +9,10 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_facilities_authority` | staging | one facility | one per facility in the authoritative set |
 | `stg_version_lineage` | staging | one facility-lineage record | one per v2.0/v3.0 facility in a v3-covered state |
 | `stg_ntd_endemicity_lga` | staging | one (LGA, disease) | exactly 774 x 5 = 3,870 |
+| `stg_access_population_lga` | staging | one LGA, for one population year | exactly 774 |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
+| `lga_coverage_outlook` | mart | one (LGA, population year) | exactly 774 x the WorldPop years carried (2025-2030: 4,644) |
 | `register_summary` | mart | the published register | exactly 1 |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
@@ -92,6 +94,25 @@ Guarantees:
 - Every known label is ranked. A label ESPEN publishes that the seed does not rank fails the build, rather than silently becoming a null rank that reads as unknown.
 - Unknown is not zero. An LGA whose only reports are "Unknown ..." statuses carries a null label, year and rank. A recent "Unknown" does not erase an earlier known status: the rank follows the latest known label, and the latest published label is kept alongside in `endemicity_latest`.
 
+## `stg_access_population_lga`
+
+Per-LGA population (WorldPop R2025A) and population-weighted travel time to healthcare (Malaria Atlas Project) for the one population year the register describes. The raw table carries one row per LGA for every pinned WorldPop year (2025-2030); this model selects one.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `shapeID` | varchar | no | the frame LGA's geoBoundaries id; unique |
+| `shapeName` | varchar | yes | the LGA name in the boundary set |
+| `population_year` | bigint | no | the selected year, the same on every row |
+| `population` | bigint | no | WorldPop population of the LGA for that year; always positive |
+| `motorised_minutes`, `walking_minutes` | double | yes | population-weighted mean travel time to the nearest health facility; null where no population sits on valid travel-time cells |
+| `walking_over_60min_share`, `access_population_share` | double | yes | shares, 0-1 |
+
+Guarantees:
+
+- Exactly one population year, covering all 774 frame LGAs.
+- The year is chosen, not assumed: the `population_year` dbt var when set (a build of a year the table does not carry fails), otherwise the calendar year of the build, capped to the years available. A weekly refresh therefore moves to the new year on 1 January, and stays on the last available year once the table runs out rather than failing.
+- Every year in the raw table covers the same 774 LGAs, once each, so whichever year is selected is complete.
+
 ## `lga_coverage_burden`
 
 Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 present.
@@ -111,11 +132,19 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `lf_endemicity_rank_lga` | integer | yes | as above, lymphatic filariasis (programme-stage basis) |
 | `oncho_endemicity_rank_lga` | integer | yes | as above, onchocerciasis (programme-stage basis) |
 | `loa_endemicity_rank_lga` | integer | yes | as above, Loa loa |
-| `population` | bigint | no | WorldPop R2025A population of the LGA, summed at 100 m; always positive (year in `population_year`) |
-| `population_year` | bigint | no | year of the population figure (2025) |
+| `population` | bigint | no | WorldPop R2025A population of the LGA for `population_year`, summed at 100 m; always positive |
+| `population_year` | bigint | no | the year `population` and the travel-time columns describe, selected by `stg_access_population_lga` |
 | `births` | double | no | WorldPop annual births in the LGA for 2015 (UN-adjusted); always positive |
 | `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
 | `facilities_per_10k_births` | double | yes | `facilities` x 10,000 / `births`; null where `facility_status = 'unmatched'` |
+| `facilities_primary`, `facilities_secondary`, `facilities_tertiary` | bigint | no | facilities in the LGA by GRID3 level |
+| `facilities_level_unknown` | bigint | no | facilities whose level is blank, `Unknown` or missing; never assigned a level |
+| `facilities_functional` | bigint | no | facilities recorded as Functional or Partially Functional (GRID3 v3.0 only) |
+| `facilities_not_functional` | bigint | no | facilities recorded as Not-Functional or Closed (GRID3 v3.0 only) |
+| `facilities_status_unknown` | bigint | no | facilities with no recorded status, including every facility in a v2.0 state |
+| `secondary_tertiary_per_100k_population` | double | yes | (`facilities_secondary` + `facilities_tertiary`) x 100,000 / `population`; null where `facility_status = 'unmatched'` |
+| `functional_status_known_share` | double | yes | share of the LGA's facilities with a recorded status, 0-1; 0 throughout v2.0 states; null where unmatched |
+| `not_functional_share` | double | yes | `facilities_not_functional` over facilities with a recorded status, 0-1; null where no status is recorded, never 0 |
 | `motorised_minutes` | double | yes | population-weighted mean travel time to the nearest health facility by motorised transport, minutes (Malaria Atlas Project, 2020 release); null where no population sits on valid travel-time cells, never 0 |
 | `walking_minutes` | double | yes | as above, walking only |
 | `walking_over_60min_share` | double | yes | share of the LGA's population more than 60 minutes' walk from the nearest facility, 0-1 |
@@ -141,7 +170,31 @@ Guarantees:
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The `*_endemicity_rank_lga` columns are true per-LGA measurements, equal to the rank in `stg_ntd_endemicity_lga` for that LGA and disease. A null means the LGA's status was never known, not that the disease is absent; a non-endemic LGA is `0`. They are non-commercial (ESPEN CC BY-NC-SA 3.0 IGO). They do not feed the priority flag, which is unchanged.
 - The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the rate quartiles and the access score, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
+- Facility mix adds up. The four level counts sum to `facilities`, and so do the three functional-status counts. A v2.0 LGA records no status (GRID3 v2.0 has none), and each mix rate recomputes from its counts. Because status is recorded for under a third of facilities, `not_functional_share` describes only the facilities whose status is known; read it with `functional_status_known_share`.
 - The original priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
+
+## `lga_coverage_outlook`
+
+Per-LGA coverage for every WorldPop population year the register carries, holding today's facility count fixed: how per-capita coverage would change as the population grows if no facility were added. It is a planning baseline, not a forecast of facilities.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `state`, `canonical_lga` | varchar | no | the LGA, as in `lga_coverage_burden` |
+| `population_year` | bigint | no | the projection year |
+| `is_register_year` | boolean | no | true on the rows for the population year the published register describes |
+| `is_last_projection_year` | boolean | no | true on the rows for the last WorldPop year carried (2030 today) |
+| `population` | bigint | no | WorldPop R2025A population of the LGA for that year |
+| `facilities` | bigint | no | today's facility count, the same in every year |
+| `facility_status` | varchar | no | as in `lga_coverage_burden` |
+| `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
+| `population_change_from_register_year` | double | yes | population over the register year's, minus 1 |
+| `facilities_per_10k_change_from_register_year` | double | yes | the rate minus the register year's rate; null where the rate is null |
+
+Guarantees:
+
+- Every population year covers the 774 frame LGAs exactly once.
+- The register-year rows equal `lga_coverage_burden` (population, facilities and rate), so the outlook starts from the published register.
+- Facilities are held fixed across years, and every rate and change recomputes, null exactly where no facility matched.
 
 ## `lga_version_drift`
 
@@ -213,6 +266,10 @@ One row describing the published register as a whole, rebuilt on every refresh s
 | `population` | bigint | no | total WorldPop population across the 774 LGAs |
 | `population_year` | bigint | no | year of that population figure |
 | `hard_to_reach_lgas` | bigint | no | LGAs with `hard_to_reach` true |
+| `facilities_secondary_tertiary` | bigint | no | facilities in LGAs whose level is Secondary or Tertiary |
+| `facilities_level_unknown` | bigint | no | facilities in LGAs with no recorded level |
+| `facilities_functional_status_known` | bigint | no | facilities in LGAs with a recorded functional status |
+| `facilities_not_functional` | bigint | no | facilities recorded as Not-Functional or Closed |
 | `flood_affected_2024_lgas` | bigint | no | LGAs with `flood_affected_2024` true |
 | `sth_known_lgas`, `sch_known_lgas`, `lf_known_lgas`, `oncho_known_lgas`, `loa_known_lgas` | bigint | no | LGAs with a known ESPEN status (a rank) for that disease; the rest are unknown, not zero |
 | `espen_latest_year` | integer | yes | latest year any ESPEN status is reported for |
@@ -231,6 +288,8 @@ Missing is not zero. A stale state, an unsurveyed ESPEN IU, an LGA that matched 
 ## Freshness and versioning
 
 - Freshness follows the source releases, not a clock. `source_date` on each facility says which GRID3 vintage it came from; a state marked `stale-awaiting-v3` is waiting for GRID3 to extend v3.0 coverage, not for a pipeline run.
+- The population year is the one exception: it follows the build's calendar year within the WorldPop years the register carries (see `stg_access_population_lga`), and `register_summary.population_year` states which year a register uses.
+- Newer upstream releases are watched, not ingested. A monthly Dagster job (`check_upstream_releases`) compares WorldPop, GRID3 on HDX, the Malaria Atlas Project and ESPEN with what `data/sources.yml` pins and warns when something newer appears. A new release reaches the register only through a reviewed change to the pins and the committed tables.
 - The contract is versioned with the project (SemVer). Adding a column or relaxing nullability is a minor bump. Removing or renaming a column, tightening a domain, or changing a grain is a major bump and is announced in the CHANGELOG before release.
 - dbt model contracts enforce the column names and types at build time. A model whose output drifts from the declared contract fails the build rather than shipping a silent schema change.
 - A data-quality gate backs the guarantees a type cannot express. Blocking dbt tests fail the build when the raw inputs fall outside their row-count bounds, when the version-drift mart resolves an LGA absent from the frame, or when the NTD burden table or the alias crosswalk names a state the frame does not know; a blocking run check fails the pipeline when the carry-over rate collapses past a hard floor. These stop a bad build from publishing, as distinct from the advisory run metrics, which only warn. See docs/ARCHITECTURE.md.

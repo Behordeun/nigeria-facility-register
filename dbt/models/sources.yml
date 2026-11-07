@@ -97,14 +97,16 @@ sources:
           Per-LGA population (WorldPop R2025A constrained counts, CC BY 4.0) and
           population-weighted travel time to the nearest health facility
           (Malaria Atlas Project 2020 release, motorised and walking-only, CC BY),
-          derived by scripts/build_access_population.py and keyed on shapeID.
-          Null travel figures mean no population on valid travel-time cells,
-          never 0 minutes. Its population feeds lga_coverage_burden's
-          population and facilities_per_10k_population, and its travel figures
-          its access columns and access_risk_score.
+          derived by scripts/build_access_population.py, one row per (shapeID,
+          population_year) for every pinned WorldPop year. Null travel figures
+          mean no population on valid travel-time cells, never 0 minutes.
+          stg_access_population_lga picks one year for the register; its
+          population feeds lga_coverage_burden's population and
+          facilities_per_10k_population, and its travel figures the access
+          columns and access_risk_score.
         columns:
           - name: shapeID
-            data_tests: [not_null, unique]
+            data_tests: [not_null]
           - name: population_year
             data_tests: [not_null]
           - name: population

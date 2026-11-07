@@ -9,7 +9,9 @@ Two public rasters are summarised onto the 774-LGA frame:
   Nature Medicine 2020; about 1 km; CC BY): minutes to the nearest health
   facility, once by motorised transport and once walking only.
 
-The output has one row per LGA (keyed on the frame's geoBoundaries shapeID):
+The output has one row per LGA (keyed on the frame's geoBoundaries shapeID) per
+population year; WorldPop R2025A publishes each year from 2015 to 2030, and the
+travel-time maps are fixed, so years differ only in where people live:
 
 - population: total WorldPop population, summed at the native 100 m grid.
 - motorised_minutes / walking_minutes: population-weighted mean travel time, so
@@ -290,9 +292,21 @@ def derive(
 
 
 def check(table: pd.DataFrame) -> None:
-    """Refuse a table that breaks the guarantees the loader and dbt tests rely on."""
-    if len(table) != EXPECTED_LGAS or table["shapeID"].nunique() != EXPECTED_LGAS:
-        raise SourceError(f"expected {EXPECTED_LGAS} unique LGAs, got {len(table)}")
+    """Refuse a table that breaks the guarantees the loader and dbt tests rely on.
+
+    The table may hold several population years; each year must cover exactly
+    the same 774 LGAs, once each, so any year a build selects is complete.
+    """
+    if table.empty:
+        raise SourceError("the table has no rows")
+    expected = None
+    for year, part in table.groupby("population_year"):
+        if len(part) != EXPECTED_LGAS or part["shapeID"].nunique() != EXPECTED_LGAS:
+            raise SourceError(f"{year}: expected {EXPECTED_LGAS} unique LGAs, got {len(part)}")
+        ids = set(part["shapeID"])
+        if expected is not None and ids != expected:
+            raise SourceError(f"{year}: covers a different set of LGAs from the other years")
+        expected = ids
     if (table["population"] <= 0).any():
         bad = table.loc[table["population"] <= 0, "shapeName"].tolist()[:5]
         raise SourceError(f"LGAs with no population (a boundary or raster mismatch): {bad}")
