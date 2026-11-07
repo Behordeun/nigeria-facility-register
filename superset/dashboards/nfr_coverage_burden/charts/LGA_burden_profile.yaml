@@ -21,6 +21,8 @@ params:
   - lf_endemicity_rank_lga
   - oncho_endemicity_rank_lga
   - loa_endemicity_rank_lga
+  - priority_score
+  - priority_tier
   - priority_high_burden_thin_coverage
   order_by_cols:
   - '["state", true]'

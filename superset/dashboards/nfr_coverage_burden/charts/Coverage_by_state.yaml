@@ -42,6 +42,11 @@ params:
     label: Priority LGAs
     hasCustomLabel: true
     optionName: metric_a348917e8a52
+  - expressionType: SQL
+    sqlExpression: COUNT(*) FILTER (WHERE priority_tier = 'high')
+    label: High-priority LGAs
+    hasCustomLabel: true
+    optionName: metric_priority_high
   adhoc_filters: []
   row_limit: 100
   order_desc: true
