@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- An LGA profile and a ranked priority list. `lga_coverage_burden`, `lga_coverage_choropleth` and `lga_coverage_outlook` gain `lga_label` ("LGA, State"), a unique, readable key for picking one LGA, since six LGA names recur across states; a dbt test keeps it unique. The dashboard adds an LGA profile tab, driven by a required LGA filter that opens on the highest-priority LGA (Maiduguri, Borno today): one card with the LGA's facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and priority score, beside the score's three parts and the LGA's facilities per 10,000 people to 2030. The Coverage tab gains a ranked table of the 78 high-priority LGAs, highest score and thinnest coverage first, with a plain-language reason for each part. Two dashboard-wide filters are added: Priority tier and Hard to reach.
+
 ### Changed
 
 - Dependabot is configured in `.github/dependabot.yml`: weekly uv and GitHub Actions updates against `development`, assigned to the maintainer, with dagster and dagster-webserver, and the dbt packages, each updated as one group for security fixes as well as version updates, so packages that must stay in step always move together and the lockfile stays resolvable.
