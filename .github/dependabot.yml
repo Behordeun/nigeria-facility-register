@@ -1,0 +1,56 @@
+# Dependabot configuration.
+#
+# Packages that must move together are grouped, so an update bumps the whole
+# family in one PR instead of one package against its exact-pinned siblings
+# (which leaves the lockfile unresolvable): dagster with dagster-webserver,
+# and the dbt packages with each other. Security updates are grouped the same
+# way. Every PR targets development, the integration branch, and is assigned
+# to the maintainer for review.
+version: 2
+
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    target-branch: "development"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    assignees:
+      - "Behordeun"
+    labels:
+      - "dependencies"
+    groups:
+      dagster:
+        applies-to: version-updates
+        patterns:
+          - "dagster"
+          - "dagster-*"
+      dbt:
+        applies-to: version-updates
+        patterns:
+          - "dbt-*"
+      dagster-security:
+        applies-to: security-updates
+        patterns:
+          - "dagster"
+          - "dagster-*"
+      dbt-security:
+        applies-to: security-updates
+        patterns:
+          - "dbt-*"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "development"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    assignees:
+      - "Behordeun"
+    labels:
+      - "dependencies"
+    groups:
+      github-actions:
+        patterns:
+          - "*"

@@ -24,6 +24,7 @@ Thanks for looking at this project. It is a small, focused data pipeline, and th
 - Code is AGPL-3.0-or-later. Data carries its own terms; see LICENSE-DATA before adding or redistributing any dataset.
 - Do not commit raw third-party datasets. Add the provenance to `data/sources.yml` and fetch them at build time.
 - Keep "missing is not zero" true everywhere: an absent row is an absence, never a measured zero.
+- Dependencies are pinned exactly and locked in `uv.lock`. Dependabot (`.github/dependabot.yml`) opens weekly update PRs against `development`, and moves packages that must stay in step as one group (dagster with dagster-webserver, and the dbt packages), for security fixes as well as version updates. Review its PRs like any other: CI must pass before merge.
 
 ## Writing
 
