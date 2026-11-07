@@ -4,7 +4,7 @@ certified_by: null
 certification_details: null
 viz_type: table
 params:
-  datasource: 4__table
+  datasource: 5__table
   viz_type: table
   query_mode: raw
   all_columns:

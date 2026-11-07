@@ -5,7 +5,7 @@ certified_by: null
 certification_details: null
 viz_type: deck_scatter
 params:
-  datasource: 5__table
+  datasource: 6__table
   viz_type: deck_scatter
   extra_form_data: {}
   spatial:

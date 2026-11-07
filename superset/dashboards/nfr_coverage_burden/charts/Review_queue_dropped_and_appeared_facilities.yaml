@@ -4,7 +4,7 @@ certified_by: null
 certification_details: null
 viz_type: table
 params:
-  datasource: 3__table
+  datasource: 4__table
   viz_type: table
   extra_form_data: {}
   query_mode: raw
