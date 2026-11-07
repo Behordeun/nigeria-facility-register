@@ -4,7 +4,7 @@ certified_by: null
 certification_details: null
 viz_type: echarts_timeseries_bar
 params:
-  datasource: 5__table
+  datasource: 6__table
   viz_type: echarts_timeseries_bar
   extra_form_data: {}
   x_axis: disease

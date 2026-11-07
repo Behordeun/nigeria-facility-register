@@ -136,6 +136,14 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `births` | double | no | WorldPop annual births in the LGA for 2015 (UN-adjusted); always positive |
 | `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
 | `facilities_per_10k_births` | double | yes | `facilities` x 10,000 / `births`; null where `facility_status = 'unmatched'` |
+| `facilities_primary`, `facilities_secondary`, `facilities_tertiary` | bigint | no | facilities in the LGA by GRID3 level |
+| `facilities_level_unknown` | bigint | no | facilities whose level is blank, `Unknown` or missing; never assigned a level |
+| `facilities_functional` | bigint | no | facilities recorded as Functional or Partially Functional (GRID3 v3.0 only) |
+| `facilities_not_functional` | bigint | no | facilities recorded as Not-Functional or Closed (GRID3 v3.0 only) |
+| `facilities_status_unknown` | bigint | no | facilities with no recorded status, including every facility in a v2.0 state |
+| `secondary_tertiary_per_100k_population` | double | yes | (`facilities_secondary` + `facilities_tertiary`) x 100,000 / `population`; null where `facility_status = 'unmatched'` |
+| `functional_status_known_share` | double | yes | share of the LGA's facilities with a recorded status, 0-1; 0 throughout v2.0 states; null where unmatched |
+| `not_functional_share` | double | yes | `facilities_not_functional` over facilities with a recorded status, 0-1; null where no status is recorded, never 0 |
 | `motorised_minutes` | double | yes | population-weighted mean travel time to the nearest health facility by motorised transport, minutes (Malaria Atlas Project, 2020 release); null where no population sits on valid travel-time cells, never 0 |
 | `walking_minutes` | double | yes | as above, walking only |
 | `walking_over_60min_share` | double | yes | share of the LGA's population more than 60 minutes' walk from the nearest facility, 0-1 |
@@ -161,6 +169,7 @@ Guarantees:
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The `*_endemicity_rank_lga` columns are true per-LGA measurements, equal to the rank in `stg_ntd_endemicity_lga` for that LGA and disease. A null means the LGA's status was never known, not that the disease is absent; a non-endemic LGA is `0`. They are non-commercial (ESPEN CC BY-NC-SA 3.0 IGO). They do not feed the priority flag, which is unchanged.
 - The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the rate quartiles and the access score, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
+- Facility mix adds up. The four level counts sum to `facilities`, and so do the three functional-status counts. A v2.0 LGA records no status (GRID3 v2.0 has none), and each mix rate recomputes from its counts. Because status is recorded for under a third of facilities, `not_functional_share` describes only the facilities whose status is known; read it with `functional_status_known_share`.
 - The original priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
 ## `lga_version_drift`
@@ -233,6 +242,10 @@ One row describing the published register as a whole, rebuilt on every refresh s
 | `population` | bigint | no | total WorldPop population across the 774 LGAs |
 | `population_year` | bigint | no | year of that population figure |
 | `hard_to_reach_lgas` | bigint | no | LGAs with `hard_to_reach` true |
+| `facilities_secondary_tertiary` | bigint | no | facilities in LGAs whose level is Secondary or Tertiary |
+| `facilities_level_unknown` | bigint | no | facilities in LGAs with no recorded level |
+| `facilities_functional_status_known` | bigint | no | facilities in LGAs with a recorded functional status |
+| `facilities_not_functional` | bigint | no | facilities recorded as Not-Functional or Closed |
 | `flood_affected_2024_lgas` | bigint | no | LGAs with `flood_affected_2024` true |
 | `sth_known_lgas`, `sch_known_lgas`, `lf_known_lgas`, `oncho_known_lgas`, `loa_known_lgas` | bigint | no | LGAs with a known ESPEN status (a rank) for that disease; the rest are unknown, not zero |
 | `espen_latest_year` | integer | yes | latest year any ESPEN status is reported for |

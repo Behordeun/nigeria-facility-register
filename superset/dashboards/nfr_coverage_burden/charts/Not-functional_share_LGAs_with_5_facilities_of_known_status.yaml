@@ -1,0 +1,90 @@
+slice_name: Not-functional share (LGAs with 5+ facilities of known status)
+description: Percent of facilities recorded as Not-Functional or Closed, among those
+  with a recorded status. GRID3 records status only in v3.0 states; LGAs with fewer
+  than five facilities of known status are left blank so a tiny sample is not shown
+  as a rate.
+certified_by: null
+certification_details: null
+viz_type: deck_polygon
+params:
+  datasource: 2__table
+  viz_type: deck_polygon
+  extra_form_data: {}
+  line_column: polygon_coordinates
+  line_type: json
+  metric:
+    expressionType: SQL
+    sqlExpression: MAX(not_functional_share) * 100
+    label: '% not functional (of known status)'
+    hasCustomLabel: true
+    optionName: metric_ca09e5c7b9b3
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: not_functional_share IS NOT NULL AND functional_status_known_share
+      * facilities >= 5
+    filterOptionName: filter_26f4724cb8c5
+  row_limit: 5000
+  time_range: No filter
+  reverse_long_lat: false
+  mapbox_style: mapbox://styles/mapbox/light-v9
+  viewport:
+    longitude: 8.4
+    latitude: 9.1
+    zoom: 4.5
+    bearing: 0
+    pitch: 0
+    width: 800
+    height: 600
+    altitude: 1.5
+    maxZoom: 20
+    minZoom: 0
+    maxPitch: 60
+    minPitch: 0
+    maxLatitude: 85.05113
+    minLatitude: -85.05113
+  autozoom: false
+  filled: true
+  stroked: true
+  extruded: false
+  fill_color_picker:
+    r: 3
+    g: 65
+    b: 73
+    a: 1
+  stroke_color_picker:
+    r: 255
+    g: 255
+    b: 255
+    a: 1
+  line_width: 1
+  line_width_unit: pixels
+  multiplier: 1
+  point_radius_fixed:
+    type: fix
+    value: 0
+  linear_color_scheme: schemeOrRd
+  opacity: 80
+  break_points:
+  - '0'
+  - '2'
+  - '5'
+  - '10'
+  - '20'
+  - '100'
+  num_buckets: '5'
+  table_filter: false
+  toggle_polygons: true
+  legend_position: tr
+  legend_format: .0f
+  js_columns:
+  - name
+  js_data_mutator: ''
+  js_tooltip: ''
+  js_onclick_href: ''
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 561b264d-a79b-5f3d-a2d0-6b871971d057
+version: 1.0.0
+dataset_uuid: 698033d9-20bf-5060-84b1-ce546855b85a
