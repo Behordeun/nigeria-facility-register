@@ -1,0 +1,34 @@
+slice_name: LGA profile
+description: Everything the register holds for the LGA chosen in the LGA filter.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 1__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - profile_html
+  order_by_cols:
+  - '["priority_score", false]'
+  - '["priority_coverage_points", false]'
+  - '["facilities_per_10k_population", true]'
+  adhoc_filters: []
+  row_limit: 1
+  server_pagination: false
+  server_page_length: 20
+  page_length: 20
+  include_search: false
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: true
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: 1bba42bf-a0fa-563f-852b-f1703d38a05c
+version: 1.0.0
+dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
