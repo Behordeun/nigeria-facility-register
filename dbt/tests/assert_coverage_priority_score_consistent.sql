@@ -2,7 +2,8 @@
 -- point shown on the dashboard traces back to a rank, a rate or the access
 -- score: ntd_diseases_known counts the known ranks, burden points are the
 -- highest known rank, coverage points follow the national quartiles of
--- facilities per 10,000 people, the score is the sum of its three parts and is
+-- facilities per 10,000 people, access points follow hard_to_reach and the 2024
+-- flood flag, the score is the sum of its three parts and is
 -- null exactly when a part is null, and the tier reads the score on its fixed
 -- cut-offs. Returns one row per violation.
 with c as (
@@ -35,7 +36,14 @@ expected as (
             when facilities_per_10k_population < q.q2 then 2
             when facilities_per_10k_population < q.q3 then 1
             else 0
-        end                                                                 as coverage_expected
+        end                                                                 as coverage_expected,
+        -- Recomputed from its inputs rather than read from access_risk_score,
+        -- so the score is checked end to end even if that column drifts.
+        case
+            when hard_to_reach is null then null
+            else (case when hard_to_reach then 1 else 0 end)
+               + (case when flood_affected_2024 then 1 else 0 end)
+        end                                                                 as access_expected
     from c
     cross join q
 )
@@ -57,7 +65,7 @@ where priority_coverage_points is distinct from coverage_expected
 union all
 select state, canonical_lga, 'priority_score is not the sum of its parts (null when any part is null)'
 from expected
-where priority_score is distinct from (burden_expected + coverage_expected + access_risk_score)
+where priority_score is distinct from (burden_expected + coverage_expected + access_expected)
 
 union all
 select state, canonical_lga, 'priority_tier does not follow the score cut-offs'
