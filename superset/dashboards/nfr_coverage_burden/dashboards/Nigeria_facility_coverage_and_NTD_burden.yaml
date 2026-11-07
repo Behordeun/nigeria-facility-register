@@ -639,7 +639,7 @@ position:
 
 
         Travel time is the population-weighted time to the nearest health facility
-        from the Malaria Atlas Project (2020 release), set against WorldPop 2025 residents.
+        from the Malaria Atlas Project (2020 release), set against WorldPop residents in the population year the Data status page names.
         An LGA is hard to reach when a quarter or more of its residents live over
         an hour''s walk from a facility. Flood exposure is the NASA MODIS 2024 event
         at LGA level; the 2022 event is only state-level, so it is in the data but

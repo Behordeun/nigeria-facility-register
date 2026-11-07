@@ -4,6 +4,14 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- The population year rolls forward with the calendar. `data/derived/access_population_lga.csv` now carries one row per LGA for every WorldPop R2025A year from 2025 to 2030, each derived from a raster pinned by SHA-256 in `data/sources.yml`, and the new `stg_access_population_lga` staging model selects one: the `population_year` dbt var when set, otherwise the build's calendar year capped to the years available. A weekly refresh in January therefore publishes the new year's population, per-capita rates, travel-time figures and priority scores without fetching anything, and `register_summary.population_year` states which year is live. New dbt tests check that every year covers the 774 frame LGAs once each and that exactly the expected year is selected; `scripts/build_access_population.py` builds every pinned year and refuses a year without a pin.
+
+### Changed
+
+- Dashboard labels no longer name a fixed population year: population columns read "Population (WorldPop)", and the year is stated on the Data status page.
+
 ## [0.2.0] - 2026-11-07
 
 ### Added

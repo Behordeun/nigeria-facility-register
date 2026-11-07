@@ -121,11 +121,12 @@ models:
                 where: "loa_endemicity_rank_lga is not null"
       - name: population
         data_type: bigint
-        description: WorldPop R2025A population of the LGA (year in population_year), summed at 100 m; always positive.
+        description: WorldPop R2025A population of the LGA for population_year, summed at 100 m; always positive.
         constraints:
           - type: not_null
       - name: population_year
         data_type: bigint
+        description: The year population and the travel figures describe, chosen by stg_access_population_lga (the build's calendar year capped to the years available, or the population_year var).
         constraints:
           - type: not_null
       - name: births

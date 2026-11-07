@@ -244,7 +244,7 @@ columns:
   python_date_format: null
   extra: null
 - column_name: population
-  verbose_name: Population (WorldPop 2025)
+  verbose_name: Population (WorldPop)
   is_dttm: false
   is_active: true
   type: BIGINT

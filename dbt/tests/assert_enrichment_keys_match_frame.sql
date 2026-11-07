@@ -4,8 +4,9 @@
 -- would surface later as a silent null that reads like "not measured" when the
 -- input was in fact truncated.
 --
--- ntd_espen_lga is checked per disease and flood_event_affected_lga per event,
--- so a disease or event that lost LGAs cannot hide behind the others. LGA keys
+-- ntd_espen_lga is checked per disease, flood_event_affected_lga per event and
+-- access_population_lga per population year, so a slice that lost LGAs cannot
+-- hide behind the others. LGA keys
 -- are normalised on both sides (state via norm_state so FCT matches, LGA via
 -- norm_lga_key); births_lga and access_population_lga are keyed on shapeID, the
 -- geoBoundaries id the frame carries. Anti-joins use NOT EXISTS so a null key cannot pass silently.
@@ -83,18 +84,27 @@ births_missing as (
 ),
 
 access_not_in_frame as (
-    select 'access_population_lga' as source, '' as slice, a.shapeID as state_key,
-           null as lga_key, 'not in frame' as problem
+    select 'access_population_lga' as source, cast(a.population_year as varchar) as slice,
+           a.shapeID as state_key, null as lga_key, 'not in frame' as problem
     from {{ source('raw', 'access_population_lga') }} a
     where a.shapeID is null
        or not exists (select 1 from frame f where f.shape_id = a.shapeID)
 ),
 
+-- Checked per population year, so a year that lost LGAs cannot hide behind the
+-- complete ones: whichever year a build selects is complete.
+access_years as (
+    select distinct population_year from {{ source('raw', 'access_population_lga') }}
+),
+
 access_missing as (
-    select 'access_population_lga', '', f.shape_id, null, 'frame LGA missing'
-    from frame f
+    select 'access_population_lga', cast(y.population_year as varchar), f.shape_id, null,
+           'frame LGA missing'
+    from access_years y
+    cross join frame f
     where not exists (
-        select 1 from {{ source('raw', 'access_population_lga') }} a where a.shapeID = f.shape_id
+        select 1 from {{ source('raw', 'access_population_lga') }} a
+        where a.shapeID = f.shape_id and a.population_year = y.population_year
     )
 )
 
