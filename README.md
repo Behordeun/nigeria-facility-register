@@ -2,12 +2,15 @@
 
 [![CI (development)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml/badge.svg?branch=development)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml?query=branch%3Adevelopment)
 [![CI (main)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Behordeun/nigeria-facility-register/actions/workflows/ci.yml?query=branch%3Amain)
+[![SonarCloud](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=SonarCloud%20Code%20Analysis&label=SonarCloud)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![GitGuardian](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=GitGuardian%20Security%20Checks&label=GitGuardian)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
+[![Amazon Q review](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?nameFilter=Amazon%20Q%20Developer&label=Amazon%20Q%20review)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
 [![All checks (development)](https://img.shields.io/github/check-runs/Behordeun/nigeria-facility-register/development?label=all%20checks)](https://github.com/Behordeun/nigeria-facility-register/commits/development)
 [![Release](https://img.shields.io/github/v/release/Behordeun/nigeria-facility-register)](https://github.com/Behordeun/nigeria-facility-register/releases/latest)
 [![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
 [![Python 3.11 | 3.12](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](pyproject.toml)
 
-The CI badges track the build workflow on each branch: lint, unit tests, the SonarCloud scan and the sample dbt build. "All checks" turns red if any check on the latest `development` commit fails, including the SonarCloud quality gate, the GitGuardian secret scan and the automated code review.
+The CI badges track the build workflow on each branch: lint, unit tests, the SonarCloud scan and the sample dbt build. The SonarCloud, GitGuardian and Amazon Q badges show each check's result on the latest `development` commit (the SonarCloud quality gate, the GitGuardian secret scan and the automated code review), and "All checks" turns red if any check there fails.
 
 A version-aware health-facility register for Nigeria, built from GRID3's published releases and composed with neglected-tropical-disease burden at LGA resolution.
 
