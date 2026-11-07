@@ -74,6 +74,7 @@ at_register_year as (
 select
     b.state,
     b.canonical_lga,
+    b.canonical_lga || ', ' || b.state as lga_label,
     b.population_year,
     b.population_year = (select population_year from register_year) as is_register_year,
     b.population_year = (select population_year from last_year)     as is_last_projection_year,

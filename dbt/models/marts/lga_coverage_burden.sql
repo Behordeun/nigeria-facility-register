@@ -298,6 +298,9 @@ flagged as (
 -- original priority flag, which is unchanged.
 select
     f.*,
+    -- "LGA, State": a unique, human-readable key for picking one LGA (six LGA
+    -- names recur across states, so the bare name is not enough).
+    f.canonical_lga || ', ' || f.state as lga_label,
     f.priority_burden_points + f.priority_coverage_points + f.access_risk_score
         as priority_score,
     case

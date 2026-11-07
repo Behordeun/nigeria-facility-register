@@ -121,6 +121,7 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | --- | --- | --- | --- |
 | `canonical_lga` | varchar | no | canonical LGA name; not unique alone, several recur across states (see key rule below) |
 | `state` | varchar | no | the LGA's state or FCT |
+| `lga_label` | varchar | no | `'<canonical_lga>, <state>'`, a unique, readable key for selecting one LGA; also carried by `lga_coverage_choropleth` and `lga_coverage_outlook` |
 | `espen_iu_id` | bigint | yes | the ESPEN IU id where the frame carries one |
 | `facilities` | bigint | no | count in the authority layer; `0` means none matched, which may be a name-join miss, never asserted as a true absence |
 | `facility_source_version` | varchar | yes | `v2.0` or `v3.0`; null only if the LGA matched no facility |
@@ -179,7 +180,7 @@ Per-LGA coverage for every WorldPop population year the register carries, holdin
 
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
-| `state`, `canonical_lga` | varchar | no | the LGA, as in `lga_coverage_burden` |
+| `state`, `canonical_lga`, `lga_label` | varchar | no | the LGA, as in `lga_coverage_burden` |
 | `population_year` | bigint | no | the projection year |
 | `is_register_year` | boolean | no | true on the rows for the population year the published register describes |
 | `is_last_projection_year` | boolean | no | true on the rows for the last WorldPop year carried (2030 today) |
