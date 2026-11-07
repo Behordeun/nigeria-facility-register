@@ -55,7 +55,8 @@ def test_grid3_reports_a_new_nigeria_version_and_ignores_other_countries():
         PINNED.grid3_versions,
     )
     assert finding.status is u.Status.NEW_RELEASE
-    assert "v4.0" in finding.detail and "v9.0" not in finding.detail, "only Nigeria health-facility datasets count"
+    assert "v4.0" in finding.detail
+    assert "v9.0" not in finding.detail, "only Nigeria health-facility datasets count"
 
 
 def test_grid3_is_current_when_hdx_lists_only_pinned_versions():
@@ -72,7 +73,8 @@ def test_map_reports_an_unpinned_travel_time_coverage():
     finding = u.map_finding(_capabilities(*PINNED.map_coverages, new, "Accessibility__201501_Global_Travel_Time_to_Cities"),
                             PINNED.map_coverages)
     assert finding.status is u.Status.NEW_RELEASE
-    assert new in finding.detail and "Cities" not in finding.detail, "only healthcare travel-time coverages count"
+    assert new in finding.detail
+    assert "Cities" not in finding.detail, "only healthcare travel-time coverages count"
 
 
 def test_map_is_current_with_only_the_pinned_coverages():
@@ -112,7 +114,8 @@ def test_check_upstream_asks_espen_only_for_years_after_the_pinned_one():
 def test_check_upstream_reports_a_new_espen_year():
     body = ESPEN_HEADER + "1,NG,36337,2026,Moderate prevalence\n"
     finding = u.check_upstream(PINNED, get=_pages(body).__getitem__, today=TODAY)[-1]
-    assert finding.status is u.Status.NEW_RELEASE and "2026" in finding.detail
+    assert finding.status is u.Status.NEW_RELEASE
+    assert "2026" in finding.detail
 
 
 def test_espen_needs_no_request_when_no_later_year_can_exist():

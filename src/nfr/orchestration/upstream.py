@@ -59,6 +59,12 @@ MAP_CAPABILITIES_URL = (
     "https://data.malariaatlas.org/geoserver/Accessibility/wcs?service=WCS&version=2.0.1&request=GetCapabilities"
 )
 
+# Publisher names as they appear on findings and in the asset's metadata.
+WORLDPOP = "WorldPop"
+GRID3 = "GRID3 health facilities"
+MAP = "Malaria Atlas Project"
+ESPEN = "ESPEN"
+
 ESPEN_DOWNLOAD_URL = "https://espen.afro.who.int/api/download-data/NG/{disease}/iu/{from_year}/{to_year}"
 # The five diseases the register carries, by the portal's disease codes.
 ESPEN_DISEASES = ("STH", "SCH", "lf", "Oncho", "Loa")
@@ -128,12 +134,12 @@ def worldpop_finding(index_html: str, pinned_release: str) -> Finding:
     """Compare the WorldPop release folders listed in index_html with the pinned release."""
     releases = {f"R{y}{s}" for y, s in _WORLDPOP_RELEASE.findall(index_html)}
     if not releases:
-        return Finding("WorldPop", Status.UNREADABLE, "the release index listed no releases")
+        return Finding(WORLDPOP, Status.UNREADABLE, "the release index listed no releases")
     newer = sorted((r for r in releases if _release_key(r) > _release_key(pinned_release)), key=_release_key)
     if newer:
-        return Finding("WorldPop", Status.NEW_RELEASE,
+        return Finding(WORLDPOP, Status.NEW_RELEASE,
                        f"{', '.join(newer)} published; the register is pinned to {pinned_release}")
-    return Finding("WorldPop", Status.CURRENT, f"{pinned_release} is the latest release")
+    return Finding(WORLDPOP, Status.CURRENT, f"{pinned_release} is the latest release")
 
 
 def grid3_finding(search_json: dict, pinned_versions: frozenset[tuple[int, int]]) -> Finding:
@@ -144,14 +150,14 @@ def grid3_finding(search_json: dict, pinned_versions: frozenset[tuple[int, int]]
         if match := _GRID3_NGA_HEALTH.match(str(package.get("name", ""))):
             listed.add((int(match[1]), int(match[2])))
     if not listed:
-        return Finding("GRID3 health facilities", Status.UNREADABLE, "HDX listed no GRID3 Nigeria health-facility dataset")
+        return Finding(GRID3, Status.UNREADABLE, "HDX listed no GRID3 Nigeria health-facility dataset")
     latest_pinned = max(pinned_versions)
     newer = sorted(v for v in listed if v > latest_pinned)
     if newer:
         names = ", ".join(f"v{a}.{b}" for a, b in newer)
-        return Finding("GRID3 health facilities", Status.NEW_RELEASE,
+        return Finding(GRID3, Status.NEW_RELEASE,
                        f"{names} on HDX; the register is pinned to v{latest_pinned[0]}.{latest_pinned[1]}")
-    return Finding("GRID3 health facilities", Status.CURRENT,
+    return Finding(GRID3, Status.CURRENT,
                    f"v{latest_pinned[0]}.{latest_pinned[1]} is the latest version on HDX")
 
 
@@ -159,12 +165,12 @@ def map_finding(capabilities_xml: str, pinned_coverages: frozenset[str]) -> Find
     """Compare MAP's advertised travel-time-to-healthcare coverages with the pinned ones."""
     listed = set(_MAP_HEALTHCARE.findall(capabilities_xml))
     if not listed:
-        return Finding("Malaria Atlas Project", Status.UNREADABLE, "the WCS listed no travel-time-to-healthcare coverage")
+        return Finding(MAP, Status.UNREADABLE, "the WCS listed no travel-time-to-healthcare coverage")
     unpinned = sorted(listed - pinned_coverages)
     if unpinned:
-        return Finding("Malaria Atlas Project", Status.NEW_RELEASE,
+        return Finding(MAP, Status.NEW_RELEASE,
                        f"coverages not pinned: {', '.join(unpinned)}")
-    return Finding("Malaria Atlas Project", Status.CURRENT, "only the pinned travel-time coverages are published")
+    return Finding(MAP, Status.CURRENT, "only the pinned travel-time coverages are published")
 
 
 def espen_years(csv_text: str) -> set[int]:
@@ -193,8 +199,8 @@ def espen_finding(years_by_disease: dict[str, set[int]], pinned_latest_year: int
     newer = {d: ys for d, ys in newer.items() if ys}
     if newer:
         listed = "; ".join(f"{d} {', '.join(map(str, ys))}" for d, ys in newer.items())
-        return Finding("ESPEN", Status.NEW_RELEASE, f"newer years published: {listed}; the register is pinned to {pinned_latest_year}")
-    return Finding("ESPEN", Status.CURRENT, f"no Nigeria IU data after {pinned_latest_year}")
+        return Finding(ESPEN, Status.NEW_RELEASE, f"newer years published: {listed}; the register is pinned to {pinned_latest_year}")
+    return Finding(ESPEN, Status.CURRENT, f"no Nigeria IU data after {pinned_latest_year}")
 
 
 def http_get(url: str, attempts: int = REQUEST_ATTEMPTS, sleep: Callable[[float], None] = time.sleep) -> str:
@@ -221,7 +227,7 @@ def http_get(url: str, attempts: int = REQUEST_ATTEMPTS, sleep: Callable[[float]
 
 def _espen(pinned: Pinned, get: Callable[[str], str], this_year: int) -> Finding:
     if this_year <= pinned.espen_latest_year:
-        return Finding("ESPEN", Status.CURRENT, f"no year after {pinned.espen_latest_year} can exist yet")
+        return Finding(ESPEN, Status.CURRENT, f"no year after {pinned.espen_latest_year} can exist yet")
     years = {
         disease: espen_years(get(ESPEN_DOWNLOAD_URL.format(
             disease=disease, from_year=pinned.espen_latest_year + 1, to_year=this_year)))
@@ -237,14 +243,14 @@ def check_upstream(
     pinned = pinned or read_pinned()
     this_year = (today or dt.date.today()).year
     checks: list[tuple[str, str, Callable[[str], Finding]]] = [
-        ("WorldPop", WORLDPOP_INDEX_URL, lambda body: worldpop_finding(body, pinned.worldpop_release)),
-        ("GRID3 health facilities", HDX_SEARCH_URL, lambda body: grid3_finding(json.loads(body), pinned.grid3_versions)),
-        ("Malaria Atlas Project", MAP_CAPABILITIES_URL, lambda body: map_finding(body, pinned.map_coverages)),
+        (WORLDPOP, WORLDPOP_INDEX_URL, lambda body: worldpop_finding(body, pinned.worldpop_release)),
+        (GRID3, HDX_SEARCH_URL, lambda body: grid3_finding(json.loads(body), pinned.grid3_versions)),
+        (MAP, MAP_CAPABILITIES_URL, lambda body: map_finding(body, pinned.map_coverages)),
     ]
     findings = []
     for source, url, judge in checks:
         findings.append(_guarded(source, lambda url=url, judge=judge: judge(get(url))))
-    findings.append(_guarded("ESPEN", lambda: _espen(pinned, get, this_year)))
+    findings.append(_guarded(ESPEN, lambda: _espen(pinned, get, this_year)))
     return findings
 
 
