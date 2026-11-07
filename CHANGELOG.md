@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Dependabot is configured in `.github/dependabot.yml`: weekly uv and GitHub Actions updates against `development`, assigned to the maintainer, with dagster and dagster-webserver, and the dbt packages, each updated as one group for security fixes as well as version updates, so packages that must stay in step always move together and the lockfile stays resolvable.
+
 ## [0.3.0] - 2026-11-07
 
 ### Added
