@@ -29,7 +29,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest==9.0.3",
+    "pytest==9.2.0",
     "pytest-cov==7.0.0",
     "ruff==0.8.4",
     # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
