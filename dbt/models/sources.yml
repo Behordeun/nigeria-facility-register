@@ -60,7 +60,8 @@ sources:
           (the state's flag repeated to each LGA) and the 2024 event
           LGA-resolution, as the resolution column says. affected is a 0/1
           exposure flag, not a severity. Source NASA MODIS flood products (open).
-          Not yet consumed by any mart.
+          Pivoted into lga_coverage_burden as flood_affected_2022_state and
+          flood_affected_2024.
         columns:
           - name: state
             data_tests: [not_null]
@@ -84,10 +85,27 @@ sources:
       - name: births_lga
         description: >
           WorldPop annual births per LGA (2015, UN-adjusted, zonal-summed into
-          the 774 geoBoundaries polygons), keyed on shapeID. CC BY 4.0. Not yet
-          consumed by any mart.
+          the 774 geoBoundaries polygons), keyed on shapeID. CC BY 4.0. Feeds
+          lga_coverage_burden's births and facilities_per_10k_births.
         columns:
           - name: shapeID
             data_tests: [not_null, unique]
           - name: births
+            data_tests: [not_null]
+      - name: access_population_lga
+        description: >
+          Per-LGA population (WorldPop R2025A constrained counts, CC BY 4.0) and
+          population-weighted travel time to the nearest health facility
+          (Malaria Atlas Project 2020 release, motorised and walking-only, CC BY),
+          derived by scripts/build_access_population.py and keyed on shapeID.
+          Null travel figures mean no population on valid travel-time cells,
+          never 0 minutes. Its population feeds lga_coverage_burden's
+          population and facilities_per_10k_population, and its travel figures
+          its access columns and access_risk_score.
+        columns:
+          - name: shapeID
+            data_tests: [not_null, unique]
+          - name: population_year
+            data_tests: [not_null]
+          - name: population
             data_tests: [not_null]

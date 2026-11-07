@@ -1,6 +1,6 @@
 [project]
 name = "nigeria-facility-register"
-version = "0.1.0"
+version = "0.2.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -35,6 +35,10 @@ dev = [
     # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
     # one-off build tool, not a runtime dependency).
     "topojson==2.2",
+    # Raster reading and zonal statistics for scripts/build_access_population.py
+    # (a one-off build tool, not a runtime dependency). 1.4.x because 1.5 needs
+    # Python 3.12 and the project still supports 3.11; wheels bundle GDAL.
+    "rasterio==1.4.4",
 ]
 orchestration = [
     "dagster==1.13.5",

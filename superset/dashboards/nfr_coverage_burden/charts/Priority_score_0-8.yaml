@@ -1,0 +1,92 @@
+slice_name: Priority score (0-8)
+description: Burden (highest endemicity rank, 0-3) + coverage (national quartile of
+  facilities per 10,000 people, 0-3) + access risk (0-2). Higher is more urgent; blank
+  where a part is not measured.
+certified_by: null
+certification_details: null
+viz_type: deck_polygon
+params:
+  datasource: 2__table
+  viz_type: deck_polygon
+  extra_form_data: {}
+  line_column: polygon_coordinates
+  line_type: json
+  metric:
+    expressionType: SQL
+    sqlExpression: MAX(priority_score)
+    label: Priority score
+    hasCustomLabel: true
+    optionName: metric_ca09e5c7b9b3
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: priority_score IS NOT NULL
+    filterOptionName: filter_26f4724cb8c5
+  row_limit: 5000
+  time_range: No filter
+  reverse_long_lat: false
+  mapbox_style: mapbox://styles/mapbox/light-v9
+  viewport:
+    longitude: 8.4
+    latitude: 9.1
+    zoom: 4.5
+    bearing: 0
+    pitch: 0
+    width: 800
+    height: 600
+    altitude: 1.5
+    maxZoom: 20
+    minZoom: 0
+    maxPitch: 60
+    minPitch: 0
+    maxLatitude: 85.05113
+    minLatitude: -85.05113
+  autozoom: false
+  filled: true
+  stroked: true
+  extruded: false
+  fill_color_picker:
+    r: 3
+    g: 65
+    b: 73
+    a: 1
+  stroke_color_picker:
+    r: 255
+    g: 255
+    b: 255
+    a: 1
+  line_width: 1
+  line_width_unit: pixels
+  multiplier: 1
+  point_radius_fixed:
+    type: fix
+    value: 0
+  linear_color_scheme: schemeYlOrRd
+  opacity: 80
+  break_points:
+  - '0'
+  - '1'
+  - '2'
+  - '3'
+  - '4'
+  - '5'
+  - '6'
+  - '7'
+  - '8'
+  - '9'
+  num_buckets: '9'
+  table_filter: false
+  toggle_polygons: true
+  legend_position: tr
+  legend_format: .0f
+  js_columns:
+  - name
+  js_data_mutator: ''
+  js_tooltip: ''
+  js_onclick_href: ''
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: ec7cbd2d-2cfd-5ec2-9399-90a139ff9926
+version: 1.0.0
+dataset_uuid: 698033d9-20bf-5060-84b1-ce546855b85a

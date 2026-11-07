@@ -4,6 +4,24 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-07
+
+### Added
+
+- A priority score per LGA. `lga_coverage_burden` gains `priority_score`, 0-8, the sum of `priority_burden_points` (0-3, the highest known endemicity rank across the five diseases), `priority_coverage_points` (0-3, by national quartile of facilities per 10,000 people, lowest quarter 3) and `access_risk_score` (0-2), plus `priority_tier` (high 6-8, medium 4-5, low 0-3) and `ntd_diseases_known`. A part that is not measured leaves the score and tier null, never low. On the current data 78 LGAs are high priority; the original flag marks 56, of which 14 are high. `priority_high_burden_thin_coverage` is unchanged and kept alongside for comparison. `lga_coverage_choropleth` carries the score, its parts and the tier, and `register_summary` counts high-priority LGAs. A dbt test recomputes every part, the score and the tier. On the dashboard the Coverage tab's priority count and map move to the score, the original flag's map sits beside a note explaining the score, the by-state and burden tables gain the score, and every map's hover summary shows the score's breakdown.
+- Access and flood exposure per LGA. `lga_coverage_burden` gains the population-weighted travel time to the nearest health facility (`motorised_minutes`, `walking_minutes`, `walking_over_60min_share`, `access_population_share`, from the Malaria Atlas Project), the flood-event flags `flood_affected_2022_state` (state-level, named as such) and `flood_affected_2024` (LGA-level), `hard_to_reach` (a quarter or more of residents over an hour's walk from a facility) and `access_risk_score`, 0-2, one point each for `hard_to_reach` and the 2024 flood. The score is null, never 0, where travel time is not measured, and leaves out the 2022 flag, which marks 727 of 774 LGAs. 53 LGAs are hard to reach, mostly in Borno and Yobe, and two (Marte and Kala/Balge) score 2. `lga_coverage_choropleth` carries the access columns and `register_summary` counts hard-to-reach and 2024 flood-affected LGAs. A dbt test checks every access and flood column against its source and recomputes the score. The dashboard adds an Access tab with maps of the share of people over an hour's walk and of the access risk score, and a table of LGAs with access risk; every map's hover summary gains walking time, the 2024 flood flag and the score, and the Data status page an access line.
+- Per-capita coverage. `lga_coverage_burden` gains `population` and `population_year` (WorldPop 2025), `births` (WorldPop 2015), `facilities_per_10k_population` and `facilities_per_10k_births`; a rate is null, never 0, where no facility matched the LGA, because a zero count there may be a name-join miss. Nationally the register holds 2.59 facilities per 10,000 people, and the rate exposes LGAs whose raw counts look ample for their size (Obio/Akpor: 114 facilities, 0.4 per 10,000 people). `lga_coverage_choropleth` carries the population and the per-capita rate, and `register_summary` the national population. A dbt test checks that both denominators equal their sources and each rate recomputes from its count. The dashboard adds a facilities-per-10,000-people map on the Coverage tab, population and per-capita columns in the by-state and burden tables, the per-capita rate in every map's hover summary, and a population line on the Data status page.
+- Per-LGA population and access to healthcare as a tested raw source. `data/derived/access_population_lga.csv` gives, for each of the 774 LGAs, the 2025 WorldPop R2025A population (summed at 100 m) and the population-weighted travel time to the nearest health facility from the Malaria Atlas Project's 2020 maps, by motorised transport and walking only, plus the share of people more than 60 minutes' walk away. `scripts/build_access_population.py` fetches the rasters (never committed), checks each against a SHA-256 pinned in `data/sources.yml`, and refuses a table that misses a frame LGA, has an LGA with no population, or holds a negative time or an out-of-range share. LGAs with no population on valid travel-time cells get null travel figures, never 0. New dbt tests check frame coverage and those ranges. The derivation lives in `nfr.enrichment.access_population` so a scheduled refresh can reuse it; a failed download closes and removes its temp file, and `--print-hashes` only fetches and reports the upstream hashes, never building from unpinned files. rasterio is added as a dev dependency.
+
+### Changed
+
+- `make dashboard` (`scripts/superset_dashboard.py import`) now loads the bundle with Superset's assets importer, which overwrites the database connection, every dataset, every chart and the dashboard by UUID, so re-running it on an upgraded deployment brings existing charts and datasets in line with the bundle instead of updating only the dashboard layout. The import zip declares the assets bundle type; the committed bundle and `make dashboard-export` are unchanged. `tests/test_superset_bundle.py` checks the import zip and the in-container import program.
+
+### Notes
+
+- Every contract change in this release adds columns; no published column changes meaning or type. `priority_high_burden_thin_coverage` keeps its definition and sits beside the new `priority_score` and `priority_tier`.
+- To upgrade a running deployment, rebuild the register and re-run `make dashboard`, which now updates the existing charts and datasets in place.
+
 ## [0.1.0] - 2026-11-06
 
 ### Added
@@ -65,5 +83,6 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...development
+[0.2.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/Behordeun/nigeria-facility-register/releases/tag/v0.1.0

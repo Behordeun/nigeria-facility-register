@@ -13,12 +13,16 @@ params:
   - state
   - canonical_lga
   - facilities
+  - population
+  - facilities_per_10k_population
   - facility_status
   - sth_endemicity_rank_lga
   - sch_endemicity_rank_lga
   - lf_endemicity_rank_lga
   - oncho_endemicity_rank_lga
   - loa_endemicity_rank_lga
+  - priority_score
+  - priority_tier
   - priority_high_burden_thin_coverage
   order_by_cols:
   - '["state", true]'

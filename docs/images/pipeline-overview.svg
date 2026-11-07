@@ -44,7 +44,7 @@
     <path d="M13,2 V32 M24,8 V38" stroke="#f7fbff" stroke-width="2"/>
   </g>
   <text x="506" y="152" class="ct">Frame and burden layers</text>
-  <text class="cb"><tspan x="506" y="176">774-LGA index and geoBoundaries</tspan><tspan x="506" y="195">polygons (CC BY); ESPEN NTD</tspan><tspan x="506" y="214">endemicity (CC BY-NC-SA, derived</tspan><tspan x="506" y="233">only); flood exposure; WorldPop births.</tspan></text>
+  <text class="cb"><tspan x="506" y="176">774-LGA frame and boundaries (CC BY);</tspan><tspan x="506" y="195">ESPEN NTD endemicity (NC, derived);</tspan><tspan x="506" y="214">WorldPop population and births;</tspan><tspan x="506" y="233">MAP travel time; flood exposure.</tspan></text>
   <rect x="506" y="250" width="132" height="24" rx="12" fill="#dde9fb"/>
   <text x="572" y="267" class="tag" fill="#2f5fb3" text-anchor="middle">vendored, derived</text>
 
@@ -124,7 +124,7 @@
     <path d="M6,30 L16,20 L24,26 L38,10" fill="none" stroke="#1f8a4c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <text x="140" y="1222" class="ct">Apache Superset dashboard</text>
-  <text class="cb"><tspan x="140" y="1246">Coverage · NTD burden · Version drift · Data status, with state and status filters,</tspan><tspan x="140" y="1265">per-LGA hover summaries, and a live status panel that refreshes with the register.</tspan><tspan x="140" y="1284">Reads the register read-only; kept as a committed import bundle (make dashboard).</tspan></text>
+  <text class="cb"><tspan x="140" y="1246">Coverage · NTD burden · Access · Version drift · Data status, with state filters,</tspan><tspan x="140" y="1265">per-LGA hover summaries, and a live status panel that refreshes with the register.</tspan><tspan x="140" y="1284">Reads the register read-only; kept as a committed import bundle (make dashboard).</tspan></text>
   <rect x="140" y="1300" width="170" height="24" rx="12" fill="#d5efde"/>
   <text x="225" y="1317" class="tag" fill="#1a6e3d" text-anchor="middle">dashboards and reports</text>
 </svg>

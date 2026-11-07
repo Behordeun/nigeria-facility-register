@@ -9,8 +9,12 @@ dashboard layout, all keyed by stable UUIDs. Keeping it as files makes the
 dashboard reviewable in a PR and rebuildable from an empty superset_home volume.
 
     import  zip the bundle, copy it into the running superset service and load it
-            with `superset import-dashboards` (overwrites by UUID, so re-running
-            updates in place rather than duplicating).
+            with Superset's ImportAssetsCommand, which overwrites the database
+            connection, every dataset, every chart and the dashboard by UUID. A
+            re-run therefore updates all of them in place rather than duplicating
+            them. `superset import-dashboards` is not used: it overwrites only
+            the dashboard and keeps any chart, dataset or connection that already
+            exists, so an upgraded deployment would keep stale charts.
     export  export ONLY this dashboard (by UUID) from the running Superset and
             write it back over the bundle directory. `superset export-dashboards`
             would export every dashboard on the instance, so this selects by UUID
@@ -21,7 +25,8 @@ dashboard reviewable in a PR and rebuildable from an empty superset_home volume.
 Both talk to the compose `superset` service through `docker compose`, so the
 stack must be up (`docker compose up -d`). No credential passes through this
 script: the import is attributed to the admin user named by
-SUPERSET_ADMIN_USERNAME inside the container.
+SUPERSET_ADMIN_USERNAME inside the container, which must exist (Superset skips
+an overwrite it cannot attribute to a user allowed to write charts).
 
 Usage:
     python scripts/superset_dashboard.py import [--project NAME]
@@ -38,6 +43,8 @@ import tempfile
 import zipfile
 from pathlib import Path
 
+import yaml
+
 ROOT = Path(__file__).resolve().parent.parent
 BUNDLE_DIR = ROOT / "superset" / "dashboards" / "nfr_coverage_burden"
 DASHBOARD_UUID = "435de0dd-d46c-52d5-a5c1-e75ed9f32288"
@@ -48,8 +55,36 @@ SERVICE = "superset"
 CONTAINER_IMPORT_ZIP = "/tmp/nfr_dashboard_import.zip"
 CONTAINER_EXPORT_ZIP = "/tmp/nfr_dashboard_export.zip"
 BUNDLE_ROOT = "nfr_dashboard"
+# ImportAssetsCommand only accepts a bundle whose metadata declares this type;
+# the committed bundle keeps the "Dashboard" type that the export writes.
+ASSETS_TYPE = "assets"
 # Superset suffixes chart and dashboard filenames with the instance's numeric id.
 _ID_SUFFIX = re.compile(r"_\d+(\.yaml)$")
+
+# Runs inside the superset container (fed on stdin to `python -`): load the zip
+# written by build_zip with ImportAssetsCommand, which overwrites the connection,
+# datasets, charts and dashboard by UUID in one transaction.
+_IMPORT_PROGRAM = f"""
+import os
+import sys
+from zipfile import ZipFile
+from flask import g
+from superset.app import create_app
+
+app = create_app()
+with app.app_context():
+    from superset import security_manager
+    from superset.commands.importers.v1.assets import ImportAssetsCommand
+    from superset.commands.importers.v1.utils import get_contents_from_bundle
+
+    username = os.environ.get("SUPERSET_ADMIN_USERNAME", "admin")
+    g.user = security_manager.find_user(username=username)
+    if g.user is None:
+        sys.exit(f"Superset user {{username!r}} (SUPERSET_ADMIN_USERNAME) does not exist")
+    with ZipFile("{CONTAINER_IMPORT_ZIP}") as bundle:
+        contents = get_contents_from_bundle(bundle)
+    ImportAssetsCommand(contents).run()
+"""
 
 # Runs inside the superset container (fed on stdin to `python -`): export the one
 # dashboard with this UUID, with its charts, datasets and database, to a zip.
@@ -92,18 +127,37 @@ def _run(cmd: list[str], stdin: str | None = None) -> None:
         raise SystemExit(f"command failed ({result.returncode}): {' '.join(cmd[:6])} ...")
 
 
-def build_zip(bundle_dir: Path, out: Path) -> int:
-    """Zip the bundle directory under a single root folder, as Superset expects.
+def as_assets_metadata(text: str) -> str:
+    """Return metadata.yaml text with its type set to the assets bundle type.
 
-    Returns the number of YAML files written. Raises SystemExit when the
-    directory is not a bundle (no metadata.yaml), so a wrong path fails loudly.
+    Every other key (version, timestamp) is kept. Raises SystemExit when the
+    text is not a mapping, so a malformed bundle fails before reaching Superset.
+    """
+    metadata = yaml.safe_load(text)
+    if not isinstance(metadata, dict):
+        raise SystemExit("metadata.yaml is not a mapping")
+    metadata["type"] = ASSETS_TYPE
+    return yaml.safe_dump(metadata, sort_keys=False)
+
+
+def build_zip(bundle_dir: Path, out: Path) -> int:
+    """Zip the bundle under a single root folder as an assets bundle for import.
+
+    Every file is copied unchanged except metadata.yaml, whose type becomes
+    "assets" so ImportAssetsCommand accepts it. Returns the number of YAML files
+    written. Raises SystemExit when the directory is not a bundle (no
+    metadata.yaml), so a wrong path fails loudly.
     """
     if not (bundle_dir / "metadata.yaml").is_file():
         raise SystemExit(f"not a Superset bundle (no metadata.yaml): {bundle_dir}")
     files = sorted(p for p in bundle_dir.rglob("*.yaml") if p.is_file())
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
         for path in files:
-            zf.write(path, f"{BUNDLE_ROOT}/{path.relative_to(bundle_dir).as_posix()}")
+            rel = path.relative_to(bundle_dir).as_posix()
+            if rel == "metadata.yaml":
+                zf.writestr(f"{BUNDLE_ROOT}/{rel}", as_assets_metadata(path.read_text(encoding="utf-8")))
+            else:
+                zf.write(path, f"{BUNDLE_ROOT}/{rel}")
     return len(files)
 
 
@@ -146,10 +200,7 @@ def do_import(project: str | None) -> None:
         zip_path = Path(tmp) / "bundle.zip"
         count = build_zip(BUNDLE_DIR, zip_path)
         _run(_compose(project) + ["cp", str(zip_path), f"{SERVICE}:{CONTAINER_IMPORT_ZIP}"])
-    _run(_compose(project) + [
-        "exec", "-T", SERVICE, "sh", "-c",
-        f'superset import-dashboards -p {CONTAINER_IMPORT_ZIP} -u "$SUPERSET_ADMIN_USERNAME"',
-    ])
+    _run(_compose(project) + ["exec", "-T", SERVICE, "python", "-"], stdin=_IMPORT_PROGRAM)
     print(f"imported {count} bundle files into Superset ({BUNDLE_DIR.relative_to(ROOT)})")
 
 

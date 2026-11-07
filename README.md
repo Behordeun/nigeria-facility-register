@@ -8,7 +8,8 @@ GRID3 publishes its health-facility data in versions that cover different states
 
 - A single authoritative facility layer that switches source per state: v3.0 where it exists, v2.0 elsewhere. Every row records its source version and whether that state's data is current or stale.
 - A v2-to-v3 lineage table. The two versions share no carry-over id (v2 keys on `globalid`, v3 on `unique_id`), so lineage is rebuilt by spatial and name matching. 89.8% of v2.0 facilities match a v3.0 point within 100 m, with 89.9% name agreement.
-- A per-LGA table joining facility coverage to ESPEN soil-transmitted-helminths burden, flagging LGAs where burden is high and coverage is thin.
+- A per-LGA table joining facility coverage to burden and population: facility counts and facilities per 10,000 people (WorldPop 2025), the ESPEN endemicity rank of five neglected tropical diseases, the state-level soil-transmitted-helminths share, travel time to the nearest facility and flood exposure with a 0-2 access risk score, and a 0-8 priority score (high, medium or low) that adds burden, per-capita coverage and access, beside the original flag for LGAs where burden is high and coverage is thin.
+- A one-row register summary and a Superset dashboard over the published tables (coverage, NTD burden, access, version drift, and a live data-status page).
 
 ## How it is built
 
@@ -23,9 +24,11 @@ src/nfr/          Python: name keys, source loader, Dagster orchestration
 dbt/              DuckDB models: staging (authority layer, version lineage, per-LGA NTD endemicity), marts (coverage x burden, version drift, choropleth), seeds (endemicity rank map)
 data/frame/       774-LGA index + centroids + simplified boundary polygons (CC BY)
 data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA, non-commercial),
-                  per-LGA flood exposure (NASA, open) and WorldPop births (CC BY)
+                  per-LGA flood exposure (NASA, open), WorldPop births (CC BY), and per-LGA
+                  population with travel time to healthcare (WorldPop + Malaria Atlas Project, CC BY)
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
-scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py, superset_dashboard.py
+scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
+                  build_access_population.py, superset_dashboard.py
 superset/         Superset dashboard import bundle (connection, datasets, charts, layout)
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)
 ```

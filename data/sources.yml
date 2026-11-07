@@ -103,3 +103,44 @@ sources:
     note: >
       Zonal-summed into the 774 geoBoundaries polygons, keyed on shapeID. The
       monorepo's state_population.csv is placeholder projections and is not used.
+  access_population_lga:
+    name: Per-LGA population and travel time to healthcare (DERIVED)
+    license: CC BY 4.0 (WorldPop); CC BY (Malaria Atlas Project)
+    format: csv
+    built_by: scripts/build_access_population.py
+    population_year: 2025
+    upstream:
+      worldpop:
+        name: WorldPop Global2 R2025A constrained population, Nigeria, 2025, 100 m
+        url: https://data.worldpop.org/GIS/Population/Global_2015_2030/R2025A/2025/NGA/v1/100m/constrained/nga_pop_2025_CN_100m_R2025A_v1.tif
+        doi: 10.5258/SOTON/WP00839
+        license: CC BY 4.0
+        sha256: abc7e897aff7de024d851a24613eebf28e710dbfe4dea9c3e02ee285d75d4f8b
+      map_motorised:
+        name: Malaria Atlas Project motorised travel time to healthcare (2020 release), Nigeria cut-out
+        coverage_id: Accessibility__202001_Global_Motorized_Travel_Time_to_Healthcare
+        url: https://data.malariaatlas.org/geoserver/Accessibility/wcs (WCS 2.0.1 GetCoverage, box 2.5,4.0,14.9,14.0)
+        citation: Weiss et al., Nature Medicine 26, 1835-1838 (2020)
+        license: CC BY (MAP catalogue 4.0; MAP open-access policy 3.0)
+        sha256: c1553756e14cb2866b42bb2ba6da61ab1f9b6c1f733e64d64b12dda5cec7321c
+      map_walking:
+        name: Malaria Atlas Project walking-only travel time to healthcare (2020 release), Nigeria cut-out
+        coverage_id: Accessibility__202001_Global_Walking_Only_Travel_Time_To_Healthcare
+        url: https://data.malariaatlas.org/geoserver/Accessibility/wcs (WCS 2.0.1 GetCoverage, box 2.5,4.0,14.9,14.0)
+        citation: Weiss et al., Nature Medicine 26, 1835-1838 (2020)
+        license: CC BY (MAP catalogue 4.0; MAP open-access policy 3.0)
+        sha256: 4be0f62c28895630d1999ee0582801d75bde9564f2fde5e7f18704b6865a280f
+      boundaries:
+        name: geoBoundaries Nigeria ADM2, full resolution (774 LGAs)
+        derived_from: Geospatial/_shared_frame/nigeria_adm2_lga_boundaries.geojson
+        license: CC BY 4.0
+        sha256: bef7f2cfa45e012f4772eaa61c7b99e5188aeba4d5c6badae7e9f9aae8c02fcd
+    sha256: 07d7f1d33521c906f973469da76557592ab64fb904d29bbb19c9618d5c4676ab
+    note: >
+      Rasters are fetched into data/raw/rasters/ and never committed. The build
+      refuses a download whose hash differs from the pins above. Population is
+      summed at 100 m; travel times are population-weighted means on the 1 km
+      MAP grid. On the 2025 build the LGA totals capture 99.97% of the national
+      WorldPop total (the rest falls on border and coastal cells outside the LGA
+      polygons). Null travel figures mean no population on valid travel-time
+      cells, never 0 minutes.

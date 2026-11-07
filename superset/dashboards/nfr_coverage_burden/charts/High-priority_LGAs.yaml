@@ -1,4 +1,4 @@
-slice_name: Priority LGAs
+slice_name: High-priority LGAs
 description: null
 certified_by: null
 certification_details: null
@@ -16,16 +16,16 @@ params:
   adhoc_filters:
   - expressionType: SQL
     clause: WHERE
-    sqlExpression: priority_high_burden_thin_coverage
-    filterOptionName: filter_7ffacab48b9d
+    sqlExpression: priority_tier = 'high'
+    filterOptionName: filter_priority_high
   header_font_size: 0.4
   subheader_font_size: 0.15
   y_axis_format: SMART_NUMBER
   time_format: smart_date
-  subheader: high STH burden, thin coverage
+  subheader: priority score 6-8 of 8
   annotation_layers: []
 query_context: null
 cache_timeout: null
-uuid: 43a579da-6996-53f9-870f-21cb29cc3153
+uuid: 64a1c555-c61d-5270-972e-ce2cbacb44b7
 version: 1.0.0
 dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631

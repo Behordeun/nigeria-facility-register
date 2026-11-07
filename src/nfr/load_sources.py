@@ -36,6 +36,7 @@ ALLOWED_TABLES = {
     "ntd_espen_lga",
     "flood_event_affected_lga",
     "births_lga",
+    "access_population_lga",
 }
 
 
@@ -134,12 +135,15 @@ def main() -> None:
         ("lga_alias_crosswalk", frame / "lga_alias_crosswalk.csv", read_csv),
         ("ntd_sth_state", derived / "ntd_sth_state.csv", read_csv),
         # Enrichment inputs (derived per-LGA tables built by
-        # scripts/build_enrichment_sources.py). ntd_espen_lga feeds the coverage
-        # mart through stg_ntd_endemicity_lga; the other two are loaded and
-        # tested only.
+        # scripts/build_enrichment_sources.py and build_access_population.py).
+        # ntd_espen_lga feeds the coverage mart through stg_ntd_endemicity_lga,
+        # births_lga and access_population_lga give it its per-capita
+        # denominators and travel time, and flood_event_affected_lga its
+        # flood flags.
         ("ntd_espen_lga", derived / "ntd_espen_lga.csv", read_csv),
         ("flood_event_affected_lga", derived / "flood_event_affected_lga.csv", read_csv),
         ("births_lga", derived / "births_lga.csv", read_csv),
+        ("access_population_lga", derived / "access_population_lga.csv", read_csv),
     ]
 
     # Validate and read every input BEFORE touching the database, so a missing
