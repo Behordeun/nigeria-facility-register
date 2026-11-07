@@ -111,11 +111,17 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `lf_endemicity_rank_lga` | integer | yes | as above, lymphatic filariasis (programme-stage basis) |
 | `oncho_endemicity_rank_lga` | integer | yes | as above, onchocerciasis (programme-stage basis) |
 | `loa_endemicity_rank_lga` | integer | yes | as above, Loa loa |
+| `population` | bigint | no | WorldPop R2025A population of the LGA, summed at 100 m; always positive (year in `population_year`) |
+| `population_year` | bigint | no | year of the population figure (2025) |
+| `births` | double | no | WorldPop annual births in the LGA for 2015 (UN-adjusted); always positive |
+| `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
+| `facilities_per_10k_births` | double | yes | `facilities` x 10,000 / `births`; null where `facility_status = 'unmatched'` |
 | `priority_high_burden_thin_coverage` | boolean | no | true where burden is high and coverage is thin; see rule below |
 
 Guarantees:
 
 - Exactly 774 rows, one per LGA. No LGA missing, none duplicated.
+- Per-capita coverage is traceable. `population` and `births` equal their source tables for every LGA, and each rate recomputes from `facilities` and its denominator. A rate is null exactly when no facility matched the LGA, because a zero count there may be a name-join miss; it is never shown as a rate of 0. `facilities_per_10k_population` is the primary per-capita measure; the births rate uses an older (2015) denominator and is indicative.
 - The key is `(state, canonical_lga)`, not `canonical_lga` alone. Six LGA names recur across states (Bassa, Ifelodun, Irepodun, Nasarawa, Obi, Surulere), so joining on the bare name would collide two distinct places. Always carry the state.
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
@@ -158,9 +164,9 @@ Guarantees:
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
 | `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
-| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage` and the five `*_endemicity_rank_lga` ranks |
+| `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population` and `facilities_per_10k_population` |
 
-The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, and the five `*_endemicity_rank_lga` ranks) are exactly as in `lga_coverage_burden` above.
+The other columns (`canonical_lga`, `state`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population` and `facilities_per_10k_population`) are exactly as in `lga_coverage_burden` above.
 
 Guarantees:
 
@@ -188,6 +194,8 @@ One row describing the published register as a whole, rebuilt on every refresh s
 | `facilities_v2` | bigint | no | authority-layer facilities from v2.0 |
 | `lgas_unmatched` | bigint | no | LGAs with `facility_status = 'unmatched'` |
 | `priority_lgas` | bigint | no | LGAs with the priority flag set |
+| `population` | bigint | no | total WorldPop population across the 774 LGAs |
+| `population_year` | bigint | no | year of that population figure |
 | `sth_known_lgas`, `sch_known_lgas`, `lf_known_lgas`, `oncho_known_lgas`, `loa_known_lgas` | bigint | no | LGAs with a known ESPEN status (a rank) for that disease; the rest are unknown, not zero |
 | `espen_latest_year` | integer | yes | latest year any ESPEN status is reported for |
 | `lineage_carried_over`, `lineage_dropped`, `lineage_appeared` | bigint | no | `lga_version_drift` records by status |

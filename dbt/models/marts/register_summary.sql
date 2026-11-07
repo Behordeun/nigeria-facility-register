@@ -66,6 +66,8 @@ select
     cast((select coalesce(sum(facilities), 0) from authority where source_version = 'v2.0') as bigint) as facilities_v2,
     (select count(*) from coverage where facility_status = 'unmatched')          as lgas_unmatched,
     (select count(*) from coverage where priority_high_burden_thin_coverage)     as priority_lgas,
+    cast((select sum(population) from coverage) as bigint)                       as population,
+    (select max(population_year) from coverage)                                  as population_year,
     ntd.sth_known_lgas,
     ntd.sch_known_lgas,
     ntd.lf_known_lgas,

@@ -84,8 +84,8 @@ sources:
       - name: births_lga
         description: >
           WorldPop annual births per LGA (2015, UN-adjusted, zonal-summed into
-          the 774 geoBoundaries polygons), keyed on shapeID. CC BY 4.0. Not yet
-          consumed by any mart.
+          the 774 geoBoundaries polygons), keyed on shapeID. CC BY 4.0. Feeds
+          lga_coverage_burden's births and facilities_per_10k_births.
         columns:
           - name: shapeID
             data_tests: [not_null, unique]
@@ -98,7 +98,9 @@ sources:
           (Malaria Atlas Project 2020 release, motorised and walking-only, CC BY),
           derived by scripts/build_access_population.py and keyed on shapeID.
           Null travel figures mean no population on valid travel-time cells,
-          never 0 minutes. Not yet consumed by any mart.
+          never 0 minutes. Its population feeds lga_coverage_burden's
+          population and facilities_per_10k_population; the travel figures are
+          not yet joined into a mart.
         columns:
           - name: shapeID
             data_tests: [not_null, unique]
