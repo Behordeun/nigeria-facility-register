@@ -12,6 +12,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `stg_access_population_lga` | staging | one LGA, for one population year | exactly 774 |
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
+| `lga_coverage_outlook` | mart | one (LGA, population year) | exactly 774 x the WorldPop years carried (2025-2030: 4,644) |
 | `register_summary` | mart | the published register | exactly 1 |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
@@ -171,6 +172,29 @@ Guarantees:
 - The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the rate quartiles and the access score, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
 - Facility mix adds up. The four level counts sum to `facilities`, and so do the three functional-status counts. A v2.0 LGA records no status (GRID3 v2.0 has none), and each mix rate recomputes from its counts. Because status is recorded for under a third of facilities, `not_functional_share` describes only the facilities whose status is known; read it with `functional_status_known_share`.
 - The original priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
+
+## `lga_coverage_outlook`
+
+Per-LGA coverage for every WorldPop population year the register carries, holding today's facility count fixed: how per-capita coverage would change as the population grows if no facility were added. It is a planning baseline, not a forecast of facilities.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `state`, `canonical_lga` | varchar | no | the LGA, as in `lga_coverage_burden` |
+| `population_year` | bigint | no | the projection year |
+| `is_register_year` | boolean | no | true on the rows for the population year the published register describes |
+| `is_last_projection_year` | boolean | no | true on the rows for the last WorldPop year carried (2030 today) |
+| `population` | bigint | no | WorldPop R2025A population of the LGA for that year |
+| `facilities` | bigint | no | today's facility count, the same in every year |
+| `facility_status` | varchar | no | as in `lga_coverage_burden` |
+| `facilities_per_10k_population` | double | yes | `facilities` x 10,000 / `population`; null where `facility_status = 'unmatched'` |
+| `population_change_from_register_year` | double | yes | population over the register year's, minus 1 |
+| `facilities_per_10k_change_from_register_year` | double | yes | the rate minus the register year's rate; null where the rate is null |
+
+Guarantees:
+
+- Every population year covers the 774 frame LGAs exactly once.
+- The register-year rows equal `lga_coverage_burden` (population, facilities and rate), so the outlook starts from the published register.
+- Facilities are held fixed across years, and every rate and change recomputes, null exactly where no facility matched.
 
 ## `lga_version_drift`
 

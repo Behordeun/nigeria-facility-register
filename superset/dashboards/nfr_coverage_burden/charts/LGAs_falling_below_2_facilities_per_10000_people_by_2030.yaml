@@ -1,0 +1,49 @@
+slice_name: LGAs falling below 2 facilities per 10,000 people by 2030
+description: LGAs at or above 2 facilities per 10,000 people today that fall below
+  it in the last projection year if no facility is added, largest drop first.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 3__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - state
+  - canonical_lga
+  - facilities
+  - population
+  - population_change_from_register_year
+  - facilities_per_10k_register_year
+  - facilities_per_10k_population
+  - facilities_per_10k_change_from_register_year
+  order_by_cols:
+  - '["facilities_per_10k_change_from_register_year", true]'
+  adhoc_filters:
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: is_last_projection_year AND facilities_per_10k_population < 2 AND
+      facilities_per_10k_population - facilities_per_10k_change_from_register_year
+      >= 2
+    filterOptionName: filter_crossing_below_2
+  row_limit: 50000
+  server_pagination: true
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+  column_config:
+    population_change_from_register_year:
+      d3NumberFormat: +.1%
+query_context: null
+cache_timeout: null
+uuid: 4c0dcd29-e9ab-5c5a-9430-4b9fd43fc9a8
+version: 1.0.0
+dataset_uuid: af7c0736-0e56-54ed-9c8b-5a6d15e9d4fd

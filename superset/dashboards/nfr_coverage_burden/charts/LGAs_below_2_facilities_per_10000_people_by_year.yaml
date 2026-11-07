@@ -1,0 +1,51 @@
+slice_name: LGAs below 2 facilities per 10,000 people, by year
+description: LGAs whose facilities per 10,000 people fall below 2 in each projection
+  year at today's facility count. LGAs with no matched facility are not counted.
+certified_by: null
+certification_details: null
+viz_type: echarts_timeseries_bar
+params:
+  datasource: 3__table
+  viz_type: echarts_timeseries_bar
+  extra_form_data: {}
+  x_axis: population_year
+  metrics:
+  - expressionType: SQL
+    sqlExpression: COUNT(*) FILTER (WHERE facilities_per_10k_population < 2)
+    label: LGAs below 2 per 10,000
+    hasCustomLabel: true
+    optionName: metric_12eca2a3b30c
+  groupby: []
+  adhoc_filters: []
+  row_limit: 10000
+  order_desc: true
+  stack: null
+  orientation: vertical
+  x_axis_sort_asc: true
+  x_axis_sort_series: name
+  x_axis_sort_series_ascending: true
+  show_legend: false
+  legendType: plain
+  legendOrientation: top
+  color_scheme: supersetColors
+  y_axis_format: ',d'
+  truncateXAxis: true
+  y_axis_bounds:
+  - null
+  - null
+  rich_tooltip: true
+  show_empty_columns: true
+  comparison_type: values
+  annotation_layers: []
+  only_total: true
+  sort_series_type: sum
+  truncate_metric: true
+  x_axis_title_margin: 15
+  y_axis_title_margin: 15
+  y_axis_title_position: Left
+  show_value: true
+query_context: null
+cache_timeout: null
+uuid: ef4d0a42-e0de-5156-b74b-0a204d8e4ee4
+version: 1.0.0
+dataset_uuid: af7c0736-0e56-54ed-9c8b-5a6d15e9d4fd
