@@ -29,8 +29,10 @@ frame as (
     from {{ source('raw', 'frame_master_index') }}
 ),
 
+-- The staging model holds exactly one year (assert_population_year_selected);
+-- max() makes that choice explicit and matches last_year below.
 register_year as (
-    select any_value(population_year) as population_year
+    select max(population_year) as population_year
     from {{ ref('stg_access_population_lga') }}
 ),
 
