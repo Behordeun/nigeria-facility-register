@@ -48,7 +48,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 3
+      chartId: 5
       width: 3
       height: 30
       sliceName: Facilities in the register
@@ -63,7 +63,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 11
+      chartId: 13
       width: 3
       height: 30
       sliceName: LGAs with facilities matched
@@ -78,7 +78,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 12
+      chartId: 14
       width: 3
       height: 30
       sliceName: LGAs with no facility matched
@@ -107,7 +107,7 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 5
+      chartId: 7
       width: 4
       height: 90
       sliceName: Facilities per LGA
@@ -122,7 +122,7 @@ position:
     - ROW-overview-priority
     children: []
     meta:
-      chartId: 18
+      chartId: 21
       width: 4
       height: 90
       sliceName: Priority LGAs (high STH burden, thin coverage)
@@ -229,7 +229,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 24
+      chartId: 28
       width: 4
       height: 70
       sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
@@ -244,7 +244,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 22
+      chartId: 25
       width: 4
       height: 70
       sliceName: 'Schistosomiasis: endemicity rank by LGA'
@@ -259,7 +259,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 15
+      chartId: 17
       width: 4
       height: 70
       sliceName: 'Lymphatic filariasis: endemicity rank by LGA'
@@ -287,7 +287,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 17
+      chartId: 20
       width: 4
       height: 70
       sliceName: 'Onchocerciasis: endemicity rank by LGA'
@@ -302,7 +302,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 14
+      chartId: 16
       width: 4
       height: 70
       sliceName: 'Loa loa: endemicity rank by LGA'
@@ -317,7 +317,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 9
+      chartId: 11
       width: 4
       height: 70
       sliceName: LGAs by endemicity rank, per disease
@@ -345,7 +345,7 @@ position:
     - ROW-burden-3
     children: []
     meta:
-      chartId: 8
+      chartId: 10
       width: 12
       height: 80
       sliceName: LGA burden profile
@@ -414,7 +414,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 6
+      chartId: 8
       width: 4
       height: 60
       sliceName: Facility lineage, v2.0 to v3.0
@@ -429,7 +429,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 16
+      chartId: 18
       width: 4
       height: 60
       sliceName: Name agreement of carried-over facilities
@@ -444,7 +444,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 13
+      chartId: 15
       width: 4
       height: 120
       sliceName: Lineage status by state
@@ -472,7 +472,7 @@ position:
     - ROW-drift-2
     children: []
     meta:
-      chartId: 21
+      chartId: 24
       width: 12
       height: 80
       sliceName: 'Review queue: dropped and appeared facilities'
@@ -527,6 +527,7 @@ position:
     - ROOT_ID
     children:
     - TAB-overview
+    - TAB-mix
     - TAB-burden
     - TAB-access
     - TAB-drift
@@ -553,7 +554,7 @@ position:
     - ROW-about-0
     children: []
     meta:
-      chartId: 20
+      chartId: 23
       width: 12
       height: 62
       sliceName: Register status
@@ -618,7 +619,7 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 4
+      chartId: 6
       width: 4
       height: 90
       sliceName: Facilities per 10,000 people
@@ -639,11 +640,11 @@ position:
 
 
         Travel time is the population-weighted time to the nearest health facility
-        from the Malaria Atlas Project (2020 release), set against WorldPop residents in the population year the Data status page names.
-        An LGA is hard to reach when a quarter or more of its residents live over
-        an hour''s walk from a facility. Flood exposure is the NASA MODIS 2024 event
-        at LGA level; the 2022 event is only state-level, so it is in the data but
-        not in the score.
+        from the Malaria Atlas Project (2020 release), set against WorldPop residents
+        in the population year the Data status page names. An LGA is hard to reach
+        when a quarter or more of its residents live over an hour''s walk from a facility.
+        Flood exposure is the NASA MODIS 2024 event at LGA level; the 2022 event is
+        only state-level, so it is in the data but not in the score.
 
 
         The access risk score counts these two LGA-level signals, 0 to 2. Blank means
@@ -673,7 +674,7 @@ position:
     - ROW-access-1
     children: []
     meta:
-      chartId: 23
+      chartId: 27
       width: 6
       height: 90
       sliceName: Share of people over an hour's walk from a facility
@@ -715,7 +716,7 @@ position:
     - ROW-access-2
     children: []
     meta:
-      chartId: 10
+      chartId: 12
       width: 12
       height: 70
       sliceName: LGAs with access risk
@@ -755,7 +756,7 @@ position:
     - ROW-overview-1
     children: []
     meta:
-      chartId: 7
+      chartId: 9
       width: 3
       height: 30
       sliceName: High-priority LGAs
@@ -770,7 +771,7 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 19
+      chartId: 22
       width: 4
       height: 90
       sliceName: Priority score (0-8)
@@ -821,6 +822,141 @@ position:
     - MARKDOWN-priority_note
     meta:
       background: BACKGROUND_TRANSPARENT
+  MARKDOWN-mix_note:
+    id: MARKDOWN-mix_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    - ROW-mix-0
+    children: []
+    meta:
+      width: 12
+      height: 34
+      code: '### Facility mix
+
+
+        Facility counts treat a health post and a general hospital alike. This tab
+        separates them by GRID3 level (primary, secondary, tertiary) and shows how
+        much of the network is recorded as working.
+
+
+        Two limits come from the source, not the pipeline. About one facility in eight
+        has no recorded level; it is counted as Not recorded and never assigned one.
+        GRID3 records functional status only in v3.0, and even there most facilities
+        are Unknown, so the not-functional share is taken over facilities whose status
+        is known, and the map shades only LGAs with at least five of them. Blank means
+        not recorded, never fully functional.'
+  ROW-mix-0:
+    id: ROW-mix-0
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    children:
+    - MARKDOWN-mix_note
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-map_higher_level:
+    id: CHART-map_higher_level
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    - ROW-mix-1
+    children: []
+    meta:
+      chartId: 26
+      width: 6
+      height: 90
+      sliceName: Secondary and tertiary facilities per 100,000 people
+      uuid: 02369115-3197-5f70-bb48-548423999859
+  CHART-map_not_functional:
+    id: CHART-map_not_functional
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    - ROW-mix-1
+    children: []
+    meta:
+      chartId: 19
+      width: 6
+      height: 90
+      sliceName: Not-functional share (LGAs with 5+ facilities of known status)
+      uuid: 561b264d-a79b-5f3d-a2d0-6b871971d057
+  ROW-mix-1:
+    id: ROW-mix-1
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    children:
+    - CHART-map_higher_level
+    - CHART-map_not_functional
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-bar_level_state:
+    id: CHART-bar_level_state
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    - ROW-mix-2
+    children: []
+    meta:
+      chartId: 4
+      width: 6
+      height: 90
+      sliceName: Facilities by level, per state
+      uuid: 5aa63b4e-b6d1-5681-bfd2-6f2548efa6fd
+  CHART-map_facility_points:
+    id: CHART-map_facility_points
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    - ROW-mix-2
+    children: []
+    meta:
+      chartId: 3
+      width: 6
+      height: 90
+      sliceName: Facilities by level
+      uuid: 73d53718-7605-5bf0-88ba-7cbf2139d281
+  ROW-mix-2:
+    id: ROW-mix-2
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-mix
+    children:
+    - CHART-bar_level_state
+    - CHART-map_facility_points
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  TAB-mix:
+    id: TAB-mix
+    type: TAB
+    parents:
+    - ROOT_ID
+    - TABS-main
+    children:
+    - ROW-mix-0
+    - ROW-mix-1
+    - ROW-mix-2
+    meta:
+      text: Facility mix
+      defaultText: Tab title
+      placeholder: Tab title
 metadata:
   native_filter_configuration:
   - id: NATIVE_FILTER-state
@@ -846,7 +982,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 20
+      - 23
     chartsInScope:
     - 1
     - 2
@@ -869,6 +1005,7 @@ metadata:
     - 20
     tabsInScope:
     - TAB-overview
+    - TAB-mix
     - TAB-burden
     - TAB-access
     - TAB-drift
@@ -897,12 +1034,12 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 6
-      - 9
-      - 13
-      - 16
-      - 21
-      - 20
+      - 8
+      - 11
+      - 15
+      - 18
+      - 24
+      - 23
     chartsInScope:
     - 1
     - 2
@@ -920,6 +1057,7 @@ metadata:
     - 20
     tabsInScope:
     - TAB-overview
+    - TAB-mix
     - TAB-burden
     - TAB-access
     - TAB-drift

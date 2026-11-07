@@ -21,6 +21,11 @@
 -- give facilities per 10,000 people and per 10,000 births, so a large LGA with
 -- many facilities is not mistaken for a well-served one.
 --
+-- Facility mix: counts by level (primary, secondary, tertiary, unknown) and by
+-- functional status. GRID3 records functional status only in v3.0, and even
+-- there many facilities are "Unknown", so the non-functional share is taken
+-- over facilities whose status is known and is null where none is, never 0.
+--
 -- Access and flood exposure: population-weighted travel time to the nearest
 -- health facility (Malaria Atlas Project, from the same per-LGA table as the
 -- population) and the flood-event flags. The 2022 flood flag is state-level
@@ -70,7 +75,14 @@ fac as (
         lga_key,
         any_value(source_version)  as facility_source_version,
         any_value(facility_status) as facility_status,
-        count(*)                   as facilities
+        count(*)                   as facilities,
+        count(*) filter (where facility_level = 'Primary')   as facilities_primary,
+        count(*) filter (where facility_level = 'Secondary') as facilities_secondary,
+        count(*) filter (where facility_level = 'Tertiary')  as facilities_tertiary,
+        -- Partially functional facilities are open and serving, so they count
+        -- as functional; a closed facility counts as not functional.
+        count(*) filter (where functional in ('Functional', 'Partially Functional')) as facilities_functional,
+        count(*) filter (where functional in ('Not-Functional', 'Closed'))           as facilities_not_functional
     from norm
     group by state_key, lga_key
 ),
@@ -147,6 +159,16 @@ joined as (
         coalesce(fac.facilities, 0)        as facilities,
         fac.facility_source_version,
         coalesce(fac.facility_status, 'unmatched') as facility_status,
+        coalesce(fac.facilities_primary, 0)    as facilities_primary,
+        coalesce(fac.facilities_secondary, 0)  as facilities_secondary,
+        coalesce(fac.facilities_tertiary, 0)   as facilities_tertiary,
+        -- Blank, "Unknown" or missing level: counted, never guessed.
+        coalesce(fac.facilities - fac.facilities_primary - fac.facilities_secondary
+                 - fac.facilities_tertiary, 0) as facilities_level_unknown,
+        coalesce(fac.facilities_functional, 0)     as facilities_functional,
+        coalesce(fac.facilities_not_functional, 0) as facilities_not_functional,
+        coalesce(fac.facilities - fac.facilities_functional
+                 - fac.facilities_not_functional, 0) as facilities_status_unknown,
         ntd.sth_high_share_pct             as sth_high_share_pct_state,
         ntd.sth_survey_years               as sth_survey_years_state,
         ntd_lga.sth_endemicity_rank_lga,
@@ -175,7 +197,24 @@ joined as (
                                            as facilities_per_10k_population,
         case when fac.facilities is null then null
              else round(cast(fac.facilities as double) * 10000 / b.births, 3) end
-                                           as facilities_per_10k_births
+                                           as facilities_per_10k_births,
+        -- Same null rule as the other rates: no matched facility, no rate.
+        case when fac.facilities is null then null
+             else round(cast(fac.facilities_secondary + fac.facilities_tertiary as double)
+                        * 100000 / pop.population, 3) end
+                                           as secondary_tertiary_per_100k_population,
+        -- Share of the LGA's facilities whose functional status is recorded;
+        -- 0 in every v2.0 state, where GRID3 does not record it.
+        case when fac.facilities is null then null
+             else round(cast(fac.facilities_functional + fac.facilities_not_functional as double)
+                        / fac.facilities, 4) end
+                                           as functional_status_known_share,
+        -- Not functional over the facilities whose status is known; null where
+        -- none is known, so an unrecorded LGA is never shown as fully functional.
+        case when coalesce(fac.facilities_functional + fac.facilities_not_functional, 0) = 0 then null
+             else round(cast(fac.facilities_not_functional as double)
+                        / (fac.facilities_functional + fac.facilities_not_functional), 4) end
+                                           as not_functional_share
     from frame
     left join fac  on frame.state_key = fac.state_key and frame.lga_key = fac.lga_key
     left join ntd  on frame.state_key = ntd.state_key

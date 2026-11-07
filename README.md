@@ -20,8 +20,8 @@ GRID3 publishes its health-facility data in versions that cover different states
 
 - A single authoritative facility layer that switches source per state: v3.0 where it exists, v2.0 elsewhere. Every row records its source version and whether that state's data is current or stale.
 - A v2-to-v3 lineage table. The two versions share no carry-over id (v2 keys on `globalid`, v3 on `unique_id`), so lineage is rebuilt by spatial and name matching. 89.8% of v2.0 facilities match a v3.0 point within 100 m, with 89.9% name agreement.
-- A per-LGA table joining facility coverage to burden and population: facility counts and facilities per 10,000 people (WorldPop, rolling forward each calendar year through 2030), the ESPEN endemicity rank of five neglected tropical diseases, the state-level soil-transmitted-helminths share, travel time to the nearest facility and flood exposure with a 0-2 access risk score, and a 0-8 priority score (high, medium or low) that adds burden, per-capita coverage and access, beside the original flag for LGAs where burden is high and coverage is thin.
-- A one-row register summary and a Superset dashboard over the published tables (coverage, NTD burden, access, version drift, and a live data-status page).
+- A per-LGA table joining facility coverage to burden and population: facility counts, facilities per 10,000 people, the mix of primary, secondary and tertiary facilities and the share recorded as not functional (WorldPop, rolling forward each calendar year through 2030), the ESPEN endemicity rank of five neglected tropical diseases, the state-level soil-transmitted-helminths share, travel time to the nearest facility and flood exposure with a 0-2 access risk score, and a 0-8 priority score (high, medium or low) that adds burden, per-capita coverage and access, beside the original flag for LGAs where burden is high and coverage is thin.
+- A one-row register summary and a Superset dashboard over the published tables (coverage, facility mix, NTD burden, access, version drift, and a live data-status page).
 
 ## How it is built
 

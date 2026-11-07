@@ -124,7 +124,7 @@
     <path d="M6,30 L16,20 L24,26 L38,10" fill="none" stroke="#1f8a4c" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <text x="140" y="1222" class="ct">Apache Superset dashboard</text>
-  <text class="cb"><tspan x="140" y="1246">Coverage · NTD burden · Access · Version drift · Data status, with state filters,</tspan><tspan x="140" y="1265">per-LGA hover summaries, and a live status panel that refreshes with the register.</tspan><tspan x="140" y="1284">Reads the register read-only; kept as a committed import bundle (make dashboard).</tspan></text>
+  <text class="cb"><tspan x="140" y="1246">Coverage · Facility mix · NTD burden · Access · Version drift · Data status, with filters,</tspan><tspan x="140" y="1265">per-LGA hover summaries, and a live status panel that refreshes with the register.</tspan><tspan x="140" y="1284">Reads the register read-only; kept as a committed import bundle (make dashboard).</tspan></text>
   <rect x="140" y="1300" width="170" height="24" rx="12" fill="#d5efde"/>
   <text x="225" y="1317" class="tag" fill="#1a6e3d" text-anchor="middle">dashboards and reports</text>
 </svg>

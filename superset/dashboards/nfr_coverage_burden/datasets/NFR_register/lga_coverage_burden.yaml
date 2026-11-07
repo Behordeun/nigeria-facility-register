@@ -39,6 +39,18 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: secondary_tertiary_per_100k_population
+  verbose_name: Secondary and tertiary per 100,000 people
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: ntd_diseases_known
   verbose_name: NTD diseases with a known status
   is_dttm: false
@@ -87,8 +99,32 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: not_functional_share
+  verbose_name: Not-functional share (of known status)
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: motorised_minutes
   verbose_name: Motorised minutes to a facility
+  is_dttm: false
+  is_active: true
+  type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: functional_status_known_share
+  verbose_name: Share with a recorded status
   is_dttm: false
   is_active: true
   type: DOUBLE
@@ -116,6 +152,30 @@ columns:
   is_dttm: false
   is_active: true
   type: DOUBLE
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_status_unknown
+  verbose_name: Facilities with no recorded status
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_level_unknown
+  verbose_name: Facilities with no recorded level
+  is_dttm: false
+  is_active: true
+  type: BIGINT
   advanced_data_type: null
   groupby: true
   filterable: true
@@ -164,6 +224,18 @@ columns:
   is_dttm: false
   is_active: true
   type: FLOAT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_not_functional
+  verbose_name: Not functional or closed
+  is_dttm: false
+  is_active: true
+  type: BIGINT
   advanced_data_type: null
   groupby: true
   filterable: true
@@ -243,18 +315,6 @@ columns:
   description: null
   python_date_format: null
   extra: null
-- column_name: population
-  verbose_name: Population (WorldPop)
-  is_dttm: false
-  is_active: true
-  type: BIGINT
-  advanced_data_type: null
-  groupby: true
-  filterable: true
-  expression: null
-  description: null
-  python_date_format: null
-  extra: null
 - column_name: hard_to_reach
   verbose_name: Hard to reach
   is_dttm: false
@@ -327,6 +387,18 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: population
+  verbose_name: Population (WorldPop)
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: priority_tier
   verbose_name: Priority tier
   is_dttm: false
@@ -339,8 +411,56 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: facilities_functional
+  verbose_name: Functional facilities
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_primary
+  verbose_name: Primary facilities
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
 - column_name: population_year
   verbose_name: Population year
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_secondary
+  verbose_name: Secondary facilities
+  is_dttm: false
+  is_active: true
+  type: BIGINT
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: null
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: facilities_tertiary
+  verbose_name: Tertiary facilities
   is_dttm: false
   is_active: true
   type: BIGINT
