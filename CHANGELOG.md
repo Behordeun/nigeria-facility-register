@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- The dashboard shows malaria on its own. The NTD burden tab, renamed Disease burden, gains a map of the malaria parasite rate in children aged 2-10 by LGA, in five bands (under 15%, 15-20%, 20-25%, 25-30%, 30% and over), beside a note on the source and how malaria enters the priority score. The per-LGA burden table adds the parasite rate and clinical cases per 1,000 a year, and the ranked high-priority table adds the parasite rate beside the malaria points. `lga_coverage_choropleth`'s Superset dataset exposes `pf_parasite_rate`. No published table changes.
+
 ## [0.6.0] - 2026-11-08
 
 ### Added
