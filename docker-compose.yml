@@ -161,6 +161,15 @@ services:
       - --concurrency=1
       - -O
       - fair
+    # The image's own check curls the web server's /health, which this worker
+    # does not serve, so it would always report unhealthy. Ask the worker
+    # itself instead; the ping loads Superset's app, so it runs once a minute.
+    healthcheck:
+      test: ["CMD-SHELL", "celery --app=superset.tasks.celery_app:app inspect ping --destination celery@$$HOSTNAME --timeout 10"]
+      interval: 60s
+      timeout: 45s
+      start_period: 60s
+      retries: 3
     networks:
       - internal
     depends_on:
