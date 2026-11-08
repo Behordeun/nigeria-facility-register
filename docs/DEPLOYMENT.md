@@ -109,6 +109,8 @@ The dashboard ships with the repo as a Superset import bundle in `superset/dashb
 
 Filters in the left panel: State, Facility status, Priority tier and Hard to reach apply across the dashboard; LGA applies to the LGA profile tab only, and its list narrows to the chosen state. The ranked list's links set the LGA filter through the dashboard URL (`?native_filters=` with the LGA, and `#TAB-profile`), so a profile link can also be shared or bookmarked.
 
+The dashboard has its own look: a deep teal title band (#034149, the darkest fill of the maps), a warm off-white page, white rounded cards with a soft shadow, and a pale teal rule beside the explanatory notes. That styling is the dashboard's CSS in the bundle, so `make dashboard` applies it. Superset's accent colour (buttons, links, the open tab, focus rings) is set to the same teal by `THEME_OVERRIDES` in `superset/superset_config.py`, which is built into the Superset image: after pulling a change to it, rebuild with `docker compose build superset superset-worker` and restart with `docker compose up -d`. The accent applies across the whole Superset instance, not only this dashboard.
+
 State and facility-status filters apply across the tabs.
 
 Presentation conventions, kept when charts are edited:

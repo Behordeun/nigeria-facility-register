@@ -1,6 +1,79 @@
 dashboard_title: Nigeria facility coverage and NTD burden
 description: null
-css: null
+css: |
+  /* NFR teal theme. Colours: deep teal #034149 (the maps' darkest fill), mid teal #0a5a63, pale teal #9dc4c8, warm page #f6f4ef. */
+  body,
+  .dashboard,
+  .dashboard-content {
+    background-color: #f6f4ef;
+  }
+
+  /* Title band */
+  .header-with-actions {
+    background-color: #034149;
+    border-bottom: 0;
+  }
+  .header-with-actions .dynamic-title,
+  .header-with-actions .dynamic-title input,
+  .header-with-actions .metadata-text,
+  .header-with-actions .metadata-icon,
+  .header-with-actions .fave-unfave-icon {
+    color: #ffffff;
+  }
+  /* The owner and last-edited pill has no class of its own; it is the box
+     holding the metadata icons. */
+  .header-with-actions .ant-tag,
+  .header-with-actions div:has(> div > .metadata-icon) {
+    background-color: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.45);
+    color: #ffffff;
+  }
+  .header-with-actions .superset-button {
+    background-color: #ffffff;
+    border-color: #ffffff;
+    color: #034149;
+  }
+
+  /* Tab bar: a white strip on the warm page, teal marks the open tab */
+  .dashboard-component-tabs {
+    background-color: transparent;
+  }
+  .dashboard-component-tabs > .ant-tabs > .ant-tabs-nav {
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(3, 65, 73, 0.08);
+    margin: 0 0 16px;
+    padding: 0 16px;
+  }
+  .dashboard-component-tabs .ant-tabs-tab-active .ant-tabs-tab-btn,
+  .dashboard-component-tabs .ant-tabs-tab:hover .ant-tabs-tab-btn {
+    color: #034149;
+    font-weight: 600;
+  }
+  .dashboard-component-tabs .ant-tabs-ink-bar {
+    background-color: #034149;
+    height: 3px;
+  }
+
+  /* Cards */
+  .dashboard-component-chart-holder {
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(3, 65, 73, 0.08), 0 4px 12px rgba(3, 65, 73, 0.06);
+  }
+  .dashboard-component-chart-holder .header-title,
+  .dashboard-component-chart-holder .header-title a {
+    color: #034149;
+    font-weight: 600;
+  }
+
+  /* Notes: a pale teal rule marks explanatory text apart from data */
+  .dashboard-markdown {
+    border-left: 4px solid #9dc4c8;
+    padding-left: 12px;
+  }
+  .dashboard-markdown h3 {
+    color: #034149;
+  }
 slug: nfr-coverage-burden
 certified_by: null
 certification_details: null

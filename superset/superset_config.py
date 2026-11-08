@@ -92,3 +92,22 @@ WEBDRIVER_BASEURL = os.environ.get("SUPERSET_WEBDRIVER_BASEURL", "http://superse
 # before the screenshot, and give the whole render more room than the default.
 SCREENSHOT_PLAYWRIGHT_WAIT_EVENT = "networkidle"
 SCREENSHOT_PLAYWRIGHT_DEFAULT_TIMEOUT = 90_000
+
+# Superset's accent colour (buttons, links, the open tab, focus rings) in the
+# deep teal of the maps' darkest fill, replacing the default blue. The shades
+# follow Superset's own primary scale; base and dark1 keep at least 7:1 contrast
+# with white text. The dashboard's own CSS (in the bundle) styles the page.
+THEME_OVERRIDES = {
+    "colors": {
+        "primary": {
+            "base": "#0A5A63",
+            "dark1": "#034149",
+            "dark2": "#022E34",
+            "light1": "#5E9399",
+            "light2": "#9DC4C8",
+            "light3": "#C9DFE1",
+            "light4": "#E3EFF0",
+            "light5": "#F1F7F7",
+        },
+    },
+}
