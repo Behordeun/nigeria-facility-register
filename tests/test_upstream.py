@@ -99,7 +99,8 @@ def _pages(espen_body: str = "") -> dict:
         u.MAP_MALARIA_CAPABILITIES_URL: _capabilities(*MALARIA_LISTED),
     }
     for disease in u.ESPEN_DISEASES:
-        pages[u.ESPEN_DOWNLOAD_URL.format(disease=disease, from_year=2026, to_year=2026)] = espen_body
+        pages[u.ESPEN_DOWNLOAD_URL.format(
+            disease=disease, from_year=PINNED.espen_latest_year + 1, to_year=TODAY.year)] = espen_body
     return pages
 
 
