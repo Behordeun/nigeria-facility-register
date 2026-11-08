@@ -4,7 +4,7 @@ The pipeline turns Nigeria's versioned, conflicting health-facility registers in
 
 ## Data flow
 
-![Data flow: GRID3 registers, the LGA frame, ESPEN summaries, LGA boundaries and enrichment inputs are loaded into an immutable DuckDB raw layer, modelled by dbt into staging models (authority layer, version lineage, NTD endemicity) and contracted marts (coverage and burden, version drift, choropleth, register summary), and served read-only through the Superset dashboard, refreshed by Dagster.](images/architecture-data-flow.svg)
+![Data flow: GRID3 registers, the LGA frame, ESPEN summaries, LGA boundaries and enrichment inputs are loaded into an immutable DuckDB raw layer, modelled by dbt into staging models (authority layer, version lineage, NTD endemicity, access and population) and contracted marts (coverage and burden with malaria and the priority score, version drift, choropleth, register summary), and served read-only through the Superset dashboard, refreshed by Dagster.](images/architecture-data-flow.svg)
 
 ## Spatial matching (why lineage needs it)
 
@@ -31,8 +31,8 @@ Every refresh emits its own figures as Dagster run metadata: raw v2/v3 load coun
 | Layer | Holds | Guarantee |
 | --- | --- | --- |
 | raw | source tables loaded as-is | immutable, reload is idempotent, provenance + hash pinned, loaded from a per-run snapshot not the live directory |
-| staging | authority layer, version lineage, per-LGA NTD endemicity | one source version per state, unique facility id, crosswalk-resolved LGA; endemicity one row per (LGA, disease), every known label ranked, unknown never ranked |
-| marts | coverage-burden, coverage outlook, version drift, coverage-choropleth, register summary | coverage-burden one row per LGA, coverage outlook one row per LGA per WorldPop year (facilities held at today's count), version drift one row per lineage record, choropleth one row per LGA polygon part, register summary exactly one row that agrees with the tables it summarises; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
+| staging | authority layer, version lineage, per-LGA NTD endemicity, per-LGA access and population | one source version per state, unique facility id, crosswalk-resolved LGA; endemicity one row per (LGA, disease), every known label ranked, unknown never ranked; access and population one row per LGA for the one population year the build describes |
+| marts | coverage-burden, coverage outlook, LGA profile facts, version drift, coverage-choropleth, register summary | coverage-burden one row per LGA, coverage outlook one row per LGA per WorldPop year (facilities held at today's count), LGA profile facts exactly 20 readable facts per LGA, version drift one row per lineage record, choropleth one row per LGA polygon part, register summary exactly one row that agrees with the tables it summarises; missing is not zero, enforced column contract (DATA_CONTRACT.md) |
 
 ## Data-quality gate
 

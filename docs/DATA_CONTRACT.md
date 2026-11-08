@@ -1,6 +1,6 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the four serving marts (`lga_coverage_burden`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the six serving marts (`lga_coverage_burden`, `lga_coverage_outlook`, `lga_profile_facts`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
