@@ -7,14 +7,15 @@ schedule and sensor must keep running so the register refreshes on its own.
 
 ## What runs
 
-Five services (`docker-compose.yml`). The first two share the project image (`Dockerfile`); the two Superset services share `nfr-superset:local`, built from `superset/Dockerfile`:
+Six services (`docker-compose.yml`). The first two share the project image (`Dockerfile`); the two Superset services share `nfr-superset:local`, built from `superset/Dockerfile`:
 
 - **webserver** — the Dagster UI, on `127.0.0.1:3000`.
 - **daemon** — runs the weekly schedule and the new-vintage sensor, and launches
   the `refresh_register` job.
 - **superset** — Apache Superset, on `127.0.0.1:8088`, reading the register read-only for dashboards. See the Superset section below.
 - **superset-worker** — a Celery worker that renders dashboard downloads (PDF and image) in headless Chromium.
-- **redis** — the worker's queue and the cache for rendered downloads; not published on any host port.
+- **redis** — the worker's queue, the cache for rendered downloads and the cache for chart results; not published on any host port.
+- **superset-db** — Postgres holding Superset's own records (users, roles, charts, dashboards); not the register, and not published on any host port.
 
 The Dagster webserver and daemon share a `DAGSTER_HOME` volume (one instance, one run store, one set of
 schedule/sensor state) and the `build/` volume (the live DuckDB database, the
@@ -112,7 +113,7 @@ State and facility-status filters apply across the tabs.
 
 To bring it up:
 
-1. Set real credentials first. Copy `.env.example` to `.env` beside the compose file and fill in `SUPERSET_SECRET_KEY` and `SUPERSET_ADMIN_PASSWORD` (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires both, so `docker compose up` aborts with a clear message if either is unset rather than booting with a guessable default. The real `.env` is gitignored. **Never commit real credentials.**
+1. Set real credentials first. Copy `.env.example` to `.env` beside the compose file and fill in `SUPERSET_SECRET_KEY`, `SUPERSET_ADMIN_PASSWORD` and `SUPERSET_DB_PASSWORD` (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires all three, so `docker compose up` aborts with a clear message if any is unset rather than booting with a guessable default. The real `.env` is gitignored. **Never commit real credentials.**
 2. Start the stack (`docker compose up -d`) and let a refresh publish the register.
 3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It zips the bundle, copies it into the `superset` container and loads it with Superset's assets importer (`ImportAssetsCommand`), which creates the connection, datasets, charts and dashboard, or on a re-run overwrites every one of them in place by UUID, so upgrading a deployment is re-running `make dashboard` after pulling the new bundle. The import runs as the user named by `SUPERSET_ADMIN_USERNAME`, which must exist. Changes made in the UI to these objects are replaced by the bundle on the next import, so export them first (below) if they should be kept. Then open `http://127.0.0.1:8088` and log in.
 
@@ -132,9 +133,15 @@ Download as PDF or image is rendered on the server, so it works on every tab, ma
 
 Superset serves the screenshot endpoints only with its `THUMBNAILS` flag on as well, so the dashboard and chart lists can also show card thumbnails, rendered by the same worker.
 
-The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver with DuckDB pinned to the version the pipeline writes the register with (`pyproject.toml`), Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF) and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
+The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver with DuckDB pinned to the version the pipeline writes the register with (`pyproject.toml`), Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF), the Postgres driver for the metadata database and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
 
-Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
+### Metadata and caching
+
+Superset keeps its own records (users, roles, charts, dashboards, permalinks) in the `superset-db` Postgres service, on the `superset_db` volume. Postgres rather than SQLite because the web server and the download worker both write to it. It is independent of the register and survives a register rebuild; the dashboard itself can always be restored from the bundle with `make dashboard`, so what the volume really holds is users and roles.
+
+A deployment from before Postgres kept those records in SQLite on the `superset_home` volume, which stays mounted and untouched. On the first start with Postgres, the bootstrap creates the admin user again from `.env`; re-run `make dashboard`, then recreate any other users and roles in the UI. Superset has no built-in tool to move records between the two databases.
+
+Chart query results are cached in Redis for up to a day, so repeat views of a chart do not query DuckDB again. Superset's cache key is the query, not the register's contents, so after each publish the refresh job empties that cache (`NFR_SUPERSET_CACHE_REDIS_URL` in the Dagster services names its Redis database, which holds nothing else). The dashboard shows a new register as soon as it is published. If the clear fails, the refresh still succeeds, logs a warning and records `dashboard_cache: not cleared` in the asset metadata; the dashboard then shows the previous figures until the cache expires. Superset opens a new DuckDB connection for every query, so it never keeps reading a register that has been replaced.
 
 ### Who can see what
 

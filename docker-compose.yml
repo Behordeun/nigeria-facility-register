@@ -20,6 +20,9 @@ x-dagster-common: &dagster-common
   image: nfr-dagster:local
   environment:
     DAGSTER_HOME: /opt/dagster/home
+    # Superset's chart-result cache. The refresh empties it right after it
+    # publishes a new register, so the dashboard never serves the old figures.
+    NFR_SUPERSET_CACHE_REDIS_URL: redis://redis:6379/3
   volumes:
     - dagster_home:/opt/dagster/home
     - build:/app/build
@@ -104,9 +107,13 @@ services:
       # Public token (pk.), kept in .env, never committed. Default empty so the
       # stack still boots without one.
       MAPBOX_API_KEY: ${MAPBOX_API_KEY:-}
+      # Superset's metadata database (superset-db). Required, like the keys above.
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:?SUPERSET_DB_PASSWORD is required; put it in a .env file}
     volumes:
       # The live register, read-only: Superset reads it, never writes it.
       - build:/app/register:ro
+      # Superset's data directory. Its metadata now lives in superset-db; a
+      # deployment from before that change keeps its old SQLite file here.
       - superset_home:/app/superset_home
     # Bootstrap the metadata DB and admin, then start. Idempotent: re-running
     # upgrade/init/create-admin is safe.
@@ -127,21 +134,25 @@ services:
       - "127.0.0.1:8088:8088"
     networks:
       - internal
+    # The bootstrap above runs `superset db upgrade` first, so Postgres must be
+    # accepting connections, not merely started.
     depends_on:
-      - daemon
-      - redis
+      daemon:
+        condition: service_started
+      redis:
+        condition: service_started
+      superset-db:
+        condition: service_healthy
 
   # Renders dashboard downloads (PDF and image) on the server. The Download menu
   # queues a job; this worker opens the dashboard in headless Chromium as the
   # requesting user, screenshots it and caches the image in Redis for the page
-  # to fetch. It shares the metadata DB (superset_home) with the web server so
-  # it can sign in as that user, and reaches it over the compose network. It
+  # to fetch. It shares the metadata database (superset-db) with the web server
+  # so it can sign in as that user, and reaches it over the compose network. It
   # does not mount the register: the web server runs every query.
   superset-worker:
     image: nfr-superset:local
     environment: *superset-environment
-    volumes:
-      - superset_home:/app/superset_home
     command:
       - celery
       - --app=superset.tasks.celery_app:app
@@ -150,14 +161,49 @@ services:
       - --concurrency=1
       - -O
       - fair
+    # The image's own check curls the web server's /health, which this worker
+    # does not serve, so it would always report unhealthy. Ask the worker
+    # itself instead; the ping loads Superset's app, so it runs once a minute.
+    healthcheck:
+      test: ["CMD-SHELL", "celery --app=superset.tasks.celery_app:app inspect ping --destination celery@$$HOSTNAME --timeout 10"]
+      interval: 60s
+      timeout: 45s
+      start_period: 60s
+      retries: 3
     networks:
       - internal
+    # Start after the web server is healthy: its bootstrap creates Superset's
+    # tables in superset-db, which the worker reads when it signs in.
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      superset:
+        condition: service_healthy
 
-  # Celery broker and the screenshot cache. Not published on any host port.
+  # Celery broker, the screenshot cache and the chart-result cache. Not
+  # published on any host port.
   redis:
     image: redis:7.4.1-alpine@sha256:c1e88455c85225310bbea54816e9c3f4b5295815e6dbf80c34d40afc6df28275
+    networks:
+      - internal
+
+  # Superset's own records: users, roles, charts, dashboards, permalinks. Not
+  # the register, which stays a DuckDB file. Postgres rather than SQLite because
+  # the web server and the worker both write to it. Not published on any host
+  # port.
+  superset-db:
+    image: postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297
+    environment:
+      POSTGRES_USER: superset
+      POSTGRES_DB: superset
+      POSTGRES_PASSWORD: ${SUPERSET_DB_PASSWORD:?SUPERSET_DB_PASSWORD is required; put it in a .env file}
+    volumes:
+      - superset_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
     networks:
       - internal
 
@@ -172,3 +218,4 @@ volumes:
   dagster_home:
   build:
   superset_home:
+  superset_db:
