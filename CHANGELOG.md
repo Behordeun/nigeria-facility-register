@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- The dashboard shows malaria on its own. The NTD burden tab, renamed Disease burden, gains a map of the malaria parasite rate in children aged 2-10 by LGA, in five bands (under 15%, 15-20%, 20-25%, 25-30%, 30% and over), beside a note on the source and how malaria enters the priority score. The per-LGA burden table adds the parasite rate and clinical cases per 1,000 a year, and the ranked high-priority table adds the parasite rate beside the malaria points. `lga_coverage_choropleth`'s Superset dataset exposes `pf_parasite_rate`. No published table changes.
+
 ### Changed
 
 - The dashboard has a teal theme in place of Superset's default grey and blue: a deep teal title band, a warm off-white page, white rounded cards with a soft shadow, a teal mark on the open tab, and a pale teal rule beside the notes. The page styling is the dashboard's CSS in the bundle; Superset's accent colour comes from `THEME_OVERRIDES` in `superset/superset_config.py`, so the Superset image needs a rebuild (`docker compose build superset superset-worker`) to pick it up. Charts, data and the layout are unchanged.

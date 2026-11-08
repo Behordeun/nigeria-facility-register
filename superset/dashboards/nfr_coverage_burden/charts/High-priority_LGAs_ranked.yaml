@@ -17,6 +17,7 @@ params:
   - priority_coverage_points
   - access_risk_score
   - priority_malaria_points
+  - pf_parasite_rate
   - facilities_per_10k_population
   - population
   - priority_reasons
@@ -45,6 +46,8 @@ params:
       d3NumberFormat: ',d'
     facilities_per_10k_population:
       d3NumberFormat: ',.2f'
+    pf_parasite_rate:
+      d3NumberFormat: .0%
 query_context: null
 cache_timeout: null
 uuid: eb79df4f-fc7f-58e3-9b44-08e71d517a85

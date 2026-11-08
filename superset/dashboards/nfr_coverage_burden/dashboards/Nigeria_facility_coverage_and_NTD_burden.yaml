@@ -271,7 +271,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 32
+      chartId: 33
       width: 4
       height: 70
       sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
@@ -286,7 +286,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 28
+      chartId: 29
       width: 4
       height: 70
       sliceName: 'Schistosomiasis: endemicity rank by LGA'
@@ -329,7 +329,7 @@ position:
     - ROW-burden-2
     children: []
     meta:
-      chartId: 24
+      chartId: 25
       width: 4
       height: 70
       sliceName: 'Onchocerciasis: endemicity rank by LGA'
@@ -377,6 +377,62 @@ position:
     - CHART-bar_rank_distribution
     meta:
       background: BACKGROUND_TRANSPARENT
+  MARKDOWN-malaria_note:
+    id: MARKDOWN-malaria_note
+    type: MARKDOWN
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-malaria
+    children: []
+    meta:
+      width: 4
+      height: 70
+      code: '### Malaria
+
+        The *P. falciparum* parasite rate in children aged 2-10, from the Malaria
+        Atlas Project''s 202608 release for 2025. Each LGA''s figure is weighted by
+        where people live on the WorldPop 2025 100 m grid, so every LGA has one.
+
+
+        Colour key: pale yellow under 15%, then 15-20%, 20-25% and 25-30%, dark red
+        30% and over.
+
+
+        Malaria is the fourth part of the priority score: 0-3 points by national quarter
+        of the parasite rate, the highest quarter scoring 3. The LGA profile and the
+        map hover also give clinical cases per 1,000 people a year.
+
+
+        MAP data: CC BY.'
+  CHART-map_malaria:
+    id: CHART-map_malaria
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    - ROW-burden-malaria
+    children: []
+    meta:
+      chartId: 22
+      width: 8
+      height: 70
+      sliceName: 'Malaria: parasite rate by LGA'
+      uuid: fbe8a0ad-241c-55ef-b005-7e4bf70b60d7
+  ROW-burden-malaria:
+    id: ROW-burden-malaria
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-burden
+    children:
+    - MARKDOWN-malaria_note
+    - CHART-map_malaria
+    meta:
+      background: BACKGROUND_TRANSPARENT
   CHART-table_burden_profile:
     id: CHART-table_burden_profile
     type: CHART
@@ -413,9 +469,10 @@ position:
     - ROW-burden-0
     - ROW-burden-1
     - ROW-burden-2
+    - ROW-burden-malaria
     - ROW-burden-3
     meta:
-      text: NTD burden
+      text: Disease burden
       defaultText: Tab title
       placeholder: Tab title
   MARKDOWN-drift_note:
@@ -471,7 +528,7 @@ position:
     - ROW-drift-1
     children: []
     meta:
-      chartId: 22
+      chartId: 23
       width: 4
       height: 60
       sliceName: Name agreement of carried-over facilities
@@ -514,7 +571,7 @@ position:
     - ROW-drift-2
     children: []
     meta:
-      chartId: 27
+      chartId: 28
       width: 12
       height: 80
       sliceName: 'Review queue: dropped and appeared facilities'
@@ -598,7 +655,7 @@ position:
     - ROW-about-0
     children: []
     meta:
-      chartId: 26
+      chartId: 27
       width: 12
       height: 62
       sliceName: Register status
@@ -718,7 +775,7 @@ position:
     - ROW-access-1
     children: []
     meta:
-      chartId: 31
+      chartId: 32
       width: 6
       height: 90
       sliceName: Share of people over an hour's walk from a facility
@@ -815,10 +872,10 @@ position:
     - ROW-overview-2
     children: []
     meta:
-      chartId: 25
+      chartId: 26
       width: 6
       height: 90
-      sliceName: Priority score (0-8)
+      sliceName: Priority score (0-11)
       uuid: ec7cbd2d-2cfd-5ec2-9399-90a139ff9926
   MARKDOWN-priority_note:
     id: MARKDOWN-priority_note
@@ -911,7 +968,7 @@ position:
     - ROW-mix-1
     children: []
     meta:
-      chartId: 30
+      chartId: 31
       width: 6
       height: 90
       sliceName: Secondary and tertiary facilities per 100,000 people
@@ -926,7 +983,7 @@ position:
     - ROW-mix-1
     children: []
     meta:
-      chartId: 23
+      chartId: 24
       width: 6
       height: 90
       sliceName: Not-functional share (LGAs with 5+ facilities of known status)
@@ -968,7 +1025,7 @@ position:
     - ROW-mix-2
     children: []
     meta:
-      chartId: 29
+      chartId: 30
       width: 6
       height: 90
       sliceName: Facilities by level
@@ -1251,7 +1308,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 26
+      - 27
     chartsInScope:
     - 1
     - 2
@@ -1308,9 +1365,9 @@ metadata:
       - 8
       - 14
       - 19
-      - 22
+      - 23
+      - 28
       - 27
-      - 26
     chartsInScope:
     - 1
     - 2
@@ -1394,7 +1451,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 26
+      - 27
     tabsInScope:
     - TAB-overview
     - TAB-profile
@@ -1428,7 +1485,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 26
+      - 27
     tabsInScope:
     - TAB-overview
     - TAB-profile
