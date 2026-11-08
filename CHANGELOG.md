@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- The dashboard has a teal theme in place of Superset's default grey and blue: a deep teal title band, a warm off-white page, white rounded cards with a soft shadow, a teal mark on the open tab, and a pale teal rule beside the notes. The page styling is the dashboard's CSS in the bundle; Superset's accent colour comes from `THEME_OVERRIDES` in `superset/superset_config.py`, so the Superset image needs a rebuild (`docker compose build superset superset-worker`) to pick it up. Charts, data and the layout are unchanged.
+
 ## [0.6.0] - 2026-11-08
 
 ### Added
