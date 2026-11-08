@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Malaria burden per LGA. `lga_coverage_burden` gains `malaria_year`, `pf_parasite_rate` (the P. falciparum parasite rate in children aged 2-10, 0-1) and `pf_incidence_per_1000` (clinical cases per 1,000 people a year), from the Malaria Atlas Project's 202608 release for 2025, and `lga_coverage_choropleth` carries both measures. Each is population-weighted on the WorldPop 2025 100 m grid, so dense urban LGAs smaller than one 5 km MAP cell still get their value; every LGA has one. `scripts/build_malaria_burden.py` builds `data/derived/malaria_lga.csv` from rasters pinned by SHA-256 in `data/sources.yml`. The map hover and the LGA profile (now 20 facts) include malaria. A dbt test checks the columns equal the source table, one year, and stay in range. Nationally the median LGA has a 24% parasite rate and 270 cases per 1,000 a year. Malaria does not feed the priority score.
+
 ## [0.5.0] - 2026-11-08
 
 ### Added

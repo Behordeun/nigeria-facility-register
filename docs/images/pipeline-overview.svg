@@ -44,7 +44,7 @@
     <path d="M13,2 V32 M24,8 V38" stroke="#f7fbff" stroke-width="2"/>
   </g>
   <text x="506" y="152" class="ct">Frame and burden layers</text>
-  <text class="cb"><tspan x="506" y="176">774-LGA frame and boundaries (CC BY);</tspan><tspan x="506" y="195">ESPEN NTD endemicity (NC, derived);</tspan><tspan x="506" y="214">WorldPop population and births;</tspan><tspan x="506" y="233">MAP travel time; flood exposure.</tspan></text>
+  <text class="cb"><tspan x="506" y="176">774-LGA frame and boundaries (CC BY);</tspan><tspan x="506" y="195">ESPEN NTD endemicity (NC, derived);</tspan><tspan x="506" y="214">WorldPop population and births;</tspan><tspan x="506" y="233">MAP travel time and malaria; flood exposure.</tspan></text>
   <rect x="506" y="250" width="132" height="24" rx="12" fill="#dde9fb"/>
   <text x="572" y="267" class="tag" fill="#2f5fb3" text-anchor="middle">vendored, derived</text>
 

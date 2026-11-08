@@ -84,6 +84,8 @@ select
     c.secondary_tertiary_per_100k_population,
     c.functional_status_known_share,
     c.not_functional_share,
+    c.pf_parasite_rate,
+    c.pf_incidence_per_1000,
     c.ntd_diseases_known,
     c.priority_burden_points,
     c.priority_coverage_points,

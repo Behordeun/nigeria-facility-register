@@ -7,7 +7,7 @@
 -- rendering HTML. Every value is text; a missing input is written out ("n/a",
 -- "unknown", "not measured", "not scored"), never shown as 0.
 --
--- Grain: one row per (lga_label, fact_order), 18 facts for each of the 774 LGAs.
+-- Grain: one row per (lga_label, fact_order), 20 facts for each of the 774 LGAs.
 
 with lgas as (
     select * from {{ ref('lga_coverage_burden') }}
@@ -67,6 +67,11 @@ select
         {'fact_order': 17, 'section': 'NTD endemicity rank (0-3)', 'fact': 'Onchocerciasis',
          'value': coalesce(cast(oncho_endemicity_rank_lga as varchar), 'unknown')},
         {'fact_order': 18, 'section': 'NTD endemicity rank (0-3)', 'fact': 'Loa loa',
-         'value': coalesce(cast(loa_endemicity_rank_lga as varchar), 'unknown')}
+         'value': coalesce(cast(loa_endemicity_rank_lga as varchar), 'unknown')},
+
+        {'fact_order': 19, 'section': 'Malaria (MAP ' || malaria_year || ')', 'fact': 'Parasite rate, age 2-10',
+         'value': coalesce(printf('%.0f', pf_parasite_rate * 100) || '%', 'not estimated')},
+        {'fact_order': 20, 'section': 'Malaria (MAP ' || malaria_year || ')', 'fact': 'Clinical cases per 1,000 a year',
+         'value': coalesce(printf('%.0f', pf_incidence_per_1000), 'not estimated')}
     ], recursive := true)
 from lgas

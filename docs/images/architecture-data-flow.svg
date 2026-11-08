@@ -105,7 +105,7 @@
     <rect x="40" y="632" width="190" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
     <use href="#i-pin" xlink:href="#i-pin" x="50" y="642" width="26" height="26" color="#2f6fd6"/>
     <text x="84" y="660" class="ct">MAP + WorldPop</text>
-    <text class="cb"><tspan x="52" y="684">travel time to care (2020);</tspan><tspan x="52" y="700">2025 population, 100 m</tspan></text>
+    <text class="cb"><tspan x="52" y="684">travel time (2020), malaria</tspan><tspan x="52" y="700">(2025); population, 100 m</tspan></text>
     <text x="52" y="718" class="ft">rasters fetched, never committed</text>
   </g>
 
@@ -140,7 +140,7 @@
     <rect x="270" y="632" width="210" height="96" rx="10" fill="#fff" stroke="#cfd6e2"/>
     <use href="#i-doc" xlink:href="#i-doc" x="280" y="642" width="26" height="26" color="#4e5a70"/>
     <text x="314" y="660" class="ct">Access + population</text>
-    <text class="cb"><tspan x="282" y="684">per-LGA population and</tspan><tspan x="282" y="700">population-weighted travel time</tspan></text>
+    <text class="cb"><tspan x="282" y="684">per-LGA population, travel</tspan><tspan x="282" y="700">time and malaria, pop-weighted</tspan></text>
     <text x="282" y="718" class="ft">derived, CC BY</text>
   </g>
 

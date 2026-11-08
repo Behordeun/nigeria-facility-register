@@ -1,4 +1,4 @@
--- lga_profile_facts holds exactly facts 1-18 for every LGA in
+-- lga_profile_facts holds exactly facts 1-20 for every LGA in
 -- lga_coverage_burden and for no other LGA, so the dashboard's LGA profile
 -- always shows the full, ordered set. Its score facts agree with the score
 -- columns they describe. Returns one row per violation.
@@ -25,7 +25,7 @@ select l.lga_label, 'missing or incomplete fact set' as problem
 from lgas l
 left join per_lga p on p.lga_label = l.lga_label
 where p.lga_label is null
-   or p.n_facts <> 18 or p.n_orders <> 18 or p.first_order <> 1 or p.last_order <> 18
+   or p.n_facts <> 20 or p.n_orders <> 20 or p.first_order <> 1 or p.last_order <> 20
 
 union all
 
