@@ -39,9 +39,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -49,6 +47,7 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from nfr.keys import norm_lga, norm_state  # noqa: E402
+from nfr.files import write_csv_atomic  # noqa: E402
 
 FRAME_INDEX = ROOT / "data" / "frame" / "nigeria_master_lga_index.csv"
 DEFAULT_OUT = ROOT / "data" / "derived"
@@ -165,16 +164,7 @@ def derive_births(raw: pd.DataFrame, frame: pd.DataFrame) -> pd.DataFrame:
 
 
 def write_atomic(df: pd.DataFrame, out: Path) -> None:
-    out.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(out.parent), prefix=f".{out.name}.", suffix=".part")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            df.to_csv(fh, index=False)
-        os.replace(tmp, out)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
+    write_csv_atomic(df, out)
     print(f"wrote {out} ({len(df)} rows)")
 
 
