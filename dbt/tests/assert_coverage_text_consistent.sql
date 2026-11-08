@@ -20,6 +20,7 @@ where priority_reasons is not null
       starts_with(priority_reasons, 'burden ' || priority_burden_points || ' ')
       and contains(priority_reasons, ' · coverage ' || priority_coverage_points || ' ')
       and contains(priority_reasons, ' · access ' || access_risk_score)
+      and contains(priority_reasons, ' · malaria ' || priority_malaria_points || ' (')
   )
 
 union all
@@ -34,7 +35,7 @@ select lga_label, 'lga_summary misstates the priority score'
 from c
 where not contains(
     lga_summary,
-    ' · priority score ' || coalesce(priority_score || ' of 8 ', 'n/a')
+    ' · priority score ' || coalesce(priority_score || ' of 11 ', 'n/a')
 )
 
 union all

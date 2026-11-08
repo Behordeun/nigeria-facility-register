@@ -40,4 +40,4 @@ select f.lga_label, 'priority score fact disagrees with priority_score and prior
 from facts f
 join lgas l on l.lga_label = f.lga_label
 where f.fact_order = 2
-  and f.value <> coalesce(l.priority_score || ' of 8 (' || l.priority_tier || ')', 'not scored')
+  and f.value <> coalesce(l.priority_score || ' of 11 (' || l.priority_tier || ')', 'not scored')

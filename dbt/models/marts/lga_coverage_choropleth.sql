@@ -89,6 +89,7 @@ select
     c.ntd_diseases_known,
     c.priority_burden_points,
     c.priority_coverage_points,
+    c.priority_malaria_points,
     c.priority_score,
     c.priority_tier,
     b.geometry_geojson,
@@ -127,6 +128,7 @@ select
                 'ntd_diseases_known', c.ntd_diseases_known,
                 'priority_burden_points', c.priority_burden_points,
                 'priority_coverage_points', c.priority_coverage_points,
+                'priority_malaria_points', c.priority_malaria_points,
                 'priority_score', c.priority_score,
                 'priority_tier', c.priority_tier
             )
