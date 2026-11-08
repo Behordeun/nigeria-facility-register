@@ -802,7 +802,7 @@ position:
       chartId: 26
       width: 6
       height: 90
-      sliceName: Priority score (0-8)
+      sliceName: Priority score (0-11)
       uuid: ec7cbd2d-2cfd-5ec2-9399-90a139ff9926
   MARKDOWN-priority_note:
     id: MARKDOWN-priority_note
