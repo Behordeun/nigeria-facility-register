@@ -1,7 +1,9 @@
 # Superset image for the NFR stack: the pinned upstream image plus what the
 # dashboard needs at run time, built once so every container starts the same.
 #
-#   - duckdb-engine: the duckdb:// SQLAlchemy driver for the register.
+#   - duckdb-engine: the duckdb:// SQLAlchemy driver for the register, with
+#     duckdb pinned to the version the pipeline writes the register with
+#     (pyproject.toml), so the reader always matches the writer.
 #   - playwright + Chromium: the headless browser the Celery worker uses to
 #     render dashboard downloads (PDF and image) on the server. Playwright, not
 #     Selenium, because it renders the deck.gl map layers. 1.44.0 pins
@@ -19,7 +21,7 @@ FROM apache/superset:4.1.1@sha256:1d1fdaaeb19ce9cdba71620ee1cc6117d73813b2f3b422
 ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 USER root
-RUN pip install --no-cache-dir duckdb-engine==0.17.0 playwright==1.44.0 Pillow==10.4.0 \
+RUN pip install --no-cache-dir duckdb==1.5.6 duckdb-engine==0.17.0 playwright==1.44.0 Pillow==10.4.0 \
     && playwright install --with-deps chromium \
     && chmod -R a+rX /opt/ms-playwright \
     && apt-get clean \

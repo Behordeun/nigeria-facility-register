@@ -132,7 +132,7 @@ Download as PDF or image is rendered on the server, so it works on every tab, ma
 
 Superset serves the screenshot endpoints only with its `THUMBNAILS` flag on as well, so the dashboard and chart lists can also show card thumbnails, rendered by the same worker.
 
-The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver, Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF) and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
+The Superset image (`superset/Dockerfile`) adds the `duckdb-engine` driver with DuckDB pinned to the version the pipeline writes the register with (`pyproject.toml`), Playwright 1.44.0 with Chromium, Pillow 10.4.0 (which assembles the PDF) and the config file to the digest-pinned upstream image. That Playwright release pins the same `greenlet` version this Superset release ships, so Superset's own dependencies are unchanged. Chromium and its system libraries take the image from about 1.3 GB to 2.75 GB. `docker compose up -d --build` rebuilds it after an edit to either file.
 
 Superset keeps its own metadata (users, charts, dashboards) in the `superset_home` volume; it is independent of the register and survives a register rebuild. Losing that volume loses nothing the bundle cannot restore.
 
