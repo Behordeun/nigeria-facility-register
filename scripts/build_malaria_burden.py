@@ -62,7 +62,9 @@ def main() -> None:
     map_pins, worldpop_pin = pins()
     if not args.print_hashes and (missing := [k for k, v in map_pins.items() if not v]):
         raise SystemExit(f"no pin for {missing}; record them with --print-hashes first")
-    if not worldpop_pin:
+    # Re-pinning mode only prints the MAP hashes and never reads the population
+    # raster, so it needs no WorldPop pin; a build does, and fails before fetching.
+    if not args.print_hashes and not worldpop_pin:
         raise SystemExit(f"no WorldPop pin for {mb.MALARIA_YEAR} under access_population_lga in data/sources.yml")
 
     year = mb.MALARIA_YEAR
