@@ -57,6 +57,8 @@ select
     c.canonical_lga,
     c.state,
     c.lga_label,
+    -- The map hover text, built once in lga_coverage_burden.
+    c.lga_summary,
     c.espen_iu_id,
     c.facilities,
     c.facility_source_version,

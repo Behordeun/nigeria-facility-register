@@ -296,6 +296,7 @@ flagged as (
 -- priority_tier reads the score on fixed cut-offs: high 6-8 (about the top
 -- tenth on the current data), medium 4-5, low 0-3. It sits beside the
 -- original priority flag, which is unchanged.
+, scored as (
 select
     f.*,
     -- "LGA, State": a unique, human-readable key for picking one LGA (six LGA
@@ -310,3 +311,57 @@ select
         else 'low'
     end as priority_tier
 from flagged f
+)
+
+-- Readable text built from the columns above, so every consumer (the
+-- dashboard's ranked list, its map hover and anyone querying the mart) reads
+-- the same wording and the tests here check it. Missing values are written
+-- out ("n/a", "unknown", "not measured"), never shown as 0.
+select
+    s.*,
+    -- Why an LGA scores what it does, one clause per part of the score. Null
+    -- exactly when the score is null (a part is not measured).
+    case when s.priority_score is not null then
+        'burden ' || s.priority_burden_points
+        || ' (highest of ' || s.ntd_diseases_known || ' known disease ranks)'
+        || ' · coverage ' || s.priority_coverage_points
+        || ' (' || printf('%.1f', s.facilities_per_10k_population) || ' facilities per 10,000 people)'
+        || ' · access ' || s.access_risk_score
+        || case
+            when s.hard_to_reach and s.flood_affected_2024 then ' (hard to reach on foot, flooded in 2024)'
+            when s.hard_to_reach then ' (hard to reach on foot)'
+            when s.flood_affected_2024 then ' (flooded in 2024)'
+            else ''
+        end
+    end as priority_reasons,
+    -- A one-line summary of everything the register holds for the LGA, used as
+    -- the map hover. Never null.
+    s.lga_label
+    || ' · ' || format('{:,}', s.facilities)
+    || case when s.facilities = 1 then ' facility' else ' facilities' end
+    || ' (' || case
+        when s.facility_source_version is null then 'no facility matched'
+        else 'GRID3 ' || s.facility_source_version || ', ' || coalesce(s.facility_status, 'status n/a')
+    end || ')'
+    || ' · ' || coalesce(printf('%.1f', s.facilities_per_10k_population) || ' per 10k people', 'per-capita rate n/a')
+    || ' · STH ' || coalesce(cast(s.sth_endemicity_rank_lga as varchar), 'unknown')
+    || ' · SCH ' || coalesce(cast(s.sch_endemicity_rank_lga as varchar), 'unknown')
+    || ' · LF ' || coalesce(cast(s.lf_endemicity_rank_lga as varchar), 'unknown')
+    || ' · Oncho ' || coalesce(cast(s.oncho_endemicity_rank_lga as varchar), 'unknown')
+    || ' · Loa ' || coalesce(cast(s.loa_endemicity_rank_lga as varchar), 'unknown')
+    || ' · ' || coalesce(
+        printf('%.0f', s.walking_minutes) || ' min walk, '
+        || printf('%.0f', s.walking_over_60min_share * 100) || '% over an hour',
+        'travel time n/a')
+    || ' · flood 2024: ' || case when s.flood_affected_2024 then 'yes' else 'no' end
+    || ' · access risk ' || coalesce(cast(s.access_risk_score as varchar), 'n/a')
+    || ' · ' || (s.facilities_secondary + s.facilities_tertiary) || ' secondary/tertiary'
+    || coalesce(' · ' || printf('%.0f', s.not_functional_share * 100) || '% of known-status facilities not functional', '')
+    || ' · priority score ' || coalesce(
+        s.priority_score || ' of 8 (burden ' || s.priority_burden_points
+        || ' + coverage ' || s.priority_coverage_points
+        || ' + access ' || s.access_risk_score || '), ' || s.priority_tier,
+        'n/a')
+    || ' · original flag: ' || case when s.priority_high_burden_thin_coverage then 'yes' else 'no' end
+    as lga_summary
+from scored s

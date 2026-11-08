@@ -42,6 +42,16 @@ params:
   column_config:
     population_change_from_register_year:
       d3NumberFormat: +.1%
+    population:
+      d3NumberFormat: ',d'
+    facilities:
+      d3NumberFormat: ',d'
+    facilities_per_10k_register_year:
+      d3NumberFormat: ',.2f'
+    facilities_per_10k_population:
+      d3NumberFormat: ',.2f'
+    facilities_per_10k_change_from_register_year:
+      d3NumberFormat: +,.2f
 query_context: null
 cache_timeout: null
 uuid: 4c0dcd29-e9ab-5c5a-9430-4b9fd43fc9a8

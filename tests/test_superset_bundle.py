@@ -219,3 +219,26 @@ def test_every_map_shows_the_lga_hover_summary():
         assert params.get("js_columns") == ["name"], f"map {chart['slice_name']} does not pass the hover summary"
         columns = {c["column_name"]: c for c in datasets[chart["dataset_uuid"]]["columns"]}
         assert columns.get("name", {}).get("expression"), "the map dataset must define the `name` hover column"
+
+
+def test_lga_profile_link_targets_this_dashboard_filter_and_tab():
+    # The ranked list's link hard-codes three identifiers from the dashboard:
+    # its slug, the LGA native filter's id, and the profile tab's id. Renaming
+    # any of them would leave every link opening the wrong place, silently.
+    (dashboard,) = _many("dashboards")
+    (burden,) = [d for d in _many("datasets") if d["table_name"] == "lga_coverage_burden"]
+    columns = {c["column_name"]: c for c in burden["columns"]}
+    expression = columns["lga_profile_link"]["expression"]
+
+    filters = {f["id"]: f for f in dashboard["metadata"]["native_filter_configuration"]}
+    lga_filter = filters.get("NATIVE_FILTER-lga")
+    assert lga_filter, "the link presets NATIVE_FILTER-lga, which the dashboard no longer defines"
+    assert [t["column"]["name"] for t in lga_filter["targets"]] == ["lga_label"], (
+        "the link sets lga_label; the LGA filter must target that column"
+    )
+    assert f"/superset/dashboard/{dashboard['slug']}/?native_filters=(NATIVE_FILTER-lga:" in expression, (
+        "the link must open this dashboard by its slug"
+    )
+    assert expression.count("#TAB-profile") == 1 and "TAB-profile" in dashboard["position"], (
+        "the link must open the LGA profile tab, which must exist"
+    )

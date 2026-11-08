@@ -3,10 +3,10 @@ description: The chosen LGA's facilities per 10,000 WorldPop residents for each 
   at today's facility count.
 certified_by: null
 certification_details: null
-viz_type: echarts_timeseries_bar
+viz_type: echarts_timeseries_line
 params:
   datasource: 3__table
-  viz_type: echarts_timeseries_bar
+  viz_type: echarts_timeseries_line
   extra_form_data: {}
   x_axis: population_year
   metrics:
@@ -44,6 +44,9 @@ params:
   y_axis_title_margin: 15
   y_axis_title_position: Left
   show_value: true
+  truncateYAxis: true
+  markerEnabled: true
+  markerSize: 6
 query_context: null
 cache_timeout: null
 uuid: 3b08f396-c821-5e12-969d-b83c6a34562a

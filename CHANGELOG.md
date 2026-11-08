@@ -4,6 +4,25 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-08
+
+### Added
+
+- The dashboard's readable text now lives in dbt, under the contract and its tests. `lga_coverage_burden` gains `priority_reasons` (why an LGA scores what it does) and `lga_summary` (the one-line LGA summary used as the map hover), and `lga_coverage_choropleth` carries `lga_summary`. A new `lga_profile_facts` mart holds everything the register says about each LGA as 18 ordered facts, so the LGA profile is a plain table instead of HTML built in the dashboard. dbt tests check that every LGA has its full fact set, that the reasons and summary agree with the score columns, and that the map hover equals the mart's text; on the real data the moved text is identical to what the dashboard built before.
+
+### Changed
+
+- The dashboard follows a planner's path. Tabs run Coverage, LGA profile, NTD burden, Access, Facility mix, Outlook, Version drift, Data status. The Coverage tab puts the ranked high-priority list right after the headline figures, and selecting an LGA there opens it on the LGA profile tab (a link that sets the LGA filter through the dashboard URL, so it can also be shared). The LGA filter's list narrows to the chosen state. Coverage drops the raw facilities-per-LGA map, which per-capita coverage supersedes, and the original priority flag's map and by-state count, kept while the 0-8 score was reviewed; `priority_high_burden_thin_coverage` stays in the published data.
+- The dashboard reads more clearly. Maps frame Nigeria instead of West Africa. Colours carry the same meaning on every chart (colour-blind-safe for lineage, name agreement and facility level). Bars start at zero, and the LGA profile's 2030 trend is a line with exact values. Tables use thousands separators and two decimal places, the headline count is exact, and per-state bars are sorted largest first. The facility point map shows secondary and tertiary facilities, which primary points used to hide. The profile card loses its paging controls, the score-parts bar (the card already states the parts) and the superseded original flag column in the burden table. Presentation conventions are written down in DEPLOYMENT.
+- Superset keeps its own records (users, roles, charts, dashboards) in a new `superset-db` Postgres service instead of SQLite, since the web server and the download worker both write to them. It needs a new required `SUPERSET_DB_PASSWORD` in `.env`. The register stays a DuckDB file that Superset only reads.
+- Chart query results are cached in Redis for up to a day, and the refresh job empties that cache right after it publishes a new register, so the dashboard never shows figures from the previous register. A failed clear is logged as a warning and does not fail the refresh.
+- pandas 3.1.1 and DuckDB 1.5.6, which move together: DuckDB 1.1 does not recognise pandas 3's default string type. The Superset image pins the same DuckDB, so the dashboard reads the register with the version that wrote it. A rebuilt register is identical to one built with pandas 2.2.3 and DuckDB 1.1.3, table for table and value for value.
+
+### Notes
+
+- The contract changes are additive: `priority_reasons` and `lga_summary` on `lga_coverage_burden` (and `lga_summary` on `lga_coverage_choropleth`), and a new `lga_profile_facts` mart. No published column changes meaning or type.
+- To upgrade a running deployment: add `SUPERSET_DB_PASSWORD` to `.env`, run `docker compose up -d --build` (the Superset image changes and the stack gains `superset-db`), re-run `make dashboard`, and recreate any Superset users other than the admin, since Superset's records now start fresh in Postgres. The old SQLite file stays on the `superset_home` volume. Rebuild the register for the new columns and mart.
+
 ## [0.4.0] - 2026-11-07
 
 ### Added
@@ -120,7 +139,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...development
+[0.5.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.1.0...v0.2.0

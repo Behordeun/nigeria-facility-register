@@ -42,7 +42,7 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import metrics, publish, snapshot, upstream
+from nfr.orchestration import dashboard_cache, metrics, publish, snapshot, upstream
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
@@ -51,6 +51,9 @@ RAW = ROOT / "data" / "raw"
 # file onto this path only after the whole build and the quality gate pass.
 DB = ROOT / "build" / "nfr.duckdb"
 BUILD_DIR = ROOT / "build"
+# Superset's chart-result cache (a redis:// URL naming its database). Set in the
+# compose deployment; unset in the dev loop, where no Superset is running.
+DASHBOARD_CACHE_URL_ENV = "NFR_SUPERSET_CACHE_REDIS_URL"
 STAGING_DIR = BUILD_DIR / "staging"
 # Per-run immutable copies of the raw inputs. A run snapshots the live data/raw/
 # here and loads from the snapshot, so a later change to data/raw/ cannot alter
@@ -211,6 +214,28 @@ def _promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> No
         raise
 
 
+def _clear_dashboard_cache(log) -> str:
+    """Empty Superset's chart-result cache after a publish; return what happened.
+
+    Runs after the new register is live, so a failure here must not fail the
+    refresh: the data is already published, and the cache's own timeout bounds
+    how long the dashboard can show the previous register. It is logged as a
+    warning and recorded in the asset metadata instead.
+    """
+    url = os.environ.get(DASHBOARD_CACHE_URL_ENV)
+    if not url:
+        return "not configured"
+    try:
+        dashboard_cache.clear_dashboard_cache(url)
+    except (OSError, ValueError, dashboard_cache.DashboardCacheError) as exc:
+        log.warning(
+            f"Published the new register but could not clear Superset's chart cache ({exc}). "
+            "The dashboard may show the previous figures until the cache expires."
+        )
+        return f"not cleared: {exc}"
+    return "cleared"
+
+
 def _enforce_carryover_gate(db_path: str) -> float:
     """Return the carry-over rate, or raise if it does not clear the hard floor.
 
@@ -291,8 +316,10 @@ def dbt_models(context) -> None:
         raise
 
     _promote(staging_db, built_fingerprint, snapshot_dir)
+    dashboard_cache_status = _clear_dashboard_cache(context.log)
     context.add_output_metadata(
         {
+            "dashboard_cache": dashboard_cache_status,
             "db": str(DB),
             "promoted_from": str(staging_db),
             "published_fingerprint": built_fingerprint,

@@ -1,6 +1,6 @@
 slice_name: High-priority LGAs, ranked
-description: LGAs in the high priority tier (score 6-8), highest score first and thinnest
-  coverage first within a score, with the reason for each part.
+description: High-priority LGAs, highest score first and thinnest coverage first within
+  a score. Select an LGA to open its profile.
 certified_by: null
 certification_details: null
 viz_type: table
@@ -11,7 +11,7 @@ params:
   query_mode: raw
   groupby: []
   all_columns:
-  - lga_label
+  - lga_profile_link
   - priority_score
   - priority_burden_points
   - priority_coverage_points
@@ -37,8 +37,13 @@ params:
   table_timestamp_format: smart_date
   percent_metrics: []
   order_desc: true
-  allow_render_html: false
+  allow_render_html: true
   annotation_layers: []
+  column_config:
+    population:
+      d3NumberFormat: ',d'
+    facilities_per_10k_population:
+      d3NumberFormat: ',.2f'
 query_context: null
 cache_timeout: null
 uuid: eb79df4f-fc7f-58e3-9b44-08e71d517a85

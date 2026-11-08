@@ -16,7 +16,7 @@ params:
   adhoc_filters: []
   header_font_size: 0.4
   subheader_font_size: 0.15
-  y_axis_format: SMART_NUMBER
+  y_axis_format: ',d'
   time_format: smart_date
   subheader: authority layer, all LGAs
   annotation_layers: []

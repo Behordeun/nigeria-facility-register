@@ -4,31 +4,30 @@ certified_by: null
 certification_details: null
 viz_type: table
 params:
-  datasource: 1__table
+  datasource: 4__table
   viz_type: table
   extra_form_data: {}
   query_mode: raw
   groupby: []
   all_columns:
-  - profile_html
+  - section
+  - fact
+  - value
   order_by_cols:
-  - '["priority_score", false]'
-  - '["priority_coverage_points", false]'
-  - '["facilities_per_10k_population", true]'
+  - '["fact_order", true]'
   adhoc_filters: []
-  row_limit: 1
+  row_limit: 50
   server_pagination: false
   server_page_length: 20
-  page_length: 20
   include_search: false
   show_cell_bars: false
   table_timestamp_format: smart_date
   percent_metrics: []
   order_desc: true
-  allow_render_html: true
+  allow_render_html: false
   annotation_layers: []
 query_context: null
 cache_timeout: null
 uuid: 1bba42bf-a0fa-563f-852b-f1703d38a05c
 version: 1.0.0
-dataset_uuid: 76d68b13-a42d-5d57-9ea9-b3cc5e696631
+dataset_uuid: 0ad17ddc-3c16-5e75-bf05-a8a2beb9fcaa

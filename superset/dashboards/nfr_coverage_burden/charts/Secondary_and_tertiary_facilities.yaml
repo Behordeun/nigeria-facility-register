@@ -1,6 +1,6 @@
-slice_name: Facilities by level
-description: Each facility in the authority layer with coordinates, coloured by GRID3
-  level. Facilities without coordinates are not shown.
+slice_name: Secondary and tertiary facilities
+description: Every secondary and tertiary facility with coordinates, coloured by level.
+  Primary facilities are summarised in the per-capita maps.
 certified_by: null
 certification_details: null
 viz_type: deck_scatter
@@ -19,6 +19,10 @@ params:
     clause: WHERE
     sqlExpression: latitude IS NOT NULL AND longitude IS NOT NULL
     filterOptionName: filter_has_coordinates
+  - expressionType: SQL
+    clause: WHERE
+    sqlExpression: facility_level IN ('Secondary', 'Tertiary')
+    filterOptionName: filter_higher_level
   mapbox_style: mapbox://styles/mapbox/light-v9
   viewport:
     longitude: 8.4
@@ -35,10 +39,10 @@ params:
     minPitch: 0
     maxLatitude: 85.05113
     minLatitude: -85.05113
-  autozoom: false
+  autozoom: true
   point_radius_fixed:
     type: fix
-    value: '1500'
+    value: '2500'
   point_unit: square_m
   min_radius: 1
   max_radius: 250
