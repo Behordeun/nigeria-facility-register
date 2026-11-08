@@ -17,9 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import yaml
@@ -28,6 +26,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from nfr.enrichment import access_population as ap  # noqa: E402
 from nfr.enrichment import malaria_burden as mb  # noqa: E402
+from nfr.files import write_csv_atomic  # noqa: E402
 
 FRAME_INDEX = ROOT / "data" / "frame" / "nigeria_master_lga_index.csv"
 SIMPLIFIED = ROOT / "data" / "frame" / "nigeria_774_lga_boundaries.simplified.geojson"
@@ -45,17 +44,6 @@ def pins() -> tuple[dict[str, str | None], str | None]:
     return maps, (worldpop.get("sha256_by_year") or {}).get(mb.MALARIA_YEAR)
 
 
-def write_atomic(table, out: Path) -> None:
-    out.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(out.parent), prefix=f".{out.name}.", suffix=".part")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            table.to_csv(fh, index=False)
-        os.replace(tmp, out)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
 
 
 def main() -> None:
@@ -94,7 +82,7 @@ def main() -> None:
     ap.fetch(ap.WORLDPOP_URL.format(year=year), population, worldpop_pin)
     table = mb.derive(paths["pfpr"], paths["incidence"], population, lgas, year)
     mb.check(table)
-    write_atomic(table, args.out)
+    write_csv_atomic(table, args.out)
     print(f"wrote {args.out} ({len(table)} rows, malaria year {year}); sha256 {ap.sha256(args.out)}")
 
 
