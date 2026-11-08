@@ -38,11 +38,12 @@ params:
   comparison_type: values
   annotation_layers: []
   only_total: true
-  sort_series_type: sum
+  sort_series_type: name
   truncate_metric: true
   x_axis_title_margin: 15
   y_axis_title_margin: 15
   y_axis_title_position: Left
+  sort_series_ascending: true
 query_context: null
 cache_timeout: null
 uuid: 2923cc16-c0aa-59c6-a36e-c4ed9ed3071e

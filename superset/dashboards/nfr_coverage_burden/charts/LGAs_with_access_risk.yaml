@@ -42,6 +42,16 @@ params:
   column_config:
     walking_over_60min_share:
       d3NumberFormat: .0%
+    population:
+      d3NumberFormat: ',d'
+    facilities:
+      d3NumberFormat: ',d'
+    facilities_per_10k_population:
+      d3NumberFormat: ',.2f'
+    walking_minutes:
+      d3NumberFormat: ',.0f'
+    motorised_minutes:
+      d3NumberFormat: ',.0f'
 query_context: null
 cache_timeout: null
 uuid: 31ee02f4-2097-5b94-ba06-5551b9eeb1a6

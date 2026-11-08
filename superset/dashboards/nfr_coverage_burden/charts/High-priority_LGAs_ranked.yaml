@@ -39,6 +39,11 @@ params:
   order_desc: true
   allow_render_html: false
   annotation_layers: []
+  column_config:
+    population:
+      d3NumberFormat: ',d'
+    facilities_per_10k_population:
+      d3NumberFormat: ',.2f'
 query_context: null
 cache_timeout: null
 uuid: eb79df4f-fc7f-58e3-9b44-08e71d517a85

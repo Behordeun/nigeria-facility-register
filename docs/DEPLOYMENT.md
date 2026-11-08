@@ -96,11 +96,11 @@ through the mount with no restart.
 
 The compose stack includes an Apache Superset service. It reads the live register **read-only** (the `build` volume mounted at `/app/register`), so a dashboard query can never alter the published data.
 
-The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, seven datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_coverage_outlook`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `stg_facilities_authority`, `register_summary`), 35 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has eight tabs:
+The dashboard ships with the repo as a Superset import bundle in `superset/dashboards/nfr_coverage_burden/`: the read-only DuckDB connection, seven datasets (`lga_coverage_burden`, `lga_coverage_choropleth`, `lga_coverage_outlook`, `lga_version_drift`, `stg_ntd_endemicity_lga`, `stg_facilities_authority`, `register_summary`), 34 charts and the layout, all keyed by stable UUIDs. "Nigeria facility coverage and NTD burden" has eight tabs:
 
 - **Coverage**: facilities in the register, LGAs matched and unmatched, high-priority LGAs; maps of facilities per LGA, facilities per 10,000 people (WorldPop 2025; LGAs with no matched facility left blank) and the 0-8 priority score; the original priority flag's map beside a note explaining the score; a ranked table of the high-priority LGAs, highest score and thinnest coverage first, with a plain-language reason for each part of the score; and a by-state table with population, the state's facilities per 10,000 people and its high-priority LGAs.
-- **LGA profile**: everything the register holds for one LGA, chosen in the LGA filter (required; it opens on the highest-priority LGA): a card with facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and the priority score, the score's three parts, and the LGA's facilities per 10,000 people to 2030.
-- **Facility mix**: maps of secondary and tertiary facilities per 100,000 people and of the share of facilities recorded as not functional (shading only LGAs with at least five facilities of known status, since GRID3 records status only in v3.0 and often as Unknown), facilities by level per state, and a point map of every facility with coordinates coloured by level.
+- **LGA profile**: everything the register holds for one LGA, chosen in the LGA filter (required; it opens on the highest-priority LGA): a card with facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and the priority score with its three parts, beside a line of the LGA's facilities per 10,000 people to 2030.
+- **Facility mix**: maps of secondary and tertiary facilities per 100,000 people and of the share of facilities recorded as not functional (shading only LGAs with at least five facilities of known status, since GRID3 records status only in v3.0 and often as Unknown), facilities by level per state (largest state first), and a point map of every secondary and tertiary facility with coordinates, coloured by level (primary facilities are already summarised in the per-capita maps, and at national scale their points would hide the rest).
 - **NTD burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, and a per-LGA burden table with population and facilities per 10,000 people.
 - **Access**: maps of the share of people over an hour's walk from a facility (Malaria Atlas Project travel time against WorldPop 2025) and of the 0-2 access risk score (hard to reach on foot, flood-affected in 2024), and a table of LGAs with access risk, hardest to reach first. Every map's hover summary also gives walking time, the 2024 flood flag and the score.
 - **Outlook**: national facilities per 10,000 people for each WorldPop year to 2030 at today's facility count, LGAs below 2 per 10,000 by year, and the LGAs at or above 2 today that fall below it by 2030.
@@ -110,6 +110,14 @@ The dashboard ships with the repo as a Superset import bundle in `superset/dashb
 Filters in the left panel: State, Facility status, Priority tier and Hard to reach apply across the dashboard; LGA applies to the LGA profile tab only.
 
 State and facility-status filters apply across the tabs.
+
+Presentation conventions, kept when charts are edited:
+
+- **Colour carries meaning, the same everywhere.** The dashboard's label colours fix it: the endemicity ranks 0-3 run pale yellow to dark red with unknown in grey; lineage and name agreement use the colour-blind-safe Okabe-Ito set (carried over or exact match blue or green, close amber, dropped or divergent vermilion); facility levels run light to dark blue with tertiary in vermilion.
+- **Maps frame Nigeria.** Polygon maps keep a saved viewport (Superset 4.1 fits only point layers to their data): zoom 4.85 for a map a third of the dashboard wide, 5.3 for half, centred on 8.7 E, 9.0 N.
+- **Bars start at zero; changes over time are lines.** Bar charts compare lengths, so their value axis starts at 0; a single LGA's trend is a line with exact labels instead.
+- **Numbers read as numbers.** Counts and populations carry thousands separators, rates two decimal places, shares a percent sign; the headline facility count is exact, not abbreviated.
+- **Ranked lists are sorted by size,** largest first, never alphabetically by default.
 
 To bring it up:
 

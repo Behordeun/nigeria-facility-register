@@ -19,7 +19,6 @@ params:
   row_limit: 1
   server_pagination: false
   server_page_length: 20
-  page_length: 20
   include_search: false
   show_cell_bars: false
   table_timestamp_format: smart_date

@@ -230,7 +230,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 35
+      chartId: 34
       width: 4
       height: 70
       sliceName: 'Soil-transmitted helminths: endemicity rank by LGA'
@@ -245,7 +245,7 @@ position:
     - ROW-burden-1
     children: []
     meta:
-      chartId: 32
+      chartId: 31
       width: 4
       height: 70
       sliceName: 'Schistosomiasis: endemicity rank by LGA'
@@ -473,7 +473,7 @@ position:
     - ROW-drift-2
     children: []
     meta:
-      chartId: 31
+      chartId: 30
       width: 12
       height: 80
       sliceName: 'Review queue: dropped and appeared facilities'
@@ -557,7 +557,7 @@ position:
     - ROW-about-0
     children: []
     meta:
-      chartId: 30
+      chartId: 29
       width: 12
       height: 62
       sliceName: Register status
@@ -638,7 +638,7 @@ position:
     children: []
     meta:
       width: 12
-      height: 36
+      height: 28
       code: '### Access and flood exposure
 
 
@@ -677,7 +677,7 @@ position:
     - ROW-access-1
     children: []
     meta:
-      chartId: 34
+      chartId: 33
       width: 6
       height: 90
       sliceName: Share of people over an hour's walk from a facility
@@ -836,7 +836,7 @@ position:
     children: []
     meta:
       width: 12
-      height: 34
+      height: 24
       code: '### Facility mix
 
 
@@ -872,7 +872,7 @@ position:
     - ROW-mix-1
     children: []
     meta:
-      chartId: 33
+      chartId: 32
       width: 6
       height: 90
       sliceName: Secondary and tertiary facilities per 100,000 people
@@ -971,7 +971,7 @@ position:
     children: []
     meta:
       width: 12
-      height: 26
+      height: 20
       code: '### Population outlook, 2025-2030
 
 
@@ -1144,24 +1144,9 @@ position:
     meta:
       chartId: 14
       width: 6
-      height: 110
+      height: 66
       sliceName: LGA profile
       uuid: 1bba42bf-a0fa-563f-852b-f1703d38a05c
-  CHART-profile_parts:
-    id: CHART-profile_parts
-    type: CHART
-    parents:
-    - ROOT_ID
-    - TABS-main
-    - TAB-profile
-    - ROW-profile-1
-    children: []
-    meta:
-      chartId: 29
-      width: 6
-      height: 50
-      sliceName: Priority score parts
-      uuid: dbef30c8-9c7a-5aa5-87f7-679c8143e13d
   ROW-profile-1:
     id: ROW-profile-1
     type: ROW
@@ -1171,7 +1156,7 @@ position:
     - TAB-profile
     children:
     - CHART-profile_card
-    - CHART-profile_parts
+    - CHART-profile_trend
     meta:
       background: BACKGROUND_TRANSPARENT
   CHART-profile_trend:
@@ -1181,25 +1166,14 @@ position:
     - ROOT_ID
     - TABS-main
     - TAB-profile
-    - ROW-profile-2
+    - ROW-profile-1
     children: []
     meta:
       chartId: 8
-      width: 12
-      height: 55
+      width: 6
+      height: 66
       sliceName: Facilities per 10,000 people to 2030 (chosen LGA)
       uuid: 3b08f396-c821-5e12-969d-b83c6a34562a
-  ROW-profile-2:
-    id: ROW-profile-2
-    type: ROW
-    parents:
-    - ROOT_ID
-    - TABS-main
-    - TAB-profile
-    children:
-    - CHART-profile_trend
-    meta:
-      background: BACKGROUND_TRANSPARENT
   TAB-profile:
     id: TAB-profile
     type: TAB
@@ -1209,7 +1183,6 @@ position:
     children:
     - ROW-profile-0
     - ROW-profile-1
-    - ROW-profile-2
     meta:
       text: LGA profile
       defaultText: Tab title
@@ -1239,7 +1212,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 30
+      - 29
     chartsInScope:
     - 1
     - 2
@@ -1297,8 +1270,8 @@ metadata:
       - 16
       - 21
       - 24
-      - 31
       - 30
+      - 29
     chartsInScope:
     - 1
     - 2
@@ -1381,7 +1354,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 30
+      - 29
     tabsInScope:
     - TAB-overview
     - TAB-profile
@@ -1415,7 +1388,7 @@ metadata:
       rootPath:
       - ROOT_ID
       excluded:
-      - 30
+      - 29
     tabsInScope:
     - TAB-overview
     - TAB-profile
@@ -1622,18 +1595,32 @@ metadata:
     '2': '#e42722'
     '3': '#800026'
     unknown: '#bdbdbd'
+    carried-over: '#0072B2'
+    appeared: '#009E73'
+    dropped: '#D55E00'
+    exact-or-near: '#009E73'
+    close: '#E69F00'
+    divergent: '#D55E00'
+    Primary: '#56B4E9'
+    Secondary: '#0072B2'
+    Tertiary: '#D55E00'
+    Not recorded: '#bdbdbd'
   shared_label_colors:
     '0': '#fee087'
     '1': '#fd9540'
     '2': '#e42722'
     '3': '#800026'
-    carried-over: '#1FA8C9'
-    appeared: '#454E7C'
-    dropped: '#5AC189'
-    exact-or-near: '#1FA8C9'
-    close: '#454E7C'
-    divergent: '#5AC189'
     unknown: '#bdbdbd'
+    carried-over: '#0072B2'
+    appeared: '#009E73'
+    dropped: '#D55E00'
+    exact-or-near: '#009E73'
+    close: '#E69F00'
+    divergent: '#D55E00'
+    Primary: '#56B4E9'
+    Secondary: '#0072B2'
+    Tertiary: '#D55E00'
+    Not recorded: '#bdbdbd'
   timed_refresh_immune_slices: []
   cross_filters_enabled: false
   color_scheme_domain: []

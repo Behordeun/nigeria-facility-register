@@ -22,7 +22,7 @@ params:
   stack: Stack
   orientation: horizontal
   x_axis_sort_asc: true
-  x_axis_sort_series: name
+  x_axis_sort_series: sum
   x_axis_sort_series_ascending: true
   show_legend: true
   legendType: plain
