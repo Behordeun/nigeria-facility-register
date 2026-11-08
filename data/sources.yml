@@ -153,3 +153,33 @@ sources:
       WorldPop total (the rest falls on border and coastal cells outside the LGA
       polygons). Null travel figures mean no population on valid travel-time
       cells, never 0 minutes.
+  malaria_lga:
+    name: Per-LGA Plasmodium falciparum parasite rate and clinical incidence (DERIVED)
+    license: CC BY (Malaria Atlas Project); CC BY 4.0 (WorldPop)
+    format: csv
+    built_by: scripts/build_malaria_burden.py
+    malaria_year: 2025
+    upstream:
+      map_pf_pfpr:
+        name: Malaria Atlas Project P. falciparum parasite rate, age 2-10 (202608 release), 2025, Nigeria cut-out
+        coverage_id: Malaria__202608_Global_Pf_Parasite_Rate
+        url: https://data.malariaatlas.org/geoserver/Malaria/wcs (WCS 2.0.1 GetCoverage, box 2.5,4.0,14.9,14.0, time 2025-01-01)
+        license: CC BY (MAP catalogue 4.0; MAP open-access policy 3.0)
+        sha256: 1ab43f9c829fc9ac064d53cd8019bcb788c6e122b67c3d142b819bd97ca25ecb
+      map_pf_incidence:
+        name: Malaria Atlas Project P. falciparum clinical incidence rate (202608 release), 2025, Nigeria cut-out
+        coverage_id: Malaria__202608_Global_Pf_Incidence_Rate
+        url: https://data.malariaatlas.org/geoserver/Malaria/wcs (WCS 2.0.1 GetCoverage, box 2.5,4.0,14.9,14.0, time 2025-01-01)
+        license: CC BY (MAP catalogue 4.0; MAP open-access policy 3.0)
+        sha256: 818b35b5d0ed833704e320f4dbef6b4bea2290cf98f809d88961d755ac062bb4
+      worldpop: the 2025 raster pinned under access_population_lga.upstream.worldpop
+      boundaries: as access_population_lga.upstream.boundaries
+    sha256: 5c84d272f9381eacefdc8a7eb62fc5ff200e62aee0ae362ee6f4e8988ce13d6e
+    note: >
+      Rasters are fetched into data/raw/rasters/ and never committed. Both MAP
+      surfaces are about 5 km model estimates; each LGA's figure is the
+      population-weighted mean on the 100 m WorldPop 2025 grid, each 100 m cell
+      taking the value of the 5 km cell it lies in, so LGAs smaller than one 5 km
+      cell still get their value. Incidence is published per person per year and
+      stored per 1,000. Null figures would mean no population on valid malaria
+      cells, never 0; on the 2025 build every LGA has values.

@@ -4,6 +4,22 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
+### Added
+
+- Malaria burden per LGA. `lga_coverage_burden` gains `malaria_year`, `pf_parasite_rate` (the P. falciparum parasite rate in children aged 2-10, 0-1) and `pf_incidence_per_1000` (clinical cases per 1,000 people a year), from the Malaria Atlas Project's 202608 release for 2025, and `lga_coverage_choropleth` carries both measures. Each is population-weighted on the WorldPop 2025 100 m grid, so dense urban LGAs smaller than one 5 km MAP cell still get their value; every LGA has one. `scripts/build_malaria_burden.py` builds `data/derived/malaria_lga.csv` from rasters pinned by SHA-256 in `data/sources.yml`. The map hover and the LGA profile (now 20 facts) include malaria. A dbt test checks the columns equal the source table, one year, and stay in range. Nationally the median LGA has a 24% parasite rate and 270 cases per 1,000 a year.
+- The monthly upstream check also watches the Malaria Atlas Project malaria releases. It reads the Malaria WCS capabilities and reports a P. falciparum parasite-rate or incidence release dated after the pinned one (202608 today) as a new release to review; older releases, which MAP keeps listed, and products the register does not use are ignored. It runs as its own finding beside the travel-time check.
+
+### Changed
+
+- Malaria is the fourth part of the priority score. `priority_malaria_points` (0-3) scores the parasite rate by national quartile, highest quarter 3, the mirror of coverage points; it is relative because nearly every LGA sits in the same absolute prevalence band. `priority_score` now runs 0-11 (burden + coverage + access + malaria), and the tiers move to high 8-11 (74 LGAs, about the top tenth as before), medium 6-7 (269) and low 0-5 (431). The "why" text, map hover, LGA profile and dashboard wording follow, the score map's colours run in bands that match the tiers, and the LGA profile opens on the new highest-priority LGA (Bukkuyum, Zamfara).
+
+### Notes
+
+- Breaking for readers of the score: `priority_score` changes range (0-8 to 0-11) and `priority_tier` its cut-offs, so a stored score or tier from 0.5.0 is not comparable with one from this release. 34 of the 78 LGAs that were high priority stay high; the other 40 high-priority LGAs are new, because malaria varies independently of the NTD ranks (correlation 0.13). Re-run any analysis that filtered on the score or tier. The parts are all published, so the 0.5.0 score is still `priority_burden_points + priority_coverage_points + access_risk_score`.
+- To upgrade a running deployment: rebuild the register (the new malaria source, columns and score), then re-run `make dashboard`. The compose stack and `.env` are unchanged.
+
 ## [0.5.0] - 2026-11-08
 
 ### Added
@@ -139,7 +155,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...development
+[0.6.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.2.0...v0.3.0

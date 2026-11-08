@@ -7,7 +7,7 @@
 -- rendering HTML. Every value is text; a missing input is written out ("n/a",
 -- "unknown", "not measured", "not scored"), never shown as 0.
 --
--- Grain: one row per (lga_label, fact_order), 18 facts for each of the 774 LGAs.
+-- Grain: one row per (lga_label, fact_order), 20 facts for each of the 774 LGAs.
 
 with lgas as (
     select * from {{ ref('lga_coverage_burden') }}
@@ -20,11 +20,12 @@ select
          'value': lga_label},
 
         {'fact_order': 2, 'section': 'Priority', 'fact': 'Priority score',
-         'value': coalesce(priority_score || ' of 8 (' || priority_tier || ')', 'not scored')},
+         'value': coalesce(priority_score || ' of 11 (' || priority_tier || ')', 'not scored')},
         {'fact_order': 3, 'section': 'Priority', 'fact': 'Score parts',
          'value': 'burden ' || coalesce(cast(priority_burden_points as varchar), 'n/a')
              || ' + coverage ' || coalesce(cast(priority_coverage_points as varchar), 'n/a')
-             || ' + access ' || coalesce(cast(access_risk_score as varchar), 'n/a')},
+             || ' + access ' || coalesce(cast(access_risk_score as varchar), 'n/a')
+             || ' + malaria ' || coalesce(cast(priority_malaria_points as varchar), 'n/a')},
         {'fact_order': 4, 'section': 'Priority', 'fact': 'Original flag (high STH share, thin coverage)',
          'value': case when priority_high_burden_thin_coverage then 'yes' else 'no' end},
 
@@ -67,6 +68,11 @@ select
         {'fact_order': 17, 'section': 'NTD endemicity rank (0-3)', 'fact': 'Onchocerciasis',
          'value': coalesce(cast(oncho_endemicity_rank_lga as varchar), 'unknown')},
         {'fact_order': 18, 'section': 'NTD endemicity rank (0-3)', 'fact': 'Loa loa',
-         'value': coalesce(cast(loa_endemicity_rank_lga as varchar), 'unknown')}
+         'value': coalesce(cast(loa_endemicity_rank_lga as varchar), 'unknown')},
+
+        {'fact_order': 19, 'section': 'Malaria (MAP ' || malaria_year || ')', 'fact': 'Parasite rate, age 2-10',
+         'value': coalesce(printf('%.0f', pf_parasite_rate * 100) || '%', 'not estimated')},
+        {'fact_order': 20, 'section': 'Malaria (MAP ' || malaria_year || ')', 'fact': 'Clinical cases per 1,000 a year',
+         'value': coalesce(printf('%.0f', pf_incidence_per_1000), 'not estimated')}
     ], recursive := true)
 from lgas

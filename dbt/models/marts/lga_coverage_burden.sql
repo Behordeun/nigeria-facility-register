@@ -151,6 +151,18 @@ births as (
     from {{ source('raw', 'births_lga') }}
 ),
 
+-- Malaria burden (Malaria Atlas Project, P. falciparum, one year): the
+-- population-weighted parasite rate in children aged 2-10 and clinical cases per
+-- 1,000 people a year. Model estimates; null means not estimated, never 0.
+malaria as (
+    select
+        shapeID as shape_id,
+        malaria_year,
+        pf_parasite_rate,
+        pf_incidence_per_1000
+    from {{ source('raw', 'malaria_lga') }}
+),
+
 joined as (
     select
         frame.canonical_lga,
@@ -185,6 +197,9 @@ joined as (
         pop.access_population_share,
         fl.flood_affected_2022_state,
         fl.flood_affected_2024,
+        mal.malaria_year,
+        mal.pf_parasite_rate,
+        mal.pf_incidence_per_1000,
         -- Hard to reach: at least a quarter of residents live more than an
         -- hour's walk from the nearest facility. Null where the travel figures
         -- are null (no population on valid travel-time cells), never false.
@@ -222,6 +237,7 @@ joined as (
       on frame.state_key = ntd_lga.state_key and frame.lga_key = ntd_lga.lga_key
     left join population pop on frame.shape_id = pop.shape_id
     left join births b       on frame.shape_id = b.shape_id
+    left join malaria mal    on frame.shape_id = mal.shape_id
     left join flood fl
       on frame.state_key = fl.state_key and frame.lga_key = fl.lga_key
 ),
@@ -243,6 +259,17 @@ rate_quartiles as (
         quantile_cont(facilities_per_10k_population, 0.75) as q3
     from joined
     where facilities_per_10k_population is not null
+),
+
+malaria_quartiles as (
+    -- National quartiles of the malaria parasite rate over the LGAs with an
+    -- estimate.
+    select
+        quantile_cont(pf_parasite_rate, 0.25) as q1,
+        quantile_cont(pf_parasite_rate, 0.50) as q2,
+        quantile_cont(pf_parasite_rate, 0.75) as q3
+    from joined
+    where pf_parasite_rate is not null
 ),
 
 flagged as (
@@ -286,31 +313,53 @@ flagged as (
             when j.facilities_per_10k_population < q.q2 then 2
             when j.facilities_per_10k_population < q.q3 then 1
             else 0
-        end as priority_coverage_points
+        end as priority_coverage_points,
+        -- Malaria points: 3 in the highest national quartile of the parasite
+        -- rate, down to 0 in the lowest, the mirror of coverage points. Relative,
+        -- because nearly every LGA sits in the same absolute prevalence band
+        -- (10-35%), so fixed bands would not separate LGAs. A value on a
+        -- quartile boundary takes the more urgent band. Null where not estimated.
+        case
+            when j.pf_parasite_rate is null then null
+            when j.pf_parasite_rate >= mq.q3 then 3
+            when j.pf_parasite_rate >= mq.q2 then 2
+            when j.pf_parasite_rate >= mq.q1 then 1
+            else 0
+        end as priority_malaria_points
     from joined j
     cross join rate_quartiles q
+    cross join malaria_quartiles mq
 )
 
--- priority_score (0-8) adds burden (0-3), coverage (0-3) and access (0-2)
--- points; any unscored part leaves the score null rather than low.
--- priority_tier reads the score on fixed cut-offs: high 6-8 (about the top
--- tenth on the current data), medium 4-5, low 0-3. It sits beside the
--- original priority flag, which is unchanged.
-, scored as (
+-- priority_score (0-11) adds burden (0-3), coverage (0-3), access (0-2) and
+-- malaria (0-3) points; any unscored part leaves the score null rather than low.
+-- priority_tier reads the score on fixed cut-offs: high 8-11 (about the top
+-- tenth on the current data), medium 6-7 (from just above half the range, as
+-- before), low 0-5. It sits beside the original priority flag, which is
+-- unchanged.
+, summed as (
 select
     f.*,
     -- "LGA, State": a unique, human-readable key for picking one LGA (six LGA
     -- names recur across states, so the bare name is not enough).
     f.canonical_lga || ', ' || f.state as lga_label,
-    f.priority_burden_points + f.priority_coverage_points + f.access_risk_score
-        as priority_score,
+    f.priority_burden_points + f.priority_coverage_points + f.access_risk_score + f.priority_malaria_points
+        as priority_score
+from flagged f
+),
+
+-- The tier reads priority_score itself, so the sum is written once and the two
+-- can never disagree.
+scored as (
+select
+    u.*,
     case
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score is null then null
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score >= 6 then 'high'
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score >= 4 then 'medium'
+        when u.priority_score is null then null
+        when u.priority_score >= 8 then 'high'
+        when u.priority_score >= 6 then 'medium'
         else 'low'
     end as priority_tier
-from flagged f
+from summed u
 )
 
 -- Readable text built from the columns above, so every consumer (the
@@ -333,6 +382,8 @@ select
             when s.flood_affected_2024 then ' (flooded in 2024)'
             else ''
         end
+        || ' · malaria ' || s.priority_malaria_points
+        || ' (' || printf('%.0f', s.pf_parasite_rate * 100) || '% parasite rate)'
     end as priority_reasons,
     -- A one-line summary of everything the register holds for the LGA, used as
     -- the map hover. Never null.
@@ -355,12 +406,17 @@ select
         'travel time n/a')
     || ' · flood 2024: ' || case when s.flood_affected_2024 then 'yes' else 'no' end
     || ' · access risk ' || coalesce(cast(s.access_risk_score as varchar), 'n/a')
+    || ' · malaria ' || coalesce(
+        printf('%.0f', s.pf_parasite_rate * 100) || '% parasite rate (age 2-10), '
+        || printf('%.0f', s.pf_incidence_per_1000) || ' cases per 1,000 a year',
+        'n/a')
     || ' · ' || (s.facilities_secondary + s.facilities_tertiary) || ' secondary/tertiary'
     || coalesce(' · ' || printf('%.0f', s.not_functional_share * 100) || '% of known-status facilities not functional', '')
     || ' · priority score ' || coalesce(
-        s.priority_score || ' of 8 (burden ' || s.priority_burden_points
+        s.priority_score || ' of 11 (burden ' || s.priority_burden_points
         || ' + coverage ' || s.priority_coverage_points
-        || ' + access ' || s.access_risk_score || '), ' || s.priority_tier,
+        || ' + access ' || s.access_risk_score
+        || ' + malaria ' || s.priority_malaria_points || '), ' || s.priority_tier,
         'n/a')
     || ' · original flag: ' || case when s.priority_high_burden_thin_coverage then 'yes' else 'no' end
     as lga_summary

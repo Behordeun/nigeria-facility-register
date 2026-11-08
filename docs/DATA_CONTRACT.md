@@ -13,7 +13,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `lga_coverage_burden` | mart | one LGA | exactly 774 |
 | `lga_version_drift` | mart | one facility-lineage record | one per `stg_version_lineage` record |
 | `lga_coverage_outlook` | mart | one (LGA, population year) | exactly 774 x the WorldPop years carried (2025-2030: 4,644) |
-| `lga_profile_facts` | mart | one (LGA, fact) | exactly 774 x 18 = 13,932 |
+| `lga_profile_facts` | mart | one (LGA, fact) | exactly 774 x 20 = 15,480 |
 | `register_summary` | mart | the published register | exactly 1 |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
@@ -153,16 +153,20 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `access_population_share` | double | yes | share of the LGA's population on valid travel-time cells, i.e. the share the travel figures describe, 0-1 |
 | `flood_affected_2022_state` | boolean | no | the LGA's state was flood-affected in the 2022 event (NASA MODIS); a STATE flag repeated to each LGA, not an LGA measurement |
 | `flood_affected_2024` | boolean | no | the LGA was flood-affected in the 2024 event (NASA MODIS, LGA-level); an exposure flag, not a severity |
+| `malaria_year` | bigint | no | the year the malaria columns describe (2025 today) |
+| `pf_parasite_rate` | double | yes | population-weighted P. falciparum parasite rate in children aged 2-10 (PfPR2-10, 0-1), Malaria Atlas Project 202608 release; a model estimate, null means not estimated, never 0 |
+| `pf_incidence_per_1000` | double | yes | population-weighted P. falciparum clinical cases per 1,000 people a year, same release; a model estimate, not reported cases |
 | `hard_to_reach` | boolean | yes | `walking_over_60min_share >= 0.25`; null where that share is null |
 | `priority_high_burden_thin_coverage` | boolean | no | true where burden is high and coverage is thin; see rule below |
 | `access_risk_score` | integer | yes | 0-2: one point for `hard_to_reach`, one for `flood_affected_2024`; null where `hard_to_reach` is null |
 | `ntd_diseases_known` | integer | no | how many of the five diseases have a known ESPEN status in the LGA, 0-5 |
 | `priority_burden_points` | integer | yes | 0-3, the highest known endemicity rank across the five diseases; null only when no status is known |
 | `priority_coverage_points` | integer | yes | 0-3 by national quartile of `facilities_per_10k_population` over the matched LGAs: 3 in the lowest quartile, 0 in the highest; a value on a boundary takes the less urgent band; null where the rate is null |
-| `priority_score` | integer | yes | 0-8: `priority_burden_points` + `priority_coverage_points` + `access_risk_score`; null when any part is null; higher is more urgent |
-| `priority_tier` | varchar | yes | `high` (score 6-8), `medium` (4-5) or `low` (0-3); null where `priority_score` is null |
+| `priority_malaria_points` | integer | yes | 0-3 by national quartile of `pf_parasite_rate`: 3 in the highest quartile, 0 in the lowest; a value on a boundary takes the more urgent band; null where the rate is null |
+| `priority_score` | integer | yes | 0-11: `priority_burden_points` + `priority_coverage_points` + `access_risk_score` + `priority_malaria_points`; null when any part is null; higher is more urgent |
+| `priority_tier` | varchar | yes | `high` (score 8-11), `medium` (6-7) or `low` (0-5); null where `priority_score` is null |
 | `priority_reasons` | varchar | yes | why the LGA scores what it does, one clause per part, e.g. `burden 3 (highest of 3 known disease ranks) · coverage 3 (0.6 facilities per 10,000 people) · access 1 (flooded in 2024)`; null exactly where `priority_score` is null |
-| `lga_summary` | varchar | no | a one-line summary of the LGA (facilities and register version, per-capita rate, the five endemicity ranks, travel time, flood flag, access risk, facility mix, priority score and original flag), missing values written out (`n/a`, `unknown`); the dashboard's map hover |
+| `lga_summary` | varchar | no | a one-line summary of the LGA (facilities and register version, per-capita rate, the five endemicity ranks, travel time, flood flag, access risk, malaria, facility mix, priority score and original flag), missing values written out (`n/a`, `unknown`); the dashboard's map hover |
 
 Guarantees:
 
@@ -173,8 +177,9 @@ Guarantees:
 - `facilities` is never null; `0` is an explicit "none matched", read with `facility_status = 'unmatched'` to tell a join miss from a real low count.
 - `sth_high_share_pct_state` is a STATE figure repeated across the state's LGAs, not an LGA measurement. Treat it as such.
 - The `*_endemicity_rank_lga` columns are true per-LGA measurements, equal to the rank in `stg_ntd_endemicity_lga` for that LGA and disease. A null means the LGA's status was never known, not that the disease is absent; a non-endemic LGA is `0`. They are non-commercial (ESPEN CC BY-NC-SA 3.0 IGO). They do not feed the priority flag, which is unchanged.
-- The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the rate quartiles and the access score, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
+- The priority score is derived and traceable: each part, the sum and the tier recompute from the ranks, the coverage-rate quartiles, the access score and the malaria-rate quartiles, and a dbt test fails the build otherwise. Burden takes the highest known rank, so one severe burden is not outranked by several mild ones; `ntd_diseases_known` says how many diseases that rank was drawn from. Coverage and malaria points are relative (national quartiles recomputed at each refresh), so an LGA's points can shift as other LGAs change; the tier cut-offs are fixed on the score. Malaria is scored relatively because 729 of 774 LGAs fall in the same absolute prevalence band (10-35%), where fixed bands would not separate LGAs. Any unmeasured part leaves the score and tier null, never low. The score sits beside the original flag, which is unchanged.
 - The readable text agrees with the columns it describes. `priority_reasons` names each part's points and is null exactly when the score is; `lga_summary` opens with the LGA's label and states its score (or `n/a`). A dbt test checks both, and that the map hover on `lga_coverage_choropleth` is the same text.
+- Malaria columns are traceable. They equal the per-LGA malaria table (`data/derived/malaria_lga.csv`) for every LGA, describe one year, and stay in range (rate 0-1, incidence never negative); a dbt test checks all three. Each figure is weighted by WorldPop 2025 on its 100 m grid, so LGAs smaller than one 5 km MAP cell still get their value. They are model estimates that rank where malaria is relatively heavier; the parasite rate feeds the priority score through `priority_malaria_points`.
 - Facility mix adds up. The four level counts sum to `facilities`, and so do the three functional-status counts. A v2.0 LGA records no status (GRID3 v2.0 has none), and each mix rate recomputes from its counts. Because status is recorded for under a third of facilities, `not_functional_share` describes only the facilities whose status is known; read it with `functional_status_known_share`.
 - The original priority flag is derived, not a source value: true only when `sth_high_share_pct_state >= 40` and `facilities > 0` and `facilities` is in the bottom tercile of non-zero counts. A zero-facility LGA is never flagged `true`, even with high burden, by design: `facilities = 0` means none matched (`facility_status = 'unmatched'`), which may be a name-join miss rather than a real absence, so flagging it would assert thin coverage the data has not established. Such LGAs are surfaced through `facility_status = 'unmatched'` for reconciliation, not through the priority flag.
 
@@ -208,14 +213,14 @@ Everything the register holds for one LGA as readable text, in display order: th
 | Column | Type | Nullable | Domain / rule |
 | --- | --- | --- | --- |
 | `lga_label` | varchar | no | the LGA, as in `lga_coverage_burden` |
-| `fact_order` | integer | no | display order within the LGA, 1-18 |
-| `section` | varchar | no | `LGA`, `Priority`, `Facilities`, `People and access` or `NTD endemicity rank (0-3)` |
+| `fact_order` | integer | no | display order within the LGA, 1-20 |
+| `section` | varchar | no | `LGA`, `Priority`, `Facilities`, `People and access`, `NTD endemicity rank (0-3)` or `Malaria (MAP <year>)` |
 | `fact` | varchar | no | what the value describes, e.g. `Per 10,000 people`, `Population (WorldPop 2026)` |
 | `value` | varchar | no | the value as text; a missing input is written out (`n/a`, `unknown`, `not measured`, `not scored`, `status not recorded`), never `0` |
 
 Guarantees:
 
-- Every LGA in `lga_coverage_burden` has exactly facts 1-18, and no other LGA appears.
+- Every LGA in `lga_coverage_burden` has exactly facts 1-20, and no other LGA appears.
 - The priority-score fact equals `priority_score` and `priority_tier` (or `not scored`).
 - Values are text for reading, not for computing: aggregate from `lga_coverage_burden` instead.
 
@@ -257,7 +262,7 @@ Guarantees:
 | `geometry_geojson` | varchar | no | one polygon part of the LGA boundary as GeoJSON text, from the vendored simplified geoBoundaries set, joined through the frame's `shapeID`. Text, not `json`: a json-typed column reaches a map client as a parsed object, which a layer that parses the string itself cannot read |
 | `geometry_feature` | varchar | no | the same polygon part as a complete GeoJSON Feature string (`type`, `geometry`, `properties`), for the deck.gl Geojson layer; `properties` carries `canonical_lga`, `state`, `facilities`, `facility_status`, `sth_high_share_pct_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, the travel-time columns, `flood_affected_2024`, `hard_to_reach`, `access_risk_score`, `ntd_diseases_known`, the two priority point columns, `priority_score` and `priority_tier` |
 
-The other columns (`canonical_lga`, `state`, `lga_label`, `lga_summary`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, `motorised_minutes`, `walking_minutes`, `walking_over_60min_share`, `flood_affected_2024`, `hard_to_reach`, `access_risk_score`, `ntd_diseases_known`, `priority_burden_points`, `priority_coverage_points`, `priority_score` and `priority_tier`) are exactly as in `lga_coverage_burden` above.
+The other columns (`canonical_lga`, `state`, `lga_label`, `lga_summary`, `espen_iu_id`, `facilities`, `facility_source_version`, `facility_status`, `sth_high_share_pct_state`, `sth_survey_years_state`, `priority_high_burden_thin_coverage`, the five `*_endemicity_rank_lga` ranks, `population`, `facilities_per_10k_population`, `motorised_minutes`, `walking_minutes`, `walking_over_60min_share`, `flood_affected_2024`, `hard_to_reach`, `access_risk_score`, `ntd_diseases_known`, `priority_burden_points`, `priority_coverage_points`, `priority_malaria_points`, `priority_score` and `priority_tier`) are exactly as in `lga_coverage_burden` above.
 
 Guarantees:
 
@@ -312,7 +317,7 @@ Missing is not zero. A stale state, an unsurveyed ESPEN IU, an LGA that matched 
 
 - Freshness follows the source releases, not a clock. `source_date` on each facility says which GRID3 vintage it came from; a state marked `stale-awaiting-v3` is waiting for GRID3 to extend v3.0 coverage, not for a pipeline run.
 - The population year is the one exception: it follows the build's calendar year within the WorldPop years the register carries (see `stg_access_population_lga`), and `register_summary.population_year` states which year a register uses.
-- Newer upstream releases are watched, not ingested. A monthly Dagster job (`check_upstream_releases`) compares WorldPop, GRID3 on HDX, the Malaria Atlas Project and ESPEN with what `data/sources.yml` pins and warns when something newer appears. A new release reaches the register only through a reviewed change to the pins and the committed tables.
+- Newer upstream releases are watched, not ingested. A monthly Dagster job (`check_upstream_releases`) compares WorldPop, GRID3 on HDX, the Malaria Atlas Project (travel time, and the malaria parasite-rate and incidence releases) and ESPEN with what `data/sources.yml` pins and warns when something newer appears. A new release reaches the register only through a reviewed change to the pins and the committed tables.
 - The contract is versioned with the project (SemVer). Adding a column or relaxing nullability is a minor bump. Removing or renaming a column, tightening a domain, or changing a grain is a major bump and is announced in the CHANGELOG before release.
 - dbt model contracts enforce the column names and types at build time. A model whose output drifts from the declared contract fails the build rather than shipping a silent schema change.
 - A data-quality gate backs the guarantees a type cannot express. Blocking dbt tests fail the build when the raw inputs fall outside their row-count bounds, when the version-drift mart resolves an LGA absent from the frame, or when the NTD burden table or the alias crosswalk names a state the frame does not know; a blocking run check fails the pipeline when the carry-over rate collapses past a hard floor. These stop a bad build from publishing, as distinct from the advisory run metrics, which only warn. See docs/ARCHITECTURE.md.

@@ -13,6 +13,7 @@ derived artifacts must carry this attribution.
 | WorldPop | Annual births per LGA (2015, UN-adjusted), zonal-summed into the 774 LGAs | CC BY 4.0 | [WorldPop](https://www.worldpop.org) |
 | WorldPop Global2 R2025A | Constrained population counts (about 100 m), summed per LGA for each year 2025-2030 | CC BY 4.0 | [WorldPop](https://hub.worldpop.org/geodata/listing?id=135), DOI 10.5258/SOTON/WP00839 |
 | Malaria Atlas Project | Travel time to the nearest health facility (2020 release, motorised and walking-only, about 1 km), population-weighted per LGA | CC BY (MAP catalogue: 4.0; MAP open-access policy: 3.0) | [MAP](https://malariaatlas.org), Weiss et al., Nature Medicine 26, 1835-1838 (2020) |
+| Malaria Atlas Project | P. falciparum parasite rate (age 2-10) and clinical incidence (202608 release, 2025, about 5 km), population-weighted per LGA | CC BY (MAP catalogue: 4.0; MAP open-access policy: 3.0) | [MAP](https://malariaatlas.org) |
 
 GRID3 datasets are produced by the Center for Integrated Earth System
 Information (CIESIN), Columbia University, with funding from the Bill & Melinda
@@ -27,7 +28,7 @@ the Bill & Melinda Gates Foundation (INV-045237).
 
 Travel time to healthcare: Weiss, D.J., Nelson, A., Vargas-Ruiz, C.A. et al.
 Global maps of travel time to healthcare facilities. Nature Medicine 26,
-1835-1838 (2020). Data from the Malaria Atlas Project (malariaatlas.org). Flood exposure derives from
+1835-1838 (2020). Malaria parasite rate and incidence: Malaria Atlas Project, 202608 release. Data from the Malaria Atlas Project (malariaatlas.org). Flood exposure derives from
 NASA MODIS products; attribution to NASA is requested.
 
 Only small derived per-LGA tables of these sources are committed (see

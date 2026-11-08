@@ -16,6 +16,7 @@ params:
   - priority_burden_points
   - priority_coverage_points
   - access_risk_score
+  - priority_malaria_points
   - facilities_per_10k_population
   - population
   - priority_reasons

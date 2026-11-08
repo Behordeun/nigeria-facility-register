@@ -25,9 +25,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pandas as pd
@@ -36,6 +34,7 @@ import yaml
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
 from nfr.enrichment import access_population as ap  # noqa: E402
+from nfr.files import write_csv_atomic  # noqa: E402
 
 FRAME_INDEX = ROOT / "data" / "frame" / "nigeria_master_lga_index.csv"
 SIMPLIFIED = ROOT / "data" / "frame" / "nigeria_774_lga_boundaries.simplified.geojson"
@@ -62,17 +61,6 @@ def parse_years(spec: str) -> list[int]:
     return sorted(years)
 
 
-def write_atomic(table, out: Path) -> None:
-    out.parent.mkdir(parents=True, exist_ok=True)
-    fd, tmp_name = tempfile.mkstemp(dir=str(out.parent), prefix=f".{out.name}.", suffix=".part")
-    tmp = Path(tmp_name)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
-            table.to_csv(fh, index=False)
-        os.replace(tmp, out)
-    except BaseException:
-        tmp.unlink(missing_ok=True)
-        raise
 
 
 def main() -> None:
@@ -124,7 +112,7 @@ def main() -> None:
         [ap.derive(rasters[year], motorised, walking, lgas, year) for year in years], ignore_index=True
     )
     ap.check(table)
-    write_atomic(table, args.out)
+    write_csv_atomic(table, args.out)
     totals = table.groupby("population_year")["population"].sum()
     print(f"wrote {args.out} ({len(table)} rows; population "
           + ", ".join(f"{y}: {int(v):,}" for y, v in totals.items())

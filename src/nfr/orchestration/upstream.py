@@ -15,6 +15,9 @@ publisher lists today:
   behind a WAF and stay manual.
 - Malaria Atlas Project: the travel-time-to-healthcare coverages its WCS
   advertises. A coverage that is not pinned (a new release) is reported.
+- Malaria Atlas Project malaria: the P. falciparum parasite-rate and incidence
+  releases its Malaria WCS advertises. That workspace keeps every older release
+  listed, so only a release dated after the pinned one is reported.
 - ESPEN: the portal's public download route (the one its "Download data" form
   calls, no key) is asked for Nigeria IU-level rows newer than the pinned latest
   year, once per disease. An empty answer means nothing newer; any rows mean a
@@ -58,11 +61,15 @@ HDX_SEARCH_URL = (
 MAP_CAPABILITIES_URL = (
     "https://data.malariaatlas.org/geoserver/Accessibility/wcs?service=WCS&version=2.0.1&request=GetCapabilities"
 )
+MAP_MALARIA_CAPABILITIES_URL = (
+    "https://data.malariaatlas.org/geoserver/Malaria/wcs?service=WCS&version=2.0.1&request=GetCapabilities"
+)
 
 # Publisher names as they appear on findings and in the asset's metadata.
 WORLDPOP = "WorldPop"
 GRID3 = "GRID3 health facilities"
 MAP = "Malaria Atlas Project"
+MAP_MALARIA = "Malaria Atlas Project malaria"
 ESPEN = "ESPEN"
 
 ESPEN_DOWNLOAD_URL = "https://espen.afro.who.int/api/download-data/NG/{disease}/iu/{from_year}/{to_year}"
@@ -72,6 +79,8 @@ ESPEN_DISEASES = ("STH", "SCH", "lf", "Oncho", "Loa")
 _WORLDPOP_RELEASE = re.compile(r"\bR(20\d{2})([A-Z])\b")
 _GRID3_NGA_HEALTH = re.compile(r"^grid3-nga-health-facilities-v(\d+)-(\d+)$")
 _MAP_HEALTHCARE = re.compile(r"Accessibility__\w*?Travel_Time_[Tt]o_Healthcare")
+# A malaria coverage the register uses: release stamp (YYYYMM) and product.
+_MAP_MALARIA = re.compile(r"Malaria__(\d{6})_Global_Pf_(Parasite_Rate|Incidence_Rate)\b")
 
 
 class Status(str, Enum):
@@ -98,10 +107,11 @@ class Pinned:
     grid3_versions: frozenset[tuple[int, int]]
     map_coverages: frozenset[str]
     espen_latest_year: int
+    map_malaria_coverages: frozenset[str]
 
 
 def read_pinned(sources_path: Path = SOURCES) -> Pinned:
-    """The pinned WorldPop release, GRID3 versions and MAP coverages, from data/sources.yml."""
+    """The pinned WorldPop release, GRID3 versions, MAP coverages and ESPEN year, from data/sources.yml."""
     sources = (yaml.safe_load(sources_path.read_text()) or {}).get("sources", {})
     upstream = (sources.get("access_population_lga") or {}).get("upstream") or {}
     release = (upstream.get("worldpop") or {}).get("release")
@@ -120,7 +130,14 @@ def read_pinned(sources_path: Path = SOURCES) -> Pinned:
     espen_year = (sources.get("ntd_espen_lga") or {}).get("latest_year")
     if not isinstance(espen_year, int):
         raise ValueError("data/sources.yml has no integer ntd_espen_lga.latest_year")
-    return Pinned(release, frozenset(grid3), frozenset(coverages), espen_year)
+    malaria_upstream = (sources.get("malaria_lga") or {}).get("upstream") or {}
+    malaria = {
+        entry["coverage_id"] for entry in malaria_upstream.values()
+        if isinstance(entry, dict) and entry.get("coverage_id")
+    }
+    if not malaria:
+        raise ValueError("data/sources.yml pins no malaria_lga.upstream coverage")
+    return Pinned(release, frozenset(grid3), frozenset(coverages), espen_year, frozenset(malaria))
 
 
 def _release_key(name: str) -> tuple[int, str]:
@@ -171,6 +188,22 @@ def map_finding(capabilities_xml: str, pinned_coverages: frozenset[str]) -> Find
         return Finding(MAP, Status.NEW_RELEASE,
                        f"coverages not pinned: {', '.join(unpinned)}")
     return Finding(MAP, Status.CURRENT, "only the pinned travel-time coverages are published")
+
+
+def map_malaria_finding(capabilities_xml: str, pinned_coverages: frozenset[str]) -> Finding:
+    """Report a MAP malaria release newer than the pinned one, for the products the register uses."""
+    listed = _MAP_MALARIA.findall(capabilities_xml)
+    if not listed:
+        return Finding(MAP_MALARIA, Status.UNREADABLE, "the WCS listed no P. falciparum parasite-rate or incidence coverage")
+    pinned = [m for c in pinned_coverages if (m := _MAP_MALARIA.search(c))]
+    if not pinned:
+        raise ValueError("no pinned malaria coverage has a recognisable release stamp")
+    pinned_release = max(m[1] for m in pinned)
+    newer = sorted({stamp for stamp, _ in listed if stamp > pinned_release})
+    if newer:
+        return Finding(MAP_MALARIA, Status.NEW_RELEASE,
+                       f"release {', '.join(newer)} published; the register is pinned to {pinned_release}")
+    return Finding(MAP_MALARIA, Status.CURRENT, f"{pinned_release} is the latest malaria release")
 
 
 def espen_years(csv_text: str) -> set[int]:
@@ -246,6 +279,8 @@ def check_upstream(
         (WORLDPOP, WORLDPOP_INDEX_URL, lambda body: worldpop_finding(body, pinned.worldpop_release)),
         (GRID3, HDX_SEARCH_URL, lambda body: grid3_finding(json.loads(body), pinned.grid3_versions)),
         (MAP, MAP_CAPABILITIES_URL, lambda body: map_finding(body, pinned.map_coverages)),
+        (MAP_MALARIA, MAP_MALARIA_CAPABILITIES_URL,
+         lambda body: map_malaria_finding(body, pinned.map_malaria_coverages)),
     ]
     findings = []
     for source, url, judge in checks:
