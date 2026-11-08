@@ -219,6 +219,23 @@ models:
         description: True where the LGA was flood-affected in the 2024 event (NASA MODIS, LGA-level). An exposure flag, not a severity.
         constraints:
           - type: not_null
+      - name: malaria_year
+        data_type: bigint
+        description: The year of the Malaria Atlas Project surfaces the malaria columns describe (2025 today).
+        constraints:
+          - type: not_null
+      - name: pf_parasite_rate
+        data_type: double
+        description: >
+          Population-weighted P. falciparum parasite rate in children aged 2-10
+          (PfPR2-10, 0-1), Malaria Atlas Project 202608 release, malaria_year. A
+          model estimate; null means not estimated, never 0.
+      - name: pf_incidence_per_1000
+        data_type: double
+        description: >
+          Population-weighted P. falciparum clinical cases per 1,000 people a
+          year, Malaria Atlas Project 202608 release, malaria_year. A model
+          estimate, not reported cases; null means not estimated, never 0.
       - name: hard_to_reach
         data_type: boolean
         description: True where at least a quarter of residents (walking_over_60min_share >= 0.25) live more than an hour's walk from the nearest facility. Null where walking_over_60min_share is null.
@@ -301,7 +318,7 @@ models:
   - name: lga_profile_facts
     description: >
       Everything the register holds for one LGA as readable text: one row per
-      LGA and fact, 18 facts for each of the 774 LGAs, in display order. Values
+      LGA and fact, 20 facts for each of the 774 LGAs, in display order. Values
       are text with missing inputs written out ("n/a", "unknown", "not
       measured"), never 0. See docs/DATA_CONTRACT.md.
     config:
@@ -315,12 +332,12 @@ models:
           - type: not_null
       - name: fact_order
         data_type: integer
-        description: Display order within the LGA, 1-18.
+        description: Display order within the LGA, 1-20.
         constraints:
           - type: not_null
       - name: section
         data_type: varchar
-        description: The group the fact belongs to (LGA, Priority, Facilities, People and access, NTD endemicity rank (0-3)).
+        description: The group the fact belongs to (LGA, Priority, Facilities, People and access, NTD endemicity rank (0-3), Malaria (MAP <year>)).
         constraints:
           - type: not_null
       - name: fact
@@ -542,6 +559,12 @@ models:
         description: As in lga_coverage_burden.
       - name: hard_to_reach
         data_type: boolean
+        description: As in lga_coverage_burden.
+      - name: pf_parasite_rate
+        data_type: double
+        description: As in lga_coverage_burden.
+      - name: pf_incidence_per_1000
+        data_type: double
         description: As in lga_coverage_burden.
       - name: access_risk_score
         data_type: integer

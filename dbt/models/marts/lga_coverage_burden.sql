@@ -151,6 +151,18 @@ births as (
     from {{ source('raw', 'births_lga') }}
 ),
 
+-- Malaria burden (Malaria Atlas Project, P. falciparum, one year): the
+-- population-weighted parasite rate in children aged 2-10 and clinical cases per
+-- 1,000 people a year. Model estimates; null means not estimated, never 0.
+malaria as (
+    select
+        shapeID as shape_id,
+        malaria_year,
+        pf_parasite_rate,
+        pf_incidence_per_1000
+    from {{ source('raw', 'malaria_lga') }}
+),
+
 joined as (
     select
         frame.canonical_lga,
@@ -185,6 +197,9 @@ joined as (
         pop.access_population_share,
         fl.flood_affected_2022_state,
         fl.flood_affected_2024,
+        mal.malaria_year,
+        mal.pf_parasite_rate,
+        mal.pf_incidence_per_1000,
         -- Hard to reach: at least a quarter of residents live more than an
         -- hour's walk from the nearest facility. Null where the travel figures
         -- are null (no population on valid travel-time cells), never false.
@@ -222,6 +237,7 @@ joined as (
       on frame.state_key = ntd_lga.state_key and frame.lga_key = ntd_lga.lga_key
     left join population pop on frame.shape_id = pop.shape_id
     left join births b       on frame.shape_id = b.shape_id
+    left join malaria mal    on frame.shape_id = mal.shape_id
     left join flood fl
       on frame.state_key = fl.state_key and frame.lga_key = fl.lga_key
 ),
@@ -355,6 +371,10 @@ select
         'travel time n/a')
     || ' · flood 2024: ' || case when s.flood_affected_2024 then 'yes' else 'no' end
     || ' · access risk ' || coalesce(cast(s.access_risk_score as varchar), 'n/a')
+    || ' · malaria ' || coalesce(
+        printf('%.0f', s.pf_parasite_rate * 100) || '% parasite rate (age 2-10), '
+        || printf('%.0f', s.pf_incidence_per_1000) || ' cases per 1,000 a year',
+        'n/a')
     || ' · ' || (s.facilities_secondary + s.facilities_tertiary) || ' secondary/tertiary'
     || coalesce(' · ' || printf('%.0f', s.not_functional_share * 100) || '% of known-status facilities not functional', '')
     || ' · priority score ' || coalesce(

@@ -37,6 +37,7 @@ ALLOWED_TABLES = {
     "flood_event_affected_lga",
     "births_lga",
     "access_population_lga",
+    "malaria_lga",
 }
 
 
@@ -144,6 +145,7 @@ def main() -> None:
         ("flood_event_affected_lga", derived / "flood_event_affected_lga.csv", read_csv),
         ("births_lga", derived / "births_lga.csv", read_csv),
         ("access_population_lga", derived / "access_population_lga.csv", read_csv),
+        ("malaria_lga", derived / "malaria_lga.csv", read_csv),
     ]
 
     # Validate and read every input BEFORE touching the database, so a missing

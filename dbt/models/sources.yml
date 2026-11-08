@@ -92,6 +92,18 @@ sources:
             data_tests: [not_null, unique]
           - name: births
             data_tests: [not_null]
+      - name: malaria_lga
+        description: >
+          Per-LGA P. falciparum parasite rate (age 2-10, 0-1) and clinical cases
+          per 1,000 people a year (Malaria Atlas Project 202608 release, CC BY),
+          population-weighted on the WorldPop 2025 grid by
+          scripts/build_malaria_burden.py; one row per frame LGA for one
+          malaria_year. Model estimates; null means not estimated, never 0.
+        columns:
+          - name: shapeID
+            data_tests: [not_null, unique]
+          - name: malaria_year
+            data_tests: [not_null]
       - name: access_population_lga
         description: >
           Per-LGA population (WorldPop R2025A constrained counts, CC BY 4.0) and
