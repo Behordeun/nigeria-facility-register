@@ -20,6 +20,16 @@ PINNED = u.Pinned(
         "Accessibility__202001_Global_Walking_Only_Travel_Time_To_Healthcare",
     }),
     espen_latest_year=2025,
+    map_malaria_coverages=frozenset({
+        "Malaria__202608_Global_Pf_Parasite_Rate",
+        "Malaria__202608_Global_Pf_Incidence_Rate",
+    }),
+)
+# The malaria workspace keeps older releases listed beside the current one.
+MALARIA_LISTED = (
+    "Malaria__202406_Global_Pf_Parasite_Rate", "Malaria__202406_Global_Pf_Incidence_Rate",
+    "Malaria__202608_Global_Pf_Parasite_Rate", "Malaria__202608_Global_Pf_Incidence_Rate",
+    "Malaria__202608_Global_Pv_Parasite_Rate", "Malaria__202202_Global_Pf_Reproductive_Number",
 )
 TODAY = date(2026, 11, 7)
 ESPEN_HEADER = "id,admin0Iso2,iuId,year,endemicity\n"
@@ -86,6 +96,7 @@ def _pages(espen_body: str = "") -> dict:
         u.WORLDPOP_INDEX_URL: WORLDPOP_INDEX,
         u.HDX_SEARCH_URL: json.dumps(_hdx("grid3-nga-health-facilities-v3-0")),
         u.MAP_CAPABILITIES_URL: _capabilities(*PINNED.map_coverages),
+        u.MAP_MALARIA_CAPABILITIES_URL: _capabilities(*MALARIA_LISTED),
     }
     for disease in u.ESPEN_DISEASES:
         pages[u.ESPEN_DOWNLOAD_URL.format(disease=disease, from_year=2026, to_year=2026)] = espen_body
@@ -94,8 +105,9 @@ def _pages(espen_body: str = "") -> dict:
 
 def test_check_upstream_reports_every_publisher_current():
     findings = u.check_upstream(PINNED, get=_pages().__getitem__, today=TODAY)
-    assert [f.source for f in findings] == ["WorldPop", "GRID3 health facilities", "Malaria Atlas Project", "ESPEN"]
-    assert [f.status for f in findings] == [u.Status.CURRENT] * 4
+    assert [f.source for f in findings] == [
+        "WorldPop", "GRID3 health facilities", "Malaria Atlas Project", "Malaria Atlas Project malaria", "ESPEN"]
+    assert [f.status for f in findings] == [u.Status.CURRENT] * 5
 
 
 def test_check_upstream_asks_espen_only_for_years_after_the_pinned_one():
@@ -156,6 +168,7 @@ def test_read_pinned_matches_the_committed_sources_file():
     assert pinned.grid3_versions == frozenset({(2, 0), (3, 0)})
     assert len(pinned.map_coverages) == 2
     assert pinned.espen_latest_year == 2025
+    assert pinned.map_malaria_coverages == PINNED.map_malaria_coverages
 
 
 def test_read_pinned_refuses_a_sources_file_without_a_worldpop_release(tmp_path: Path):
@@ -236,3 +249,27 @@ def test_http_get_does_not_retry_an_http_error(monkeypatch):
         u.http_get("https://example.invalid", sleep=lambda _s: None)
     assert len(calls) == 1, "an HTTP error status is an answer, not a transient refusal"
 
+
+
+def test_map_malaria_is_current_when_only_older_releases_are_listed_beside_the_pinned_one():
+    finding = u.map_malaria_finding(_capabilities(*MALARIA_LISTED), PINNED.map_malaria_coverages)
+    assert finding.status is u.Status.CURRENT, "older releases stay listed and must not read as new"
+    assert "202608" in finding.detail
+
+
+def test_map_malaria_reports_a_newer_release():
+    listed = (*MALARIA_LISTED, "Malaria__202708_Global_Pf_Parasite_Rate", "Malaria__202708_Global_Pf_Incidence_Rate")
+    finding = u.map_malaria_finding(_capabilities(*listed), PINNED.map_malaria_coverages)
+    assert finding.status is u.Status.NEW_RELEASE
+    assert "202708" in finding.detail and "202608" in finding.detail
+
+
+def test_map_malaria_ignores_a_newer_release_of_a_product_the_register_does_not_use():
+    listed = (*MALARIA_LISTED, "Malaria__202708_Global_Pv_Parasite_Rate", "Malaria__202708_Global_Pf_Mortality_Rate")
+    finding = u.map_malaria_finding(_capabilities(*listed), PINNED.map_malaria_coverages)
+    assert finding.status is u.Status.CURRENT
+
+
+def test_map_malaria_without_the_products_is_unreadable_not_current():
+    finding = u.map_malaria_finding(_capabilities("Malaria__202608_Global_Pv_Parasite_Rate"), PINNED.map_malaria_coverages)
+    assert finding.status is u.Status.UNREADABLE
