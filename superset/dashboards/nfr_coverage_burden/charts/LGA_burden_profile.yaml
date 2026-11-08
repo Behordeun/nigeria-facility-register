@@ -23,7 +23,6 @@ params:
   - loa_endemicity_rank_lga
   - priority_score
   - priority_tier
-  - priority_high_burden_thin_coverage
   order_by_cols:
   - '["state", true]'
   - '["canonical_lga", true]'
@@ -39,6 +38,13 @@ params:
   order_desc: true
   allow_render_html: false
   annotation_layers: []
+  column_config:
+    population:
+      d3NumberFormat: ',d'
+    facilities:
+      d3NumberFormat: ',d'
+    facilities_per_10k_population:
+      d3NumberFormat: ',.2f'
 query_context: null
 cache_timeout: null
 uuid: 87bc6785-3e9c-5069-8878-8b503bb9a223

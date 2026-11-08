@@ -27,9 +27,9 @@ params:
   reverse_long_lat: false
   mapbox_style: mapbox://styles/mapbox/light-v9
   viewport:
-    longitude: 8.4
-    latitude: 9.1
-    zoom: 4.5
+    longitude: 8.7
+    latitude: 9.0
+    zoom: 5.3
     bearing: 0
     pitch: 0
     width: 800
@@ -41,7 +41,6 @@ params:
     minPitch: 0
     maxLatitude: 85.05113
     minLatitude: -85.05113
-  autozoom: false
   filled: true
   stroked: true
   extruded: false

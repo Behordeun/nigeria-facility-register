@@ -6,6 +6,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Changed
 
+- The dashboard reads more clearly. Maps frame Nigeria instead of West Africa. Colours carry the same meaning on every chart (colour-blind-safe for lineage, name agreement and facility level). Bars start at zero, and the LGA profile's 2030 trend is a line with exact values. Tables use thousands separators and two decimal places, the headline count is exact, and per-state bars are sorted largest first. The facility point map shows secondary and tertiary facilities, which primary points used to hide. The profile card loses its paging controls, the score-parts bar (the card already states the parts) and the superseded original flag column in the burden table. Presentation conventions are written down in DEPLOYMENT.
+
 - Superset keeps its own records (users, roles, charts, dashboards) in a new `superset-db` Postgres service instead of SQLite, since the web server and the download worker both write to them. It needs a new required `SUPERSET_DB_PASSWORD` in `.env`. The register stays a DuckDB file that Superset only reads.
 - Chart query results are cached in Redis for up to a day, and the refresh job empties that cache right after it publishes a new register, so the dashboard never shows figures from the previous register. A failed clear is logged as a warning and does not fail the refresh.
 
