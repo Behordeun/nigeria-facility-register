@@ -6,6 +6,9 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Changed
 
+- Superset keeps its own records (users, roles, charts, dashboards) in a new `superset-db` Postgres service instead of SQLite, since the web server and the download worker both write to them. It needs a new required `SUPERSET_DB_PASSWORD` in `.env`. The register stays a DuckDB file that Superset only reads.
+- Chart query results are cached in Redis for up to a day, and the refresh job empties that cache right after it publishes a new register, so the dashboard never shows figures from the previous register. A failed clear is logged as a warning and does not fail the refresh.
+
 - pandas 3.1.1 and DuckDB 1.5.6, which move together: DuckDB 1.1 does not recognise pandas 3's default string type. The Superset image pins the same DuckDB, so the dashboard reads the register with the version that wrote it. A rebuilt register is identical to one built with pandas 2.2.3 and DuckDB 1.1.3, table for table and value for value.
 
 ## [0.4.0] - 2026-11-07

@@ -11,6 +11,8 @@
 #     install leaves Superset's own dependencies unchanged.
 #   - Pillow: turns the screenshot into the PDF download (Superset's optional
 #     "thumbnails" extra, which allows Pillow 10.x).
+#   - psycopg2-binary: the driver for Superset's metadata database (Postgres),
+#     at the version Superset's own "postgres" extra pins.
 #   - superset_config.py: on PYTHONPATH (/app/pythonpath), which Superset loads
 #     automatically.
 #
@@ -22,6 +24,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 
 USER root
 RUN pip install --no-cache-dir duckdb==1.5.6 duckdb-engine==0.17.0 playwright==1.44.0 Pillow==10.4.0 \
+        psycopg2-binary==2.9.6 \
     && playwright install --with-deps chromium \
     && chmod -R a+rX /opt/ms-playwright \
     && apt-get clean \
