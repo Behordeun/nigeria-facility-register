@@ -172,10 +172,12 @@ services:
       retries: 3
     networks:
       - internal
+    # Start after the web server is healthy: its bootstrap creates Superset's
+    # tables in superset-db, which the worker reads when it signs in.
     depends_on:
       redis:
         condition: service_started
-      superset-db:
+      superset:
         condition: service_healthy
 
   # Celery broker, the screenshot cache and the chart-result cache. Not
