@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- The dashboard's readable text now lives in dbt, under the contract and its tests. `lga_coverage_burden` gains `priority_reasons` (why an LGA scores what it does) and `lga_summary` (the one-line LGA summary used as the map hover), and `lga_coverage_choropleth` carries `lga_summary`. A new `lga_profile_facts` mart holds everything the register says about each LGA as 18 ordered facts, so the LGA profile is a plain table instead of HTML built in the dashboard. dbt tests check that every LGA has its full fact set, that the reasons and summary agree with the score columns, and that the map hover equals the mart's text; on the real data the moved text is identical to what the dashboard built before.
+
 ### Changed
 
 - The dashboard follows a planner's path. Tabs run Coverage, LGA profile, NTD burden, Access, Facility mix, Outlook, Version drift, Data status. The Coverage tab puts the ranked high-priority list right after the headline figures, and selecting an LGA there opens it on the LGA profile tab (a link that sets the LGA filter through the dashboard URL, so it can also be shared). The LGA filter's list narrows to the chosen state. Coverage drops the raw facilities-per-LGA map, which per-capita coverage supersedes, and the original priority flag's map and by-state count, kept while the 0-8 score was reviewed; `priority_high_burden_thin_coverage` stays in the published data.
