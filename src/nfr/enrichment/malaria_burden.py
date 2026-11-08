@@ -26,6 +26,7 @@ facility sees.
 from __future__ import annotations
 
 import urllib.parse
+from contextlib import ExitStack
 from pathlib import Path
 
 import geopandas as gpd
@@ -92,24 +93,23 @@ def population_weighted_by_lga(
     population = np.zeros(n)
     covered = np.zeros(n)
     weighted = {key: np.zeros(n) for key in surface_paths}
-    surfaces = {key: rasterio.open(path) for key, path in surface_paths.items()}
-    try:
-        with rasterio.open(pop_path) as src:
-            for window, transform in ap._strips(src, rows):
-                people = ap._people(src.read(1, window=window).astype("float64"), src.nodata)
-                strip = ap.Grid(people.shape[0], people.shape[1], transform, src.crs)
-                labels = ap._labels(lgas, strip).ravel()
-                values = {key: _surface_on(strip, s).ravel() for key, s in surfaces.items()}
-                ok = np.logical_and.reduce([np.isfinite(v) for v in values.values()])
-                flat = people.ravel()
-                population += np.bincount(labels, weights=flat, minlength=n)
-                weight = np.where(ok, flat, 0.0)
-                covered += np.bincount(labels, weights=weight, minlength=n)
-                for key, v in values.items():
-                    weighted[key] += np.bincount(labels, weights=weight * np.where(ok, v, 0.0), minlength=n)
-    finally:
-        for s in surfaces.values():
-            s.close()
+    # ExitStack closes every file opened so far, including when a later open
+    # fails part-way through.
+    with ExitStack() as stack:
+        surfaces = {key: stack.enter_context(rasterio.open(path)) for key, path in surface_paths.items()}
+        src = stack.enter_context(rasterio.open(pop_path))
+        for window, transform in ap._strips(src, rows):
+            people = ap._people(src.read(1, window=window).astype("float64"), src.nodata)
+            strip = ap.Grid(people.shape[0], people.shape[1], transform, src.crs)
+            labels = ap._labels(lgas, strip).ravel()
+            values = {key: _surface_on(strip, s).ravel() for key, s in surfaces.items()}
+            ok = np.logical_and.reduce([np.isfinite(v) for v in values.values()])
+            flat = people.ravel()
+            population += np.bincount(labels, weights=flat, minlength=n)
+            weight = np.where(ok, flat, 0.0)
+            covered += np.bincount(labels, weights=weight, minlength=n)
+            for key, v in values.items():
+                weighted[key] += np.bincount(labels, weights=weight * np.where(ok, v, 0.0), minlength=n)
     out = pd.DataFrame({"population": population[1:], "population_with_data": covered[1:]})
     with np.errstate(invalid="ignore", divide="ignore"):
         for key in surface_paths:
@@ -139,6 +139,8 @@ def check(table: pd.DataFrame) -> None:
         problems.append(f"expected {ap.EXPECTED_LGAS} LGAs once each, got {len(table)} rows")
     if table["malaria_year"].nunique() != 1:
         problems.append("the table must describe one malaria year")
+    elif table["malaria_year"].iloc[0] != MALARIA_YEAR:
+        problems.append(f"malaria_year must be {MALARIA_YEAR}, got {table['malaria_year'].iloc[0]}")
     rate = table["pf_parasite_rate"].dropna()
     if ((rate < 0) | (rate > 1)).any():
         problems.append("pf_parasite_rate must lie in 0-1")

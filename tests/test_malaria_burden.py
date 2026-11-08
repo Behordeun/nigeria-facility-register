@@ -120,6 +120,30 @@ def test_check_accepts_a_well_formed_table():
     mb.check(_table())
 
 
+def test_check_rejects_a_table_for_another_year():
+    table = _table()
+    table["malaria_year"] = mb.MALARIA_YEAR - 1
+    with pytest.raises(ValueError, match=f"must be {mb.MALARIA_YEAR}"):
+        mb.check(table)
+
+
+def test_a_surface_that_fails_to_open_does_not_leave_the_others_open(population, surfaces, tmp_path, monkeypatch):
+    opened = []
+    real_open = rasterio.open
+
+    def tracking_open(path, *args, **kwargs):
+        dataset = real_open(path, *args, **kwargs)
+        opened.append(dataset)
+        return dataset
+
+    monkeypatch.setattr(mb.rasterio, "open", tracking_open)
+    lgas = gpd.GeoDataFrame({"shapeID": ["L"], "shapeName": ["Left"]}, geometry=[box(0, 0, 1, 2)], crs="EPSG:4326")
+    paths = {"pfpr": surfaces["pfpr"], "incidence": tmp_path / "missing.tif"}
+    with pytest.raises(rasterio.errors.RasterioIOError):
+        mb.population_weighted_by_lga(paths, population, lgas)
+    assert opened and all(d.closed for d in opened), "a surface opened before the failure must be closed"
+
+
 @pytest.mark.parametrize("column, value, match", [
     ("pf_parasite_rate", 1.5, "0-1"),
     ("pf_incidence_per_1000", -1.0, "negative"),
