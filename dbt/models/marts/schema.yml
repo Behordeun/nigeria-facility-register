@@ -281,6 +281,58 @@ models:
                 values: ['high', 'medium', 'low']
               config:
                 where: "priority_tier is not null"
+      - name: priority_reasons
+        data_type: varchar
+        description: >
+          Why the LGA scores what it does, one clause per part, e.g. "burden 3
+          (highest of 3 known disease ranks) · coverage 3 (0.6 facilities per
+          10,000 people) · access 1 (flooded in 2024)". Null exactly where
+          priority_score is null.
+      - name: lga_summary
+        data_type: varchar
+        description: >
+          A one-line summary of the LGA (facilities and register version,
+          per-capita rate, the five endemicity ranks, travel time, flood flag,
+          access risk, facility mix, priority score and original flag), with
+          missing values written out. Used as the map hover.
+        constraints:
+          - type: not_null
+
+  - name: lga_profile_facts
+    description: >
+      Everything the register holds for one LGA as readable text: one row per
+      LGA and fact, 18 facts for each of the 774 LGAs, in display order. Values
+      are text with missing inputs written out ("n/a", "unknown", "not
+      measured"), never 0. See docs/DATA_CONTRACT.md.
+    config:
+      contract:
+        enforced: true
+    columns:
+      - name: lga_label
+        data_type: varchar
+        description: As in lga_coverage_burden.
+        constraints:
+          - type: not_null
+      - name: fact_order
+        data_type: integer
+        description: Display order within the LGA, 1-18.
+        constraints:
+          - type: not_null
+      - name: section
+        data_type: varchar
+        description: The group the fact belongs to (LGA, Priority, Facilities, People and access, NTD endemicity rank (0-3)).
+        constraints:
+          - type: not_null
+      - name: fact
+        data_type: varchar
+        description: What the value describes.
+        constraints:
+          - type: not_null
+      - name: value
+        data_type: varchar
+        description: The fact's value as text.
+        constraints:
+          - type: not_null
 
   - name: lga_coverage_outlook
     description: >
@@ -432,6 +484,9 @@ models:
       - name: lga_label
         data_type: varchar
         description: As in lga_coverage_burden.
+      - name: lga_summary
+        data_type: varchar
+        description: As in lga_coverage_burden; the map hover text.
       - name: espen_iu_id
         data_type: bigint
       - name: facilities

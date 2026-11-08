@@ -202,7 +202,7 @@
     <rect x="1090" y="152" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
     <use href="#i-table" xlink:href="#i-table" x="1100" y="162" width="26" height="26" color="#2f6fd6"/>
     <text x="1134" y="180" class="ct">lga_coverage_burden</text>
-    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">per-10k population, NTD ranks,</tspan><tspan x="1102" y="236">access risk, priority score</tspan></text>
+    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">NTD ranks, access, priority;</tspan><tspan x="1102" y="236">+ outlook to 2030, profile facts</tspan></text>
   </g>
   <g>
     <rect x="1090" y="272" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>

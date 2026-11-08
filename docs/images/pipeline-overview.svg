@@ -92,7 +92,7 @@
     <path d="M0,13 H44 M0,26 H44 M15,0 V40 M30,0 V40" stroke="#f4f8ff" stroke-width="2.4"/>
   </g>
   <text x="140" y="788" class="ct">dbt marts (the product)</text>
-  <text class="cb"><tspan x="140" y="812">lga_coverage_burden · lga_version_drift · lga_coverage_choropleth · register_summary</tspan><tspan x="140" y="831">Enforced column contracts and dbt tests: 774 LGAs, unique keys, value domains,</tspan><tspan x="140" y="850">and missing-is-not-zero. Documented in DATA_CONTRACT.md.</tspan></text>
+  <text class="cb"><tspan x="140" y="812">lga_coverage_burden · lga_coverage_outlook · lga_profile_facts ·</tspan><tspan x="140" y="831">lga_version_drift · lga_coverage_choropleth · register_summary</tspan><tspan x="140" y="850">Enforced column contracts and dbt tests: 774 LGAs, unique keys, value domains,</tspan><tspan x="140" y="869">and missing-is-not-zero. Documented in DATA_CONTRACT.md.</tspan></text>
   <rect x="680" y="772" width="104" height="24" rx="12" fill="#dde9fb"/>
   <text x="732" y="789" class="tag" fill="#2f5fb3" text-anchor="middle">marts</text>
 
