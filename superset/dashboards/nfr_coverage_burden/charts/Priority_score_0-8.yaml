@@ -29,7 +29,7 @@ params:
   viewport:
     longitude: 8.7
     latitude: 9.0
-    zoom: 4.85
+    zoom: 5.3
     bearing: 0
     pitch: 0
     width: 800

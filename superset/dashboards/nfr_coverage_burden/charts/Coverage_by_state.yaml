@@ -38,11 +38,6 @@ params:
     hasCustomLabel: true
     optionName: metric_852b53d7b243
   - expressionType: SQL
-    sqlExpression: COUNT(*) FILTER (WHERE priority_high_burden_thin_coverage)
-    label: Priority LGAs
-    hasCustomLabel: true
-    optionName: metric_a348917e8a52
-  - expressionType: SQL
     sqlExpression: COUNT(*) FILTER (WHERE priority_tier = 'high')
     label: High-priority LGAs
     hasCustomLabel: true
