@@ -337,21 +337,29 @@ flagged as (
 -- tenth on the current data), medium 6-7 (from just above half the range, as
 -- before), low 0-5. It sits beside the original priority flag, which is
 -- unchanged.
-, scored as (
+, summed as (
 select
     f.*,
     -- "LGA, State": a unique, human-readable key for picking one LGA (six LGA
     -- names recur across states, so the bare name is not enough).
     f.canonical_lga || ', ' || f.state as lga_label,
     f.priority_burden_points + f.priority_coverage_points + f.access_risk_score + f.priority_malaria_points
-        as priority_score,
+        as priority_score
+from flagged f
+),
+
+-- The tier reads priority_score itself, so the sum is written once and the two
+-- can never disagree.
+scored as (
+select
+    u.*,
     case
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score + f.priority_malaria_points is null then null
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score + f.priority_malaria_points >= 8 then 'high'
-        when f.priority_burden_points + f.priority_coverage_points + f.access_risk_score + f.priority_malaria_points >= 6 then 'medium'
+        when u.priority_score is null then null
+        when u.priority_score >= 8 then 'high'
+        when u.priority_score >= 6 then 'medium'
         else 'low'
     end as priority_tier
-from flagged f
+from summed u
 )
 
 -- Readable text built from the columns above, so every consumer (the
