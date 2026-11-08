@@ -79,6 +79,28 @@ columns:
     are HTML-escaped before they are placed in the markup.
   python_date_format: null
   extra: null
+- column_name: lga_profile_link
+  verbose_name: LGA, State
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: '''<a href="/superset/dashboard/nfr-coverage-burden/?native_filters=(NATIVE_FILTER-lga:(extraFormData:(filters:!((col:lga_label,op:IN,val:!(%27''
+    || replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(lga_label,
+    ''!'', ''!!''), '''''''', ''!''''''), ''%'', ''%25''), '' '', ''%20''), '','',
+    ''%2C''), '''''''', ''%27''), ''&'', ''%26''), ''#'', ''%23''), ''"'', ''%22''),
+    ''<'', ''%3C''), ''>'', ''%3E'') || ''%27)))),filterState:(value:!(%27'' || replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(lga_label,
+    ''!'', ''!!''), '''''''', ''!''''''), ''%'', ''%25''), '' '', ''%20''), '','',
+    ''%2C''), '''''''', ''%27''), ''&'', ''%26''), ''#'', ''%23''), ''"'', ''%22''),
+    ''<'', ''%3C''), ''>'', ''%3E'') || ''%27))))#TAB-profile">'' || replace(replace(replace(lga_label,
+    ''&'', ''&amp;''), ''<'', ''&lt;''), ''>'', ''&gt;'') || ''</a>'''
+  description: The LGA and state as a link that opens this LGA on the LGA profile
+    tab (sets the LGA filter through the dashboard URL). Text is HTML-escaped; the
+    label is rison-escaped and percent-encoded in the link.
+  python_date_format: null
+  extra: null
 - column_name: priority_reasons
   verbose_name: Why
   is_dttm: false
