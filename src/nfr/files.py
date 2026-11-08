@@ -27,7 +27,14 @@ def write_csv_atomic(table: pd.DataFrame, out: Path) -> None:
     fd, tmp_name = tempfile.mkstemp(dir=str(out.parent), prefix=f".{out.name}.", suffix=".part")
     tmp = Path(tmp_name)
     try:
-        with os.fdopen(fd, "w", encoding="utf-8", newline="") as fh:
+        try:
+            fh = os.fdopen(fd, "w", encoding="utf-8", newline="")
+        except BaseException:
+            # fdopen owns the descriptor only once it succeeds; close it here
+            # so a failure to wrap it does not leak it.
+            os.close(fd)
+            raise
+        with fh:
             table.to_csv(fh, index=False)
         os.replace(tmp, out)
     except BaseException:
