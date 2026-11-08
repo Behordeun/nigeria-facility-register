@@ -276,22 +276,29 @@ models:
           0-3 from national quartiles of facilities_per_10k_population over the
           matched LGAs: 3 in the lowest quartile, 0 in the highest; a value on a
           boundary takes the less urgent band. Null where the rate is null.
+      - name: priority_malaria_points
+        data_type: integer
+        description: >
+          0-3 from national quartiles of pf_parasite_rate: 3 in the highest
+          quartile, 0 in the lowest; a value on a boundary takes the more urgent
+          band. Relative, because nearly every LGA falls in the same absolute
+          prevalence band. Null where pf_parasite_rate is null.
       - name: priority_score
         data_type: integer
         description: >
-          0-8: priority_burden_points + priority_coverage_points +
-          access_risk_score. Null when any part is null, never scored low for
-          lack of data. Higher is more urgent.
+          0-11: priority_burden_points + priority_coverage_points +
+          access_risk_score + priority_malaria_points. Null when any part is
+          null, never scored low for lack of data. Higher is more urgent.
         data_tests:
           - accepted_values:
               arguments:
-                values: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+                values: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
                 quote: false
               config:
                 where: "priority_score is not null"
       - name: priority_tier
         data_type: varchar
-        description: high (score 6-8), medium (4-5) or low (0-3); null where priority_score is null.
+        description: high (score 8-11), medium (6-7) or low (0-5); null where priority_score is null.
         data_tests:
           - accepted_values:
               arguments:
@@ -593,6 +600,9 @@ models:
       - name: priority_coverage_points
         data_type: integer
         description: As in lga_coverage_burden.
+      - name: priority_malaria_points
+        data_type: integer
+        description: As in lga_coverage_burden.
       - name: priority_score
         data_type: integer
         description: As in lga_coverage_burden.
@@ -687,7 +697,7 @@ models:
           - type: not_null
       - name: priority_high_tier_lgas
         data_type: bigint
-        description: LGAs in the high priority tier (priority_score 6-8).
+        description: LGAs in the high priority tier (priority_score 8-11).
         constraints:
           - type: not_null
       - name: population

@@ -20,11 +20,12 @@ select
          'value': lga_label},
 
         {'fact_order': 2, 'section': 'Priority', 'fact': 'Priority score',
-         'value': coalesce(priority_score || ' of 8 (' || priority_tier || ')', 'not scored')},
+         'value': coalesce(priority_score || ' of 11 (' || priority_tier || ')', 'not scored')},
         {'fact_order': 3, 'section': 'Priority', 'fact': 'Score parts',
          'value': 'burden ' || coalesce(cast(priority_burden_points as varchar), 'n/a')
              || ' + coverage ' || coalesce(cast(priority_coverage_points as varchar), 'n/a')
-             || ' + access ' || coalesce(cast(access_risk_score as varchar), 'n/a')},
+             || ' + access ' || coalesce(cast(access_risk_score as varchar), 'n/a')
+             || ' + malaria ' || coalesce(cast(priority_malaria_points as varchar), 'n/a')},
         {'fact_order': 4, 'section': 'Priority', 'fact': 'Original flag (high STH share, thin coverage)',
          'value': case when priority_high_burden_thin_coverage then 'yes' else 'no' end},
 

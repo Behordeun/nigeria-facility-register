@@ -6,7 +6,15 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
-- Malaria burden per LGA. `lga_coverage_burden` gains `malaria_year`, `pf_parasite_rate` (the P. falciparum parasite rate in children aged 2-10, 0-1) and `pf_incidence_per_1000` (clinical cases per 1,000 people a year), from the Malaria Atlas Project's 202608 release for 2025, and `lga_coverage_choropleth` carries both measures. Each is population-weighted on the WorldPop 2025 100 m grid, so dense urban LGAs smaller than one 5 km MAP cell still get their value; every LGA has one. `scripts/build_malaria_burden.py` builds `data/derived/malaria_lga.csv` from rasters pinned by SHA-256 in `data/sources.yml`. The map hover and the LGA profile (now 20 facts) include malaria. A dbt test checks the columns equal the source table, one year, and stay in range. Nationally the median LGA has a 24% parasite rate and 270 cases per 1,000 a year. Malaria does not feed the priority score.
+- Malaria burden per LGA. `lga_coverage_burden` gains `malaria_year`, `pf_parasite_rate` (the P. falciparum parasite rate in children aged 2-10, 0-1) and `pf_incidence_per_1000` (clinical cases per 1,000 people a year), from the Malaria Atlas Project's 202608 release for 2025, and `lga_coverage_choropleth` carries both measures. Each is population-weighted on the WorldPop 2025 100 m grid, so dense urban LGAs smaller than one 5 km MAP cell still get their value; every LGA has one. `scripts/build_malaria_burden.py` builds `data/derived/malaria_lga.csv` from rasters pinned by SHA-256 in `data/sources.yml`. The map hover and the LGA profile (now 20 facts) include malaria. A dbt test checks the columns equal the source table, one year, and stay in range. Nationally the median LGA has a 24% parasite rate and 270 cases per 1,000 a year.
+
+### Changed
+
+- Malaria is the fourth part of the priority score. `priority_malaria_points` (0-3) scores the parasite rate by national quartile, highest quarter 3, the mirror of coverage points; it is relative because nearly every LGA sits in the same absolute prevalence band. `priority_score` now runs 0-11 (burden + coverage + access + malaria), and the tiers move to high 8-11 (74 LGAs, about the top tenth as before), medium 6-7 (269) and low 0-5 (431). The "why" text, map hover, LGA profile and dashboard wording follow, the score map's colours run in bands that match the tiers, and the LGA profile opens on the new highest-priority LGA (Bukkuyum, Zamfara).
+
+### Notes
+
+- Breaking for readers of the score: `priority_score` changes range (0-8 to 0-11) and `priority_tier` its cut-offs, so a stored score or tier from 0.5.0 is not comparable with one from this release. 34 of the 78 LGAs that were high priority stay high; the other 40 high-priority LGAs are new, because malaria varies independently of the NTD ranks (correlation 0.13). Re-run any analysis that filtered on the score or tier. The parts are all published, so the 0.5.0 score is still `priority_burden_points + priority_coverage_points + access_risk_score`.
 
 ## [0.5.0] - 2026-11-08
 

@@ -24,8 +24,8 @@ position:
 
         Counts come from the version-aware authority layer: GRID3 v3.0 where it covers
         a state, v2.0 elsewhere. An LGA with no facility matched is a name-join miss
-        to reconcile, never a measured zero. The priority score (0-8) adds burden,
-        per-capita coverage and access points; high is 6-8.'
+        to reconcile, never a measured zero. The priority score (0-11) adds burden,
+        per-capita coverage, access and malaria points; high is 8-11.'
   ROW-overview-0:
     id: ROW-overview-0
     type: ROW
@@ -758,11 +758,11 @@ position:
     children: []
     meta:
       width: 12
-      height: 26
+      height: 30
       code: '### Priority score
 
 
-        Each LGA scores 0-8, higher is more urgent:
+        Each LGA scores 0-11, higher is more urgent:
 
 
         - **Burden, 0-3:** the highest ESPEN endemicity rank across the five diseases.
@@ -773,8 +773,11 @@ position:
         - **Access, 0-2:** the access risk score (hard to reach on foot, flood-affected
         in 2024).
 
+        - **Malaria, 0-3:** the malaria parasite rate in children aged 2-10 (Malaria
+        Atlas Project), by national quartile (highest quarter 3, lowest 0).
 
-        Tiers: **high** 6-8, **medium** 4-5, **low** 0-3. A part that is not measured
+
+        Tiers: **high** 8-11, **medium** 6-7, **low** 0-5. A part that is not measured
         leaves the score blank, never low. Hover any map for an LGA''s breakdown,
         or select an LGA in the ranked list to open its profile.'
   ROW-overview-priority:
@@ -1280,11 +1283,11 @@ metadata:
         - col: lga_label
           op: IN
           val:
-          - Maiduguri, Borno
+          - Bukkuyum, Zamfara
       filterState:
         value:
-        - Maiduguri, Borno
-        label: Maiduguri, Borno
+        - Bukkuyum, Zamfara
+        label: Bukkuyum, Zamfara
       ownState: {}
     cascadeParentIds:
     - NATIVE_FILTER-state
@@ -1328,7 +1331,7 @@ metadata:
     - TAB-outlook
     - TAB-drift
     - TAB-about
-    description: High (score 6-8), medium (4-5) or low (0-3).
+    description: High (score 8-11), medium (6-7) or low (0-5).
   - id: NATIVE_FILTER-hard-to-reach
     name: Hard to reach
     filterType: filter_select
