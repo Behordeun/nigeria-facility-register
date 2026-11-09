@@ -30,7 +30,7 @@ sensor, and a manual run never overlap on the shared database.
 | Path | Kind | Holds |
 | --- | --- | --- |
 | `dagster_home` volume | named volume | instance config, run storage, schedule/sensor state |
-| `build` volume | named volume | `nfr.duckdb` (live), `build/staging/` (run-scoped), `build/snapshots/` |
+| `build` volume | named volume | `nfr.duckdb` (live), `build/published/` (the last three published registers), `publish_hold.json` (a rollback hold, when set), `build/staging/` (run-scoped), `build/snapshots/` |
 | `./data/raw` | bind mount (read-only) | the GRID3 geopackages the operator places |
 
 The raw geopackages are license-fetched and never baked into the image. Place
@@ -77,6 +77,19 @@ the job needs the real HDX geopackages in `data/raw/`. Because `data/raw/` is a
 read-only mount inside the containers, place those on the host with
 `scripts/fetch_sources.py --place`, where the daemon and webserver then see them
 through the mount with no restart.
+
+## Rolling back a register
+
+A release that passes the quality gate can still be wrong (a bad upstream file that still carries enough facilities over). Every publish keeps the outgoing register in `build/published/`, the newest three, as a hard link, so keeping it costs no copy. To roll back, check in the Dagster UI that no refresh is running, then from the host:
+
+```bash
+docker compose exec daemon uv run python scripts/restore_register.py --list
+docker compose exec daemon uv run python scripts/restore_register.py --restore <archived file name>
+```
+
+The list shows the live register's fingerprint, any hold, and the archived registers, oldest first, each named by when it was archived and the fingerprint it was built from. The restore swaps the chosen register onto the live path with one atomic rename, archives the register it replaces (so the restore can itself be undone), and clears Superset's chart cache so the dashboard shows the restored figures at once. It refuses while a run's side database is in `build/staging/`, since a refresh finishing afterwards would publish over it; pass `--force` only for a file left behind by a crashed run.
+
+The restore also holds the vintage it rolled back. While the inputs still fingerprint the same, the sensor skips them and any refresh (the weekly schedule or a manual run) fails in `raw_sources` with a message naming the hold, so the bad release is not rebuilt and published again. The hold lifts by itself when the inputs change, since a corrected source gives a new fingerprint, and when a different register is published. To publish the held vintage anyway, release it with `--release-hold`. Outside the compose stack, `make registers`, `make restore REGISTER=<name>` and `make release-hold` run the same commands against the local `build/`.
 
 ## Security notes
 

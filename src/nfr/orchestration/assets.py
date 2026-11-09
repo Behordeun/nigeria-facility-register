@@ -12,7 +12,7 @@ from pathlib import Path
 
 from dagster import MetadataValue, asset
 
-from nfr.orchestration import config, gates, inputs, metrics, snapshot, upstream
+from nfr.orchestration import config, gates, inputs, metrics, registers, snapshot, upstream
 
 @asset
 def raw_sources(context) -> None:
@@ -62,6 +62,16 @@ def raw_sources(context) -> None:
                 f"inputs changed since launch: run requested vintage {requested_fp} "
                 f"but the inputs now fingerprint as {snapshot_fp}. Not publishing; the next "
                 "sensor tick will build the current vintage."
+            )
+
+        # A rollback holds the vintage it replaced. Refusing here covers every
+        # launch path (sensor, weekly schedule, manual run), so the release that
+        # was rolled back is never rebuilt and republished over the restore.
+        if snapshot_fp == registers.read_hold(config.HOLD_FILE):
+            raise RuntimeError(
+                f"vintage {snapshot_fp} is held after a rollback ({config.HOLD_FILE}); not publishing it "
+                "again. Fix the inputs (any change gives a new fingerprint) or release the hold with "
+                "scripts/restore_register.py --release-hold."
             )
 
         # Build into a run-scoped side file, never the live DB. A stale file from

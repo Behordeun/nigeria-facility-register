@@ -8,12 +8,13 @@ floors here are read by the asset checks.
 """
 from __future__ import annotations
 
+import contextlib
 import os
 from pathlib import Path
 
 from dagster import MetadataValue
 
-from nfr.orchestration import config, dashboard_cache, metrics, publish, snapshot
+from nfr.orchestration import config, dashboard_cache, metrics, publish, registers, snapshot
 
 # Advisory floors for the asset checks. A refresh below one of these is not
 # necessarily broken, but it is worth a human glance, so the checks warn rather
@@ -45,16 +46,32 @@ def promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> Non
     and live share the build/ tree), so a reader of the live DB sees either the
     whole previous register or the whole new one, never a mixture.
 
-    If either step raises, the side DB and the run's snapshot are removed, the
-    live DB is left exactly as it was, and the error propagates.
+    The outgoing register is hard-linked into the archive first (no copy; the
+    live path stays in place until the rename replaces it), so it can be restored
+    with scripts/restore_register.py; failing to archive it fails the publish,
+    so every register that was ever live can be rolled back to while it is kept.
+
+    If any of those steps raises, the side DB and the run's snapshot are removed,
+    the live DB is left exactly as it was, and the error propagates. Pruning the
+    archive and lifting a rollback hold happen after the register is live, so
+    they are best-effort: a failure there never un-publishes a good register.
     """
     try:
         publish.write_published_fingerprint(str(staging_db), built_fingerprint)
+        registers.archive_live(config.DB, config.ARCHIVE_DIR)
         os.replace(staging_db, config.DB)
     except BaseException:
         staging_db.unlink(missing_ok=True)
         snapshot.clear_snapshot(snapshot_dir)
         raise
+    # A different register is now live, so a hold on a rolled-back vintage no
+    # longer applies. The refresh refuses to build a held vintage at all; the
+    # comparison keeps the hold should any other path ever publish that vintage.
+    with contextlib.suppress(OSError):
+        registers.prune(config.ARCHIVE_DIR, config.ARCHIVE_KEEP)
+    with contextlib.suppress(OSError):
+        if built_fingerprint != registers.read_hold(config.HOLD_FILE):
+            registers.clear_hold(config.HOLD_FILE)
 
 
 def clear_dashboard_cache(log) -> str:
