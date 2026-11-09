@@ -2,7 +2,9 @@
 
 The dev and CI loops do not need a container: `uv` plus the committed lockfile
 reproduce the environment, and `make sample` / `make build` run the transform
-directly. This document is for an **always-on deployment**, where the Dagster
+directly, into `build/scratch.duckdb`. Local builds never write
+`build/nfr.duckdb`, the published register that only the Dagster refresh
+promotes onto and that Superset reads. This document is for an **always-on deployment**, where the Dagster
 schedule and sensor must keep running so the register refreshes on its own.
 
 ## What runs
