@@ -60,6 +60,12 @@ COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --extra orchestration
 
+# Parse the dbt project into dbt/target/manifest.json, which the Dagster code
+# reads at load time to define one asset per dbt model. dbt/target/ is excluded
+# from the build context, so the manifest always matches the models in this
+# image. Parsing opens no database.
+RUN .venv/bin/dbt parse --project-dir dbt --profiles-dir dbt
+
 # The instance config seed; the compose daemon/webserver share a DAGSTER_HOME
 # volume, and the entrypoint copies this in if the volume is empty.
 RUN mkdir -p "$DAGSTER_HOME" && cp dagster.yaml "$DAGSTER_HOME/dagster.yaml"

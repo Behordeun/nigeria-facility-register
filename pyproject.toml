@@ -41,8 +41,12 @@ dev = [
     "rasterio==1.4.4",
 ]
 orchestration = [
-    "dagster==1.13.5",
-    "dagster-webserver==1.13.5",
+    # dagster-dbt models each dbt model as its own asset. 0.29.22 (with dagster
+    # 1.13.22, which it pins exactly) is the first release whose dbt-core range
+    # admits the 1.12 security floor above; earlier 0.29.x cap dbt-core below 1.12.
+    "dagster==1.13.22",
+    "dagster-webserver==1.13.22",
+    "dagster-dbt==0.29.22",
 ]
 
 [tool.ruff]
