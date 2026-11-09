@@ -55,12 +55,18 @@ addopts = "--cov=nfr --cov-report=xml --cov-report=term-missing"
 
 [tool.coverage.run]
 source = ["nfr"]
-# I/O orchestration exercised end to end in CI (the dbt build, or a Dagster
-# run), not by unit tests. Their pure helpers are tested directly, so these are
-# excluded and the coverage figure reflects the unit-tested library code.
+# I/O orchestration exercised end to end (the dbt build, or a Dagster run), not
+# by unit tests: the loader and the Dagster wiring (assets, checks, jobs,
+# schedules, sensors, definitions). Their pure helpers (config, gates, inputs,
+# snapshot, publish) are tested directly and stay measured.
 omit = [
     "src/nfr/load_sources.py",
+    "src/nfr/orchestration/assets.py",
+    "src/nfr/orchestration/checks.py",
     "src/nfr/orchestration/definitions.py",
+    "src/nfr/orchestration/jobs.py",
+    "src/nfr/orchestration/schedules.py",
+    "src/nfr/orchestration/sensors.py",
 ]
 
 [build-system]

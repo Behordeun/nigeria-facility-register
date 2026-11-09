@@ -10,7 +10,8 @@ import pytest
 
 pytest.importorskip("dagster")
 
-from nfr.orchestration import definitions as d  # noqa: E402
+from nfr.orchestration import config, sensors  # noqa: E402
+from nfr.orchestration.jobs import refresh_job  # noqa: E402
 from nfr.orchestration import publish  # noqa: E402
 
 
@@ -57,19 +58,19 @@ class _FakeInstance:
 
 
 def test_running_or_queued_true_when_an_active_run_exists():
-    assert d._running_or_queued_refresh(_FakeInstance(active_count=1)) is True
+    assert sensors._running_or_queued_refresh(_FakeInstance(active_count=1)) is True
 
 
 def test_running_or_queued_false_when_none_active():
-    assert d._running_or_queued_refresh(_FakeInstance(active_count=0)) is False
+    assert sensors._running_or_queued_refresh(_FakeInstance(active_count=0)) is False
 
 
 def test_running_or_queued_query_filters_to_the_refresh_job_and_active_states():
     from dagster import DagsterRunStatus
 
     inst = _FakeInstance(active_count=0)
-    d._running_or_queued_refresh(inst)
-    assert inst.last_filter.job_name == d.refresh_job.name
+    sensors._running_or_queued_refresh(inst)
+    assert inst.last_filter.job_name == refresh_job.name
     # The query must look at non-terminal states only; a terminal status in the
     # set would wrongly count a finished run as still active.
     statuses = set(inst.last_filter.statuses)
@@ -80,4 +81,4 @@ def test_running_or_queued_query_filters_to_the_refresh_job_and_active_states():
 
 
 def test_vintage_fp_tag_is_stable():
-    assert d.VINTAGE_FP_TAG == "nfr/vintage_fingerprint"
+    assert config.VINTAGE_FP_TAG == "nfr/vintage_fingerprint"
