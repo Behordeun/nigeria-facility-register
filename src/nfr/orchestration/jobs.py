@@ -5,6 +5,8 @@ from __future__ import annotations
 
 from dagster import AssetSelection, define_asset_job
 
+from nfr.orchestration.dbt_project import REFRESH_GROUP
+
 # Tag the job's runs with a concurrency key, so a scheduled, sensor, and manual
 # launch do not overlap and race on the shared DuckDB file and dbt output dirs.
 # The run coordinator serialises runs that share this key (configure the limit
@@ -12,10 +14,12 @@ from dagster import AssetSelection, define_asset_job
 # the tag is what makes that limit apply to every launch path).
 refresh_job = define_asset_job(
     "refresh_register",
-    # The two refresh assets (and their checks) by name, not "*": the upstream
-    # release watch (upstream_check_job) is a separate job and must never run inside, or hold
-    # up, a refresh.
-    selection=AssetSelection.assets("raw_sources", "dbt_models"),
+    # The refresh group (raw_sources, every dbt model and seed, and
+    # published_register, with their checks), not "*": the upstream release
+    # watch (upstream_check_job) is a separate job and must never run inside, or
+    # hold up, a refresh. Selected by group name so this module does not import
+    # the dbt assets, which need the parsed dbt manifest.
+    selection=AssetSelection.groups(REFRESH_GROUP),
     tags={"dagster/concurrency_key": "refresh_register"},
 )
 

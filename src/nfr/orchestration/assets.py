@@ -1,20 +1,30 @@
 """
-The refresh's two assets (load the snapshotted inputs, then build, gate and
-publish the register) and the monthly upstream-release watch.
+The refresh's assets (load the snapshotted inputs, build every dbt model into
+the run's side database, then gate and publish the register) and the monthly
+upstream-release watch.
 """
-from __future__ import annotations
-
+# No `from __future__ import annotations`: Dagster reads the context and
+# resource annotations at definition time, and a string annotation is rejected.
+import json
 import os
 import subprocess
 import sys
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
-from dagster import MetadataValue, asset
+from dagster import AssetExecutionContext, MetadataValue, asset
+from dagster_dbt import DbtCliResource, dbt_assets
 
 from nfr.orchestration import alerts, config, gates, inputs, metrics, registers, snapshot, upstream
+from nfr.orchestration.dbt_project import DBT_PROJECT, REFRESH_GROUP, TRANSLATOR, dbt_database
 
-@asset
+# `dagster dev` parses the dbt project on start so the manifest below exists;
+# the deployment image and CI parse it themselves.
+DBT_PROJECT.prepare_if_dev()
+
+
+@asset(group_name=REFRESH_GROUP)
 def raw_sources(context) -> None:
     """Snapshot the raw inputs, then load the snapshot into the run's DuckDB.
 
@@ -40,8 +50,9 @@ def raw_sources(context) -> None:
     # Everything after the snapshot is created runs under try/except, so ANY
     # failure (a tag mismatch, the loader, the count read) clears the snapshot
     # rather than leaving it under build/snapshots/ for a run that will not reach
-    # dbt_models' cleanup. dbt_models re-creates nothing: on a successful
-    # raw_sources the snapshot is left in place for it to read and then clear.
+    # a later step's cleanup. The later steps re-create nothing: on a successful
+    # raw_sources the snapshot is left in place for them to read, and
+    # published_register clears it once the register is live.
     snapshot_dir = config.run_snapshot_dir(context.run_id)
     snapshot.create_snapshot(config.RAW, snapshot_dir, config.RAW_GEOPACKAGES)
     try:
@@ -91,7 +102,7 @@ def raw_sources(context) -> None:
             cwd=str(config.ROOT), check=True,
         )
         # raw_counts, not load_counts: the staging tables do not exist until
-        # dbt_models runs, so reading them here would fail a fresh refresh.
+        # the dbt models run, so reading them here would fail a fresh refresh.
         counts = metrics.raw_counts_from_path(str(staging_db))
     except BaseException:
         snapshot.clear_snapshot(snapshot_dir)
@@ -109,55 +120,64 @@ def raw_sources(context) -> None:
     )
 
 
-@asset(deps=[raw_sources])
-def dbt_models(context) -> None:
-    """Run the dbt staging and marts build, enforce the quality gate, then emit
-    the run's metrics.
+@dbt_assets(
+    manifest=DBT_PROJECT.manifest_path,
+    project=DBT_PROJECT,
+    dagster_dbt_translator=TRANSLATOR,
+)
+def register_models(context: AssetExecutionContext, dbt: DbtCliResource) -> Iterator:
+    """Build every dbt model and seed into the run's side database, and run its tests.
+
+    Each model is its own asset and each single-model dbt test its own asset
+    check, so the UI shows which model or test failed and how long each took.
+    The build writes only to the side database raw_sources created, never the
+    live register: materialising these assets stages the register, and only
+    published_register makes it live. A failed model or test fails the step
+    and discards the side database and the run's snapshot, so nothing is
+    published.
+    """
+    staging_db, snapshot_dir = _staged_inputs(context)
+    population_year = int((snapshot_dir / config.SNAPSHOT_YEAR_FILE).read_text())
+    try:
+        with dbt_database(staging_db):
+            yield from dbt.cli(
+                ["build", "--vars", json.dumps({"population_year": population_year})],
+                context=context,
+            ).stream()
+    except BaseException:
+        # Any failure (a model, a test, a cancellation) discards the staged
+        # register and the run's snapshot, and leaves the live DB untouched.
+        staging_db.unlink(missing_ok=True)
+        snapshot.clear_snapshot(snapshot_dir)
+        raise
+
+
+@asset(group_name=REFRESH_GROUP, deps=[register_models])
+def published_register(context) -> None:
+    """Enforce the quality gate on the staged build, then promote it onto the live path.
 
     The hard carry-over gate runs here, not as a blocking asset check: raising
-    in the asset fails the refresh job, where a check downstream of a terminal
-    asset would not. The dbt tests (referential integrity, row-count bounds)
-    already fail the build inside `dbt build` above.
+    in the asset fails the refresh job, where a check downstream of the
+    terminal asset would not. The dbt tests (referential integrity, row-count
+    bounds) have already failed the run in register_models if they did not pass.
     """
-    staging_db = config.staging_db_path(context.run_id)
-    if not staging_db.is_file():
-        raise RuntimeError(
-            f"staging database {staging_db} is missing; raw_sources must run first"
-        )
+    staging_db, snapshot_dir = _staged_inputs(context)
 
     # Fingerprint the SNAPSHOT this build is made from, not the live inputs:
     # raw_sources loaded the snapshot, which is immutable for the run, so this is
     # exactly the vintage being published even if the inputs have since changed. It
     # is recorded in the side database before promotion so the live DB always
     # knows which raw vintage it holds (the sensor reads this, not run history).
-    snapshot_dir = config.run_snapshot_dir(context.run_id)
-    if not snapshot_dir.is_dir():
-        raise RuntimeError(
-            f"snapshot {snapshot_dir} is missing; raw_sources must run first"
-        )
     population_year = int((snapshot_dir / config.SNAPSHOT_YEAR_FILE).read_text())
     built_fingerprint = config.snapshot_fingerprint(snapshot_dir, population_year)
 
     try:
-        # Build dbt against the SIDE database, not the live one: the profile
-        # reads NFR_DUCKDB_PATH. dbt build runs the models and the data-quality
-        # tests, so a referential or row-count failure aborts here before any
-        # promote. sys.executable keeps the subprocess on this venv's dbt.
-        env = {**os.environ, config.DBT_DB_ENV: str(staging_db)}
-        # `python -m dbt.cli.main`, not `-m dbt`: dbt ships no dbt.__main__, so
-        # `-m dbt` fails with "No module named dbt.__main__". Running the cli
-        # module keeps the subprocess on this interpreter's venv dbt.
-        subprocess.run(
-            [sys.executable, "-m", "dbt.cli.main", "build", "--profiles-dir", ".",
-             "--vars", f"{{population_year: {population_year}}}"],
-            cwd=str(config.DBT_DIR), check=True, env=env,
-        )
         # Enforce the hard carry-over gate against the staged build. Raises if
         # the rate does not clear the floor, so the side file is never promoted.
         gates.enforce_carryover_gate(str(staging_db))
         m = metrics.collect_from_path(str(staging_db))
     except BaseException:
-        # Any failure (dbt build, a test, the gate, a cancellation) discards the
+        # Any failure (the gate, the metrics read, a cancellation) discards the
         # staged register and the run's snapshot, and leaves the live DB untouched.
         staging_db.unlink(missing_ok=True)
         snapshot.clear_snapshot(snapshot_dir)
@@ -182,6 +202,21 @@ def dbt_models(context) -> None:
     # The snapshot has served its purpose (loaded and published); remove it so
     # snapshots do not accumulate under build/snapshots/ run after run.
     snapshot.clear_snapshot(snapshot_dir)
+
+
+def _staged_inputs(context) -> tuple[Path, Path]:
+    """The run's side database and snapshot, which raw_sources must have created.
+
+    Raises when either is missing, which means raw_sources did not run in this
+    run (for example, a dbt model materialised on its own from the asset graph).
+    """
+    staging_db = config.staging_db_path(context.run_id)
+    if not staging_db.is_file():
+        raise RuntimeError(f"staging database {staging_db} is missing; raw_sources must run first")
+    snapshot_dir = config.run_snapshot_dir(context.run_id)
+    if not snapshot_dir.is_dir():
+        raise RuntimeError(f"snapshot {snapshot_dir} is missing; raw_sources must run first")
+    return staging_db, snapshot_dir
 
 
 def _launch_population_year(context, snapshot_dir: Path) -> int:
