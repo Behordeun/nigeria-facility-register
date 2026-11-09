@@ -221,6 +221,37 @@ def test_every_map_shows_the_lga_hover_summary():
         assert columns.get("name", {}).get("expression"), "the map dataset must define the `name` hover column"
 
 
+def test_every_map_draws_a_measured_zero():
+    # The deck.gl Polygon layer leaves a polygon unfilled when its metric is
+    # falsy, so a measured 0 (a non-endemic rank, access risk 0) would look the
+    # same as an unmeasured LGA. Each map whose lowest band starts at 0 maps 0 to
+    # 0.001, which lands in that band; NULL stays NULL and stays blank.
+    maps = [c for c in _many("charts") if c["viz_type"] == "deck_polygon" and c["params"].get("break_points")]
+    assert maps, "expected banded map charts in the bundle"
+    for chart in maps:
+        params = chart["params"]
+        if float(min(params["break_points"], key=float)) != 0:
+            continue
+        metric = params["metric"]
+        needs_sql = f"map {chart['slice_name']} needs a SQL metric so a measured 0 can be mapped to 0.001"
+        assert isinstance(metric, dict), needs_sql
+        assert "sqlExpression" in metric, needs_sql
+        expression = metric["sqlExpression"]
+        leaves_zero_blank = f"map {chart['slice_name']} would leave LGAs measuring 0 blank"
+        assert expression.startswith("CASE WHEN "), leaves_zero_blank
+        assert " = 0 THEN 0.001 ELSE " in expression, leaves_zero_blank
+
+
+def test_sources_note_credits_every_licensed_source():
+    # CC BY sources require attribution wherever their figures are shown.
+    (dashboard,) = _many("dashboards")
+    notes = [n["meta"]["code"] for n in dashboard["position"].values()
+             if isinstance(n, dict) and n.get("type") == "MARKDOWN"]
+    (sources,) = [code for code in notes if code.startswith("### Sources and licences")]
+    for source in ("GRID3", "geoBoundaries", "ESPEN", "WorldPop", "Malaria Atlas Project", "NASA MODIS"):
+        assert source in sources, f"the Sources and licences note does not credit {source}"
+
+
 def test_lga_profile_link_targets_this_dashboard_filter_and_tab():
     # The ranked list's link hard-codes three identifiers from the dashboard:
     # its slug, the LGA native filter's id, and the profile tab's id. Renaming

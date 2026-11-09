@@ -18,7 +18,7 @@ params:
   subheader_font_size: 0.15
   y_axis_format: ',d'
   time_format: smart_date
-  subheader: authority layer, all LGAs
+  subheader: authority layer
   annotation_layers: []
 query_context: null
 cache_timeout: null

@@ -12,7 +12,7 @@ params:
   line_type: json
   metric:
     expressionType: SQL
-    sqlExpression: MAX(loa_endemicity_rank_lga)
+    sqlExpression: CASE WHEN MAX(loa_endemicity_rank_lga) = 0 THEN 0.001 ELSE MAX(loa_endemicity_rank_lga) END
     label: Loa loa rank
     hasCustomLabel: true
     optionName: metric_dc155c0f146f
@@ -28,7 +28,7 @@ params:
   viewport:
     longitude: 8.7
     latitude: 9.0
-    zoom: 4.85
+    zoom: 5.0
     bearing: 0
     pitch: 0
     width: 800

@@ -12,7 +12,7 @@ params:
   line_type: json
   metric:
     expressionType: SQL
-    sqlExpression: MAX(pf_parasite_rate) * 100
+    sqlExpression: CASE WHEN MAX(pf_parasite_rate) * 100 = 0 THEN 0.001 ELSE MAX(pf_parasite_rate) * 100 END
     label: Parasite rate (%)
     hasCustomLabel: true
     optionName: metric_7247ef555b53
@@ -71,7 +71,7 @@ params:
   num_buckets: '5'
   table_filter: false
   toggle_polygons: true
-  legend_position: null
+  legend_position: tr
   legend_format: .0f
   js_columns:
   - name
