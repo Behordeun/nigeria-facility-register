@@ -233,13 +233,13 @@ def test_every_map_draws_a_measured_zero():
         if float(min(params["break_points"], key=float)) != 0:
             continue
         metric = params["metric"]
-        assert isinstance(metric, dict) and "sqlExpression" in metric, (
-            f"map {chart['slice_name']} needs a SQL metric so a measured 0 can be mapped to 0.001"
-        )
+        needs_sql = f"map {chart['slice_name']} needs a SQL metric so a measured 0 can be mapped to 0.001"
+        assert isinstance(metric, dict), needs_sql
+        assert "sqlExpression" in metric, needs_sql
         expression = metric["sqlExpression"]
-        assert expression.startswith("CASE WHEN ") and " = 0 THEN 0.001 ELSE " in expression, (
-            f"map {chart['slice_name']} would leave LGAs measuring 0 blank"
-        )
+        leaves_zero_blank = f"map {chart['slice_name']} would leave LGAs measuring 0 blank"
+        assert expression.startswith("CASE WHEN "), leaves_zero_blank
+        assert " = 0 THEN 0.001 ELSE " in expression, leaves_zero_blank
 
 
 def test_sources_note_credits_every_licensed_source():
