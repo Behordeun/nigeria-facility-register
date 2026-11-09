@@ -31,7 +31,7 @@ dependencies = [
 dev = [
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.8.4",
+    "ruff==0.17.4",
     # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
     # one-off build tool, not a runtime dependency).
     "topojson==2.2",
