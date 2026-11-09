@@ -152,7 +152,8 @@ def restore(
         )
 
     replaced = _fingerprint_of(db)
-    archive_live(db, archive_dir)
+    db.parent.mkdir(parents=True, exist_ok=True)
+    kept = archive_live(db, archive_dir)
     fd, tmp_name = tempfile.mkstemp(dir=str(db.parent), prefix=f".{db.name}.", suffix=".restore")
     os.close(fd)
     tmp = Path(tmp_name)
@@ -160,7 +161,11 @@ def restore(
         shutil.copy2(source, tmp)
         os.replace(tmp, db)
     except BaseException:
+        # The live register is unchanged, so the copy of it kept a moment ago
+        # is a duplicate; drop it rather than leave an extra archive entry.
         tmp.unlink(missing_ok=True)
+        if kept is not None:
+            kept.unlink(missing_ok=True)
         raise
     restored = _fingerprint_of(db)
     if replaced and replaced != restored:

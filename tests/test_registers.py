@@ -143,3 +143,31 @@ def test_an_unreadable_hold_holds_nothing(tmp_path, content):
     hold = tmp_path / "hold.json"
     hold.write_text(content)
     assert registers.read_hold(hold) is None
+
+
+def test_a_failed_restore_leaves_the_live_register_and_the_archive_as_they_were(tmp_path, monkeypatch):
+    archive = tmp_path / "published"
+    live = _register(tmp_path / "nfr.duckdb", "good", "good")
+    good = registers.archive_live(live, archive, _at(1))
+    live.unlink()
+    _register(live, "bad", "bad")
+    before = sorted(p.name for p in registers.archived(archive))
+
+    def fail(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(registers.shutil, "copy2", fail)
+    with pytest.raises(OSError, match="disk full"):
+        registers.restore(good, live, archive, tmp_path / "hold.json", keep=3)
+    assert _marker(live) == "bad", "a failed restore must leave the live register alone"
+    assert sorted(p.name for p in registers.archived(archive)) == before, "no extra archive entry is left behind"
+    assert registers.read_hold(tmp_path / "hold.json") is None
+
+
+def test_restore_creates_the_live_folder_when_nothing_is_published(tmp_path):
+    archive = tmp_path / "published"
+    archive.mkdir()
+    source = _register(archive / "20261109T080000000000Z-good.duckdb", "good", "good")
+    live = tmp_path / "fresh" / "nfr.duckdb"
+    assert registers.restore(source.name, live, archive, tmp_path / "hold.json", keep=3) is None
+    assert _marker(live) == "good"

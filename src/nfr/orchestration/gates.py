@@ -65,11 +65,13 @@ def promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> Non
         snapshot.clear_snapshot(snapshot_dir)
         raise
     # A different register is now live, so a hold on a rolled-back vintage no
-    # longer applies (the refresh refuses to build a held vintage at all).
+    # longer applies. The refresh refuses to build a held vintage at all; the
+    # comparison keeps the hold should any other path ever publish that vintage.
     with contextlib.suppress(OSError):
         registers.prune(config.ARCHIVE_DIR, config.ARCHIVE_KEEP)
     with contextlib.suppress(OSError):
-        registers.clear_hold(config.HOLD_FILE)
+        if built_fingerprint != registers.read_hold(config.HOLD_FILE):
+            registers.clear_hold(config.HOLD_FILE)
 
 
 def clear_dashboard_cache(log) -> str:

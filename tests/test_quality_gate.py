@@ -163,3 +163,22 @@ def test_promote_keeps_only_the_newest_archived_registers(tmp_path, monkeypatch)
     kept = registers.archived(archive)
     assert len(kept) == config.ARCHIVE_KEEP, f"expected the newest {config.ARCHIVE_KEEP}, kept {len(kept)}"
     assert [p.read_bytes() for p in kept] == [b"r2", b"r3", b"r4"], "the oldest registers are pruned first"
+
+
+def test_publishing_the_held_vintage_keeps_the_hold(tmp_path, monkeypatch):
+    # The refresh never builds a held vintage, but should any other path publish
+    # it, the hold must survive so the rollback protection is not silently lost.
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"restored register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"held vintage")
+    hold = tmp_path / "hold.json"
+    registers.write_hold(hold, "held-fp", "test")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "held-fp", tmp_path / "snapshots" / "run")
+    assert registers.read_hold(hold) == "held-fp", "publishing the held vintage must not lift its hold"
