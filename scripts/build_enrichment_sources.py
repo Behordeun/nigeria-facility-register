@@ -49,7 +49,7 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
-from nfr.enrichment.espen import ESPEN_COLUMNS, ESPEN_DISEASES, derive_espen, is_unknown  # noqa: E402,F401
+from nfr.enrichment.espen import ESPEN_DISEASES, derive_espen  # noqa: E402
 from nfr.keys import norm_lga, norm_state  # noqa: E402
 from nfr.files import write_csv_atomic  # noqa: E402
 

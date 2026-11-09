@@ -71,8 +71,9 @@ def test_a_recent_unknown_does_not_hide_an_older_measured_status():
 
 def test_an_iu_missing_from_the_index_fails_the_build():
     oncho = _export([(101, 2024, "Endemic", "Total"), (999, 2024, "Endemic", "Total")])
+    exports = _all_exports(Oncho=oncho)
     with pytest.raises(SystemExit, match="not in the master LGA index"):
-        espen.long_from_exports(_all_exports(Oncho=oncho), MASTER)
+        espen.long_from_exports(exports, MASTER)
 
 
 def test_a_missing_export_fails_the_build():
@@ -85,5 +86,6 @@ def test_a_missing_export_fails_the_build():
 def test_an_error_page_instead_of_an_export_fails_the_build():
     # ESPEN answers an empty export with a one-line "No data available." file.
     page = pd.DataFrame({"No data available.": []})
+    exports = _all_exports(STH=page)
     with pytest.raises(SystemExit, match="export lacks columns"):
-        espen.long_from_exports(_all_exports(STH=page), MASTER)
+        espen.long_from_exports(exports, MASTER)

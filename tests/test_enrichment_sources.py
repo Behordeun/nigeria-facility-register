@@ -13,6 +13,8 @@ from pathlib import Path
 import pandas as pd
 import pytest
 
+from nfr.enrichment import espen
+
 ROOT = Path(__file__).resolve().parents[1]
 DERIVED = ROOT / "data" / "derived"
 _spec = importlib.util.spec_from_file_location(
@@ -76,9 +78,9 @@ def test_unexpected_disease_is_rejected():
 
 
 def test_is_unknown():
-    assert bes.is_unknown("Unknown (under LF MDA)")
-    assert bes.is_unknown(None)
-    assert not bes.is_unknown("Non-endemic")
+    assert espen.is_unknown("Unknown (under LF MDA)")
+    assert espen.is_unknown(None)
+    assert not espen.is_unknown("Non-endemic")
 
 
 def _flood(rows):
@@ -143,7 +145,7 @@ def test_build_refuses_an_output_directory_above_a_source(tmp_path):
 
 def test_committed_espen_is_774_lgas_by_five_diseases():
     df = pd.read_csv(DERIVED / "ntd_espen_lga.csv")
-    assert list(df.columns) == bes.ESPEN_COLUMNS
+    assert list(df.columns) == espen.ESPEN_COLUMNS
     assert set(df["disease"]) == bes.ESPEN_DISEASES
     assert not df.duplicated(["state", "canonical_lga", "disease"]).any()
     assert len(df) == 774 * 5

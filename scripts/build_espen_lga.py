@@ -99,8 +99,12 @@ def main() -> int:
                 print(f"wrote {args.out}")
             return 0
         if not args.update:
-            print(f"rebuilt table sha256 {digest} differs from the pin {pin}: ESPEN's endemicity data changed. "
-                  "Review the difference, then rerun with --update and record the new hash.", file=sys.stderr)
+            if pin is None:
+                print(f"no sha256 is pinned under ntd_espen_lga in data/sources.yml, so the rebuild (sha256 {digest}) "
+                      "cannot be checked. Rerun with --update to write it, then record that hash.", file=sys.stderr)
+            else:
+                print(f"rebuilt table sha256 {digest} differs from the pin {pin}: ESPEN's endemicity data changed. "
+                      "Review the difference, then rerun with --update and record the new hash.", file=sys.stderr)
             return 1
         write_csv_atomic(table, args.out)
         print(f"wrote {args.out} ({len(table)} rows); record sha256 {digest} under ntd_espen_lga in data/sources.yml")
