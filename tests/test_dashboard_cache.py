@@ -10,7 +10,7 @@ from contextlib import contextmanager
 import pytest
 
 from nfr.orchestration import dashboard_cache
-from nfr.orchestration import definitions
+from nfr.orchestration import config, gates
 
 
 class _FakeRedis(socketserver.BaseRequestHandler):
@@ -88,17 +88,17 @@ class _Log:
 
 
 def test_refresh_skips_the_clear_when_no_cache_is_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.delenv(definitions.DASHBOARD_CACHE_URL_ENV, raising=False)
+    monkeypatch.delenv(config.DASHBOARD_CACHE_URL_ENV, raising=False)
     log = _Log()
-    assert definitions._clear_dashboard_cache(log) == "not configured"
+    assert gates.clear_dashboard_cache(log) == "not configured"
     assert log.warnings == [], "an unconfigured cache is the dev loop, not a problem to warn about"
 
 
 def test_refresh_reports_a_cleared_cache(monkeypatch: pytest.MonkeyPatch) -> None:
     log = _Log()
     with fake_redis() as server:
-        monkeypatch.setenv(definitions.DASHBOARD_CACHE_URL_ENV, _url(server))
-        assert definitions._clear_dashboard_cache(log) == "cleared"
+        monkeypatch.setenv(config.DASHBOARD_CACHE_URL_ENV, _url(server))
+        assert gates.clear_dashboard_cache(log) == "cleared"
     assert log.warnings == []
 
 
@@ -109,8 +109,8 @@ def test_unreachable_cache_warns_instead_of_failing_the_published_refresh(
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
-    monkeypatch.setenv(definitions.DASHBOARD_CACHE_URL_ENV, f"redis://127.0.0.1:{port}/3")
+    monkeypatch.setenv(config.DASHBOARD_CACHE_URL_ENV, f"redis://127.0.0.1:{port}/3")
     log = _Log()
-    status = definitions._clear_dashboard_cache(log)
+    status = gates.clear_dashboard_cache(log)
     assert status.startswith("not cleared:"), f"expected a not-cleared status, got {status!r}"
     assert len(log.warnings) == 1 and "previous figures" in log.warnings[0]
