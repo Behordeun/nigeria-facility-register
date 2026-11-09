@@ -6,6 +6,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Added
 
+- Failure and upstream alerts. When `NFR_ALERT_WEBHOOK_URL` is set (an incoming webhook for Slack, Teams, Mattermost, Google Chat or Discord), a failed refresh posts its vintage and root cause, such as a gate rejection, a failed dbt test or a held vintage, and the monthly upstream check posts any release waiting for review or publisher it could not read. Each distinct failure is sent once until a refresh publishes again. Alerting never changes a run's outcome, uses only the standard library, and never logs the URL. Compose passes the variable through to the Dagster services; it is empty by default.
 - The last three published registers are kept in `build/published/`, and `scripts/restore_register.py` rolls back to one (`--list`, `--restore <name>`; `make registers` and `make restore REGISTER=<name>` locally). Each publish hard-links the outgoing register into the archive before the atomic rename, so keeping it costs no copy. A restore swaps the chosen register onto the live path atomically, archives the one it replaces, clears Superset's chart cache, and holds the rolled-back vintage: no refresh, scheduled or manual, publishes it again until its inputs change, a different register is published, or the hold is released with `--release-hold`. The runbook is in DEPLOYMENT.md.
 
 ### Changed
