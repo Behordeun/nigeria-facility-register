@@ -64,7 +64,9 @@
   <path class="e" d="M230,800 H268"/>
   <path class="e" d="M230,680 H268"/>
   <path class="e" d="M480,680 H496 V906 H518"/>
-  <path class="e" d="M730,932 H1084 V226 H1088"/>
+  <path class="e" d="M730,932 H798"/>
+  <path class="e" d="M1020,920 H1084 V226 H1088"/>
+  <path class="e" d="M730,984 H1084 V226 H1088"/>
   <path class="e" d="M480,800 H1076 V452 H1088"/>
   <path class="e" d="M230,920 H268"/>
   <path class="e" d="M480,920 H518"/>
@@ -172,9 +174,9 @@
   <g>
     <rect x="520" y="872" width="210" height="122" rx="10" fill="#fff" stroke="#cfc6f0"/>
     <use href="#i-db" xlink:href="#i-db" x="530" y="882" width="26" height="26" color="#6a4fd1"/>
-    <text x="564" y="900" class="ct">flood, births, access</text>
-    <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga,</tspan><tspan x="532" y="956">access_population_lga</tspan></text>
-    <text x="532" y="982" class="ft">all three feed coverage</text>
+    <text x="564" y="900" class="ct">enrichment tables</text>
+    <text class="cb"><tspan x="532" y="924">flood_event_affected_lga,</tspan><tspan x="532" y="940">births_lga, malaria_lga,</tspan><tspan x="532" y="956">access_population_lga</tspan></text>
+    <text x="532" y="982" class="ft">access via staging; all feed coverage</text>
   </g>
 
   <!-- ========== STAGING (dbt) ========== -->
@@ -197,12 +199,19 @@
     <text class="cb"><tspan x="812" y="564">774 LGAs x 5 diseases,</tspan><tspan x="812" y="580">ranked 0-3 by the seed;</tspan><tspan x="812" y="596">unknown stays null, never 0</tspan></text>
   </g>
 
+  <g>
+    <rect x="800" y="872" width="220" height="96" rx="10" fill="#fff" stroke="#bfe5d8"/>
+    <use href="#i-layers" xlink:href="#i-layers" x="810" y="882" width="26" height="26" color="#1f9d7a"/>
+    <text x="844" y="900" class="ct" font-size="12" textLength="166" lengthAdjust="spacingAndGlyphs">stg_access_population_lga</text>
+    <text class="cb"><tspan x="812" y="924">774 LGAs for the build's</tspan><tspan x="812" y="940">population year (2025-2030),</tspan><tspan x="812" y="956">with travel time</tspan></text>
+  </g>
+
   <!-- ========== MARTS (dbt) ========== -->
   <g>
     <rect x="1090" y="152" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
     <use href="#i-table" xlink:href="#i-table" x="1100" y="162" width="26" height="26" color="#2f6fd6"/>
     <text x="1134" y="180" class="ct">lga_coverage_burden</text>
-    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">NTD ranks, access, priority;</tspan><tspan x="1102" y="236">+ outlook to 2030, profile facts</tspan></text>
+    <text class="cb"><tspan x="1102" y="204">one row per LGA (774): coverage,</tspan><tspan x="1102" y="220">NTD ranks, access, malaria,</tspan><tspan x="1102" y="236">score; + outlook, profile facts</tspan></text>
   </g>
   <g>
     <rect x="1090" y="272" width="220" height="96" rx="10" fill="#fff" stroke="#bcd3f2"/>
@@ -234,7 +243,7 @@
     <rect x="1368" y="152" width="154" height="336" rx="10" fill="#fff" stroke="#bfe3cc"/>
     <use href="#i-chart" xlink:href="#i-chart" x="1378" y="162" width="26" height="26" color="#1f8a4c"/>
     <text x="1412" y="180" class="ct">Superset</text>
-    <text class="cb"><tspan x="1380" y="206">read-only dashboard</tspan><tspan x="1380" y="228" font-weight="700" fill="#1a6e3d">Coverage</tspan><tspan x="1380" y="244" font-weight="700" fill="#1a6e3d">LGA profile</tspan><tspan x="1380" y="260" font-weight="700" fill="#1a6e3d">Facility mix</tspan><tspan x="1380" y="276" font-weight="700" fill="#1a6e3d">NTD burden</tspan><tspan x="1380" y="292" font-weight="700" fill="#1a6e3d">Access</tspan><tspan x="1380" y="308" font-weight="700" fill="#1a6e3d">Outlook</tspan><tspan x="1380" y="324" font-weight="700" fill="#1a6e3d">Version drift</tspan><tspan x="1380" y="340" font-weight="700" fill="#1a6e3d">Data status</tspan><tspan x="1380" y="364">LGA, state, tier filters,</tspan><tspan x="1380" y="380">LGA hover summaries,</tspan><tspan x="1380" y="396">live status panel</tspan><tspan x="1380" y="418">kept as a committed</tspan><tspan x="1380" y="434">import bundle</tspan></text>
+    <text class="cb"><tspan x="1380" y="206">read-only dashboard</tspan><tspan x="1380" y="228" font-weight="700" fill="#1a6e3d">Coverage</tspan><tspan x="1380" y="244" font-weight="700" fill="#1a6e3d">LGA profile</tspan><tspan x="1380" y="260" font-weight="700" fill="#1a6e3d">Disease burden</tspan><tspan x="1380" y="276" font-weight="700" fill="#1a6e3d">Access</tspan><tspan x="1380" y="292" font-weight="700" fill="#1a6e3d">Facility mix</tspan><tspan x="1380" y="308" font-weight="700" fill="#1a6e3d">Outlook</tspan><tspan x="1380" y="324" font-weight="700" fill="#1a6e3d">Version drift</tspan><tspan x="1380" y="340" font-weight="700" fill="#1a6e3d">Data status</tspan><tspan x="1380" y="364">LGA, state, tier filters,</tspan><tspan x="1380" y="380">LGA hover summaries,</tspan><tspan x="1380" y="396">live status panel</tspan><tspan x="1380" y="418">kept as a committed</tspan><tspan x="1380" y="434">import bundle</tspan></text>
     <text x="1380" y="470" class="ft">make dashboard</text>
   </g>
   <g>

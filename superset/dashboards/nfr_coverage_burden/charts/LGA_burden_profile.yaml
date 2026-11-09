@@ -21,6 +21,8 @@ params:
   - lf_endemicity_rank_lga
   - oncho_endemicity_rank_lga
   - loa_endemicity_rank_lga
+  - pf_parasite_rate
+  - pf_incidence_per_1000
   - priority_score
   - priority_tier
   order_by_cols:
@@ -45,6 +47,10 @@ params:
       d3NumberFormat: ',d'
     facilities_per_10k_population:
       d3NumberFormat: ',.2f'
+    pf_parasite_rate:
+      d3NumberFormat: .0%
+    pf_incidence_per_1000:
+      d3NumberFormat: ',.0f'
 query_context: null
 cache_timeout: null
 uuid: 87bc6785-3e9c-5069-8878-8b503bb9a223
