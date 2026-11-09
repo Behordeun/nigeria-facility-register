@@ -4,6 +4,7 @@ sensor that records a failed refresh.
 """
 from __future__ import annotations
 
+import json
 import os
 import time
 from datetime import date
@@ -144,7 +145,8 @@ def refresh_failure_sensor(context) -> None:
     )
     status = alerts.send_once(
         os.environ.get(config.ALERT_WEBHOOK_URL_ENV), config.ALERT_STATE_FILE,
-        key=f"refresh_failed|{vintage}|{cause}",
+        # Encoded, so no vintage or cause text can make two failures share a key.
+        key=json.dumps(["refresh_failed", vintage, cause]),
         title="Register refresh failed; the published register is unchanged",
         body=f"Vintage: {vintage}\nCause: {cause}\nRun: {run.run_id}",
     )

@@ -73,7 +73,7 @@ def send(url: str | None, title: str, body: str, timeout: float = TIMEOUT_SECOND
             status = response.status
     except urllib.error.HTTPError as exc:
         return f"not sent: the webhook answered HTTP {exc.code}"
-    except (urllib.error.URLError, OSError) as exc:
+    except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
         reason = getattr(exc, "reason", exc)
         return f"not sent: {type(reason).__name__}"
     return "sent" if 200 <= status < 300 else f"not sent: the webhook answered HTTP {status}"

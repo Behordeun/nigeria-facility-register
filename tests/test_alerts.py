@@ -7,6 +7,7 @@ same failure every time the sensor retries it.
 from __future__ import annotations
 
 import json
+import socket
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -77,8 +78,15 @@ def test_a_rejecting_webhook_is_reported_not_raised():
         assert alerts.send(url, "t", "b") == "not sent: the webhook answered HTTP 500"
 
 
+def _closed_port() -> int:
+    """A local port that was free a moment ago, so nothing is listening on it."""
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        return probe.getsockname()[1]
+
+
 def test_an_unreachable_webhook_is_reported_without_the_url():
-    url = "http://127.0.0.1:9/secret-token-path"
+    url = f"http://127.0.0.1:{_closed_port()}/secret-token-path"
     status = alerts.send(url, "t", "b", timeout=2)
     assert status.startswith("not sent"), status
     assert "secret-token-path" not in status, "the webhook URL is a credential and must never be echoed"
