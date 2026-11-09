@@ -7,9 +7,9 @@ from __future__ import annotations
 from dagster import AssetCheckResult, AssetCheckSeverity, asset_check
 
 from nfr.orchestration import config, gates, metrics
-from nfr.orchestration.assets import dbt_models, upstream_releases
+from nfr.orchestration.assets import published_register, upstream_releases
 
-@asset_check(asset=dbt_models, blocking=False)
+@asset_check(asset=published_register, blocking=False)
 def lga_resolve_rate_check(context) -> AssetCheckResult:
     """Warn when too little of the frame resolved to a facility.
 
@@ -32,7 +32,7 @@ def lga_resolve_rate_check(context) -> AssetCheckResult:
     )
 
 
-@asset_check(asset=dbt_models, blocking=False)
+@asset_check(asset=published_register, blocking=False)
 def carryover_rate_check(context) -> AssetCheckResult:
     """Warn when too few v2.0 facilities carried over into v3.0.
 
@@ -53,13 +53,14 @@ def carryover_rate_check(context) -> AssetCheckResult:
     )
 
 
-@asset_check(asset=dbt_models, blocking=False)
+@asset_check(asset=published_register, blocking=False)
 def carryover_gate_check(context) -> AssetCheckResult:
     """Report the hard carry-over gate's verdict as an asset-check result.
 
-    The gate is ENFORCED inside the dbt_models asset (gates.enforce_carryover_gate),
-    which raises and fails the refresh job on a collapse, because a blocking
-    check downstream of the terminal dbt_models asset would not fail the job.
+    The gate is ENFORCED inside the published_register asset
+    (gates.enforce_carryover_gate), which raises and fails the refresh job on a
+    collapse, because a blocking check on the terminal published_register asset
+    would not fail the job.
     This check is the reporting half: on a completed build it records the gate
     verdict against the hard floor, so the Dagster UI and any consumer that
     reads asset-check results sees whether the gate passed, not only the warn

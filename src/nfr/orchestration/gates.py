@@ -102,7 +102,7 @@ def clear_dashboard_cache(log) -> str:
 def enforce_carryover_gate(db_path: str) -> float:
     """Return the carry-over rate, or raise if it does not clear the hard floor.
 
-    Runs inside the dbt_models asset against the run-scoped side database, before
+    Runs inside the published_register asset against the run-scoped side database, before
     that database is promoted onto the live path. Raising here fails the asset
     and the whole refresh job, and the side file is never promoted, so a reader
     of the live DB never sees the rejected lineage. The gate no longer drops

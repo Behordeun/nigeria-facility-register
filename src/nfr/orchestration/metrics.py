@@ -88,7 +88,7 @@ def load_counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
     """Absolute row counts for the raw inputs and the modelled layers.
 
     Reads the staging tables, so it is valid only after dbt has built them (the
-    dbt_models asset). Use raw_counts before the build.
+    register_models assets). Use raw_counts before the build.
     """
     return {
         **raw_counts(con),

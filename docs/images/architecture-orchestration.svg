@@ -83,7 +83,7 @@
     <circle cx="546" cy="292" r="12" fill="#6a4fd1"/><text x="546" y="296" class="num" text-anchor="middle">3</text>
     <use href="#i-tests" xlink:href="#i-tests" x="716" y="280" width="26" height="26" color="#1f9d7a"/>
     <text x="568" y="297" class="ct">dbt build + tests</text>
-    <text class="cb"><tspan x="538" y="326">staging and marts with</tspan><tspan x="538" y="344">enforced contracts; blocking</tspan><tspan x="538" y="362">tests: row bounds, keys,</tspan><tspan x="538" y="380">referential integrity,</tspan><tspan x="538" y="398">missing is not zero</tspan></text>
+    <text class="cb"><tspan x="538" y="326">one Dagster asset per model,</tspan><tspan x="538" y="344">each test an asset check;</tspan><tspan x="538" y="362">enforced contracts; blocking</tspan><tspan x="538" y="380">tests: row bounds, keys,</tspan><tspan x="538" y="398">referential integrity,</tspan><tspan x="538" y="416">missing is not zero</tspan></text>
   </g>
   <g>
     <rect x="766" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
