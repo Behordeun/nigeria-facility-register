@@ -30,7 +30,7 @@ sensor, and a manual run never overlap on the shared database.
 | Path | Kind | Holds |
 | --- | --- | --- |
 | `dagster_home` volume | named volume | instance config, run storage, schedule/sensor state |
-| `build` volume | named volume | `nfr.duckdb` (live), `build/published/` (the last three published registers), `publish_hold.json` (a rollback hold, when set), `build/staging/` (run-scoped), `build/snapshots/` |
+| `build` volume | named volume | `nfr.duckdb` (live), `build/published/` (the last three published registers), `publish_hold.json` (a rollback hold, when set), `alert_state.json` (the last alert sent), `build/staging/` (run-scoped), `build/snapshots/` |
 | `./data/raw` | bind mount (read-only) | the GRID3 geopackages the operator places |
 
 The raw geopackages are license-fetched and never baked into the image. Place
@@ -77,6 +77,17 @@ the job needs the real HDX geopackages in `data/raw/`. Because `data/raw/` is a
 read-only mount inside the containers, place those on the host with
 `scripts/fetch_sources.py --place`, where the daemon and webserver then see them
 through the mount with no restart.
+
+## Alerts
+
+A failed refresh, a rejected build and an upstream release waiting for review are otherwise visible only in the Dagster UI. To have them posted to a chat channel, create an incoming webhook in Slack, Microsoft Teams, Mattermost, Google Chat or Discord, add it as `NFR_ALERT_WEBHOOK_URL=<url>` to the `.env` beside the compose file, then run `docker compose up -d` so the Dagster services pick it up. Anyone holding that URL can post to the channel, so treat it like the other secrets there; it is never logged.
+
+Two things alert:
+
+- **A failed refresh**, with the vintage and the root cause: the carry-over gate rejecting a build, a failed dbt test, a vintage held after a rollback, a missing input. The published register is unchanged in every case. The sensor retries a failing vintage every half hour, so each distinct failure is sent once (recorded in `build/alert_state.json`) until a refresh publishes again.
+- **The monthly upstream check**, when a publisher has a newer release to review or could not be read.
+
+Sending never affects a run: with no URL nothing is sent, and a webhook that is down or rejects the post is recorded as the alert's status in the run log and metadata, after a ten-second timeout at most. Only `https` URLs are accepted, except a relay on the same machine.
 
 ## Rolling back a register
 

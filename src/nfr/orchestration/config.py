@@ -38,6 +38,10 @@ ARCHIVE_KEEP = 3
 # Written by a restore: the fingerprint of the register that was rolled back.
 # While the inputs still fingerprint the same, no refresh publishes them again.
 HOLD_FILE = BUILD_DIR / "publish_hold.json"
+# The chat webhook alerts are posted to (unset: no alerts), and the record of
+# the last alert sent, so a failure retried every half hour alerts once.
+ALERT_WEBHOOK_URL_ENV = "NFR_ALERT_WEBHOOK_URL"
+ALERT_STATE_FILE = BUILD_DIR / "alert_state.json"
 # The env var the dbt profile reads for its DuckDB path. The orchestrated run
 # sets it to the run-scoped side file; unset (a plain make build) it defaults to
 # the live DB inside profiles.yml.

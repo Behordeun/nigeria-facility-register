@@ -12,7 +12,7 @@ from pathlib import Path
 
 from dagster import MetadataValue, asset
 
-from nfr.orchestration import config, gates, inputs, metrics, registers, snapshot, upstream
+from nfr.orchestration import alerts, config, gates, inputs, metrics, registers, snapshot, upstream
 
 @asset
 def raw_sources(context) -> None:
@@ -210,10 +210,18 @@ def upstream_releases(context) -> None:
     for finding in findings:
         log = context.log.warning if finding.status is not upstream.Status.CURRENT else context.log.info
         log(f"{finding.source}: {finding.status.value}: {finding.detail}")
+    attention = [f for f in findings if f.status is not upstream.Status.CURRENT]
+    # Monthly, so every check that finds something alerts; nothing to deduplicate.
+    alert_status = alerts.send(
+        os.environ.get(config.ALERT_WEBHOOK_URL_ENV),
+        "Upstream data needs a look",
+        "\n".join(f"{f.source}: {f.status.value}: {f.detail}" for f in attention),
+    ) if attention else "nothing to report"
     context.add_output_metadata({
         f.source: MetadataValue.text(f"{f.status.value}: {f.detail}") for f in findings
     } | {
         "needs_review": sum(f.status is upstream.Status.NEW_RELEASE for f in findings),
         "unreachable": sum(f.status is upstream.Status.UNREACHABLE for f in findings),
         "unreadable": sum(f.status is upstream.Status.UNREADABLE for f in findings),
+        "alert": alert_status,
     })

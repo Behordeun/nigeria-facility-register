@@ -99,6 +99,7 @@ def test_failed_publish_discards_the_side_db_and_keeps_the_live_db(tmp_path, mon
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
     monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
 
     def fail(*_args):
         raise RuntimeError("sentinel write failed")
@@ -119,6 +120,7 @@ def test_promote_replaces_the_live_db_with_the_side_db(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
     monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
     monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
     gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
     assert live.read_bytes() == b"new register", "promote must move the side database onto the live path"
@@ -138,6 +140,7 @@ def test_promote_archives_the_outgoing_register_and_lifts_a_hold(tmp_path, monke
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
     monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
     monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
     gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
     kept = registers.archived(archive)
@@ -155,6 +158,7 @@ def test_promote_keeps_only_the_newest_archived_registers(tmp_path, monkeypatch)
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
     monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
     monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
     for i in range(1, 6):
         staging = tmp_path / f"nfr_run{i}.duckdb"
@@ -179,6 +183,25 @@ def test_publishing_the_held_vintage_keeps_the_hold(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
     monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
     monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
     gates.promote(staging, "held-fp", tmp_path / "snapshots" / "run")
     assert registers.read_hold(hold) == "held-fp", "publishing the held vintage must not lift its hold"
+
+
+def test_a_publish_rearms_failure_alerts(tmp_path, monkeypatch):
+    from nfr.orchestration import alerts
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"new register")
+    state = tmp_path / "alert_state.json"
+    alerts.record_sent(state, "refresh_failed|fp|gate")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", state)
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "fp2", tmp_path / "snapshots" / "run")
+    assert not alerts.already_sent(state, "refresh_failed|fp|gate"), "after a publish the next failure must alert"
