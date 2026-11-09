@@ -31,7 +31,7 @@ params:
   y_axis_format: ',.2f'
   truncateXAxis: true
   y_axis_bounds:
-  - null
+  - 0
   - null
   rich_tooltip: true
   show_empty_columns: true
@@ -44,7 +44,7 @@ params:
   y_axis_title_margin: 15
   y_axis_title_position: Left
   show_value: true
-  truncateYAxis: true
+  truncateYAxis: false
   markerEnabled: true
   markerSize: 6
 query_context: null

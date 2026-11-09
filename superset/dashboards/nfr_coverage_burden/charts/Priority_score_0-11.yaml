@@ -15,7 +15,7 @@ params:
   line_type: json
   metric:
     expressionType: SQL
-    sqlExpression: MAX(priority_score)
+    sqlExpression: CASE WHEN MAX(priority_score) = 0 THEN 0.001 ELSE MAX(priority_score) END
     label: Priority score
     hasCustomLabel: true
     optionName: metric_ca09e5c7b9b3
@@ -31,7 +31,7 @@ params:
   viewport:
     longitude: 8.7
     latitude: 9.0
-    zoom: 5.3
+    zoom: 5.0
     bearing: 0
     pitch: 0
     width: 800
@@ -70,7 +70,7 @@ params:
   - '6'
   - '8'
   - '10'
-  - '12'
+  - '11'
   num_buckets: '5'
   table_filter: false
   toggle_polygons: true

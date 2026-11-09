@@ -30,6 +30,7 @@ params:
   color_scheme: supersetColors
   y_axis_format: ',d'
   truncateXAxis: true
+  truncateYAxis: false
   y_axis_bounds:
   - 0
   - null

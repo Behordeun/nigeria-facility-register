@@ -4,6 +4,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Every map draws a measured zero. Non-endemic LGAs (rank 0) and LGAs with access risk 0 take the first colour of their map (pale yellow on the disease maps, pale red on the access map), so blank means only "not measured". The deck.gl Polygon layer leaves a polygon unfilled when its value is 0, so each map whose lowest band starts at 0 maps 0 to 0.001 in its metric; a bundle test keeps it so.
+- The dashboard reads more cleanly. Every chart sits on a plain white card with a hairline border and a rule under its title, tables have a tinted header row, and the explanatory notes sit on a pale teal panel. The disease maps run two to a row and every half-width map frames the whole country, the northeast included. The malaria map gains a legend, the priority score legend ends at 11, and the access map's colour key moves to its note. The LGA profile's 2030 line starts at zero, so a small decline no longer looks like a cliff, and single-series charts use the dashboard teal. The by-state table shows exact counts without in-cell bars, the access table shows flood exposure as Yes or No, all 37 states are labelled on the facilities-by-level chart, and the headline tiles' captions are shortened to read at one size.
+- The Data status tab's sources and licences note credits every source the dashboard shows: WorldPop, the Malaria Atlas Project and NASA MODIS join GRID3, geoBoundaries and ESPEN.
+
 ## [0.7.0] - 2026-11-09
 
 ### Added
