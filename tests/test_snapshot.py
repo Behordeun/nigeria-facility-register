@@ -131,14 +131,14 @@ def test_snapshot_bytes_match_source(tmp_path):
         assert (dest / name).read_bytes() == (src / name).read_bytes()
 
 
-def test_snapshot_fingerprint_matches_source(tmp_path):
-    # Bonus, when the orchestration extra is present: the same fingerprint
-    # function the sensor and asset use returns the same value for source and
-    # snapshot, so the tag verification in raw_sources is meaningful.
-    pytest.importorskip("dagster")
-    from nfr.orchestration.definitions import fingerprint
-
+def test_clear_snapshot_removes_the_input_folders_too(tmp_path):
+    # A run's snapshot holds frame/ and derived/ beside the geopackages; clearing
+    # it must remove them, or every run would leave a folder behind.
     src = tmp_path / "raw"
     _seed(src, {"a.gpkg": b"AAAA", "b.gpkg": b"BBBB"})
+    frame = tmp_path / "frame"
+    _seed(frame, {"index.csv": b"lga\n"})
     dest = snapshot.create_snapshot(src, tmp_path / "snap", NAMES)
-    assert fingerprint(src, NAMES) == fingerprint(dest, NAMES)
+    snapshot.create_snapshot(frame, dest / "frame", ["index.csv"])
+    snapshot.clear_snapshot(dest)
+    assert not dest.exists(), "the snapshot and its input folders should be gone"

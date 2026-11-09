@@ -69,8 +69,8 @@ make setup                     # venv + deps
     ~/Downloads/nga_health_facilities_v2_0.gpkg \
     ~/Downloads/grid3_nga_health_facilities_v3_0.gpkg
 make fetch                     # verify they are present and valid
-make build                     # load sources + dbt staging + marts
-make test                      # unit + dbt tests
+make build                     # load sources + dbt staging + marts + dbt tests, into build/scratch.duckdb
+make test                      # unit tests + the sample transform (what CI runs)
 ```
 
 The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`. Place the downloads with `scripts/fetch_sources.py --place <files>` (run it with the venv's Python, `.venv/bin/python`, so `pyogrio` is on the path). It validates each file is a complete, readable GeoPackage, then places a copy into `data/raw/` with an atomic rename, so the loader and the refresh sensor never see a half-written file. Pass both geopackages to one `--place` so they land as a consistent set rather than one new file beside one old one; your original downloads are left untouched.
