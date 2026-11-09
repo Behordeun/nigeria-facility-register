@@ -69,9 +69,19 @@ sources:
     format: csv
     latest_year: 2025
     download: https://espen.afro.who.int/api/download-data/NG/{disease}/iu/{from_year}/{to_year} (public, no key; the portal's own download route; disease codes STH, SCH, lf, Oncho, Loa)
-    derived_from: Geospatial/espen_ntd/data/espen_long.csv (ESPEN IU-level, 2014-2025)
-    upstream_sha256: a438ade2dc971c785416f500961c57aaab892f58b4c89fcb747167b5d0f1e412
+    built_by: scripts/build_espen_lga.py (downloads the five exports for 2014 to latest_year into data/raw/espen/, never committed)
     sha256: 4c8c3d9d0d426bb34cb341e07a5306991eb881952e9ffc2629246549f7d02a4a
+    pin: >
+      The pin is the committed table's hash, not the downloads': ESPEN's exports
+      also carry MDA fields that change between downloads without changing any
+      endemicity. build_espen_lga.py refuses to overwrite the table when its
+      rebuild differs from this hash; --update writes a reviewed change.
+    provenance: >
+      First built from ESPEN exports held in the Geospatial monorepo
+      (espen_ntd/data/espen_long.csv, sha256 a438ade2dc971c785416f500961c57aaab892f58b4c89fcb747167b5d0f1e412).
+      Rebuilt on 2026-11-09 from the public download route with the same
+      mapping, it reproduced this table byte for byte, so the public route is
+      now the source of record.
     note: >
       Non-commercial. Five diseases (STH, schistosomiasis, lymphatic filariasis,
       onchocerciasis, Loa loa), one row per (LGA, disease): the latest year's
@@ -87,6 +97,15 @@ sources:
     derived_from: Geospatial/flood_health/data/lga_flood_event_affected.csv
     upstream_sha256: 983221d07644194ad36b0b7195239b3e75d3cbfae4833e13f9c8a43b519bb750
     sha256: 6e216b4360160dd3480b1375f23c90b440899ce1762e59b1a16234bbcffef71d
+    refresh: fixed snapshot
+    provenance: >
+      A fixed snapshot, not refreshed by this pipeline. The flags were derived in
+      the author's flood_health project from NASA MODIS flood products (the 2022
+      flood season summarised per state, the 2024 season per LGA); that project
+      is not part of this repository, so the table cannot be rebuilt here. Both
+      the committed table and its source file are pinned by sha256 above, so any
+      change to either is visible. Replacing it means a reviewed change to the
+      committed table and these pins.
     note: >
       One row per (LGA, event_year): 2022 at state resolution (the state's flag
       repeated to each LGA), 2024 at LGA resolution. affected is a 0/1 exposure

@@ -11,7 +11,10 @@ regenerated.
 What each output is, and why it is shaped this way:
 
 - ntd_espen_lga.csv: one row per (LGA, disease) for the five diseases in the
-  ESPEN long table (STH, schistosomiasis, LF, onchocerciasis, Loa loa). ESPEN is
+  ESPEN long table (STH, schistosomiasis, LF, onchocerciasis, Loa loa). Its
+  source of record is now ESPEN's public download route, via
+  scripts/build_espen_lga.py, which reproduces the same table; this path from
+  the monorepo's long table is kept for comparison. ESPEN is
   CC BY-NC-SA 3.0 IGO, so the raw IU table is NOT committed; only this summary
   is. The long table repeats STH and schistosomiasis once per MDA target
   population (SAC, Total, Adults, PreSAC) with the same endemicity, so it is
@@ -46,33 +49,17 @@ import pandas as pd
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "src"))
+from nfr.enrichment.espen import ESPEN_COLUMNS, ESPEN_DISEASES, derive_espen, is_unknown  # noqa: E402,F401
 from nfr.keys import norm_lga, norm_state  # noqa: E402
 from nfr.files import write_csv_atomic  # noqa: E402
 
 FRAME_INDEX = ROOT / "data" / "frame" / "nigeria_master_lga_index.csv"
 DEFAULT_OUT = ROOT / "data" / "derived"
 EXPECTED_LGAS = 774
-ESPEN_DISEASES = {
-    "Soil-transmitted helminths",
-    "Schistosomiasis",
-    "Lymphatic filariasis",
-    "Onchocerciasis",
-    "Loa loa",
-}
 FLOOD_RESOLUTIONS = {"LGA", "state"}
 
-ESPEN_COLUMNS = [
-    "state", "canonical_lga", "espen_iu_id", "disease", "disease_code",
-    "endemicity_latest", "year_latest", "endemicity_latest_known",
-    "year_latest_known", "years_reported",
-]
 FLOOD_COLUMNS = ["state", "canonical_lga", "event_year", "affected", "resolution"]
 BIRTHS_COLUMNS = ["shapeID", "shapeName", "births"]
-
-
-def is_unknown(label: object) -> bool:
-    """True for a missing label or any ESPEN "Unknown ..." status."""
-    return pd.isna(label) or str(label).strip().lower().startswith("unknown")
 
 
 def _key(state: pd.Series, lga: pd.Series) -> pd.Series:
@@ -92,46 +79,6 @@ def check_lga_keys(df: pd.DataFrame, frame: pd.DataFrame, name: str) -> None:
             f"{name}: LGA keys do not match the frame "
             f"({len(got - want)} not in frame, {len(want - got)} frame LGAs missing)"
         )
-
-
-def derive_espen(raw: pd.DataFrame) -> pd.DataFrame:
-    """Reduce the ESPEN long table to one row per (LGA, disease)."""
-    required = {"iuId", "state", "canonical_lga", "disease", "disease_code", "year", "endemicity"}
-    if missing := required - set(raw.columns):
-        raise SystemExit(f"espen: missing columns {sorted(missing)}")
-    if unexpected := set(raw["disease"].dropna()) - ESPEN_DISEASES:
-        raise SystemExit(f"espen: unexpected diseases {sorted(unexpected)}")
-
-    keys = ["iuId", "state", "canonical_lga", "disease", "disease_code", "year"]
-    per_year = raw[keys + ["endemicity"]].drop_duplicates()
-    clash = per_year.groupby(["iuId", "disease", "year"])["endemicity"].nunique(dropna=False)
-    if (clash > 1).any():
-        sample = clash[clash > 1].index[:3].tolist()
-        raise SystemExit(f"espen: conflicting endemicity for one IU-year, e.g. {sample}")
-    if per_year.duplicated(["iuId", "disease", "year"]).any():
-        raise SystemExit("espen: one IU-disease-year maps to more than one LGA")
-
-    group = ["state", "canonical_lga", "iuId", "disease", "disease_code"]
-    per_year = per_year.sort_values(group + ["year"])
-    latest = per_year.groupby(group, as_index=False).last()
-    latest = latest.rename(columns={"endemicity": "endemicity_latest", "year": "year_latest"})
-
-    known = per_year[~per_year["endemicity"].map(is_unknown)]
-    latest_known = known.groupby(group, as_index=False).last().rename(
-        columns={"endemicity": "endemicity_latest_known", "year": "year_latest_known"}
-    )
-    years = per_year.groupby(group, as_index=False)["year"].nunique().rename(
-        columns={"year": "years_reported"}
-    )
-
-    out = latest.merge(latest_known, on=group, how="left").merge(years, on=group, how="left")
-    out = out.rename(columns={"iuId": "espen_iu_id"})
-    # A disease never reported with a known status has no latest-known year;
-    # keep it null (nullable Int64), never 0.
-    out["year_latest_known"] = out["year_latest_known"].astype("Int64")
-    return out[ESPEN_COLUMNS].sort_values(["state", "canonical_lga", "disease"]).reset_index(
-        drop=True
-    )
 
 
 def derive_flood_affected(raw: pd.DataFrame) -> pd.DataFrame:
