@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- The last three published registers are kept in `build/published/`, and `scripts/restore_register.py` rolls back to one (`--list`, `--restore <name>`; `make registers` and `make restore REGISTER=<name>` locally). Each publish hard-links the outgoing register into the archive before the atomic rename, so keeping it costs no copy. A restore swaps the chosen register onto the live path atomically, archives the one it replaces, clears Superset's chart cache, and holds the rolled-back vintage: no refresh, scheduled or manual, publishes it again until its inputs change, a different register is published, or the hold is released with `--release-hold`. The runbook is in DEPLOYMENT.md.
+
 ### Changed
 
 - The Dagster orchestration is split by concern: `config` (paths, run tags, the input fingerprint), `gates` (quality gates and the publish step), `assets`, `checks`, `jobs`, `schedules` and `sensors`, with `definitions` only registering them. Dagster loads the same assets, checks, jobs, schedules and sensors with the same settings, and `nfr.orchestration.definitions` stays the entry point, so deployments need no change.
