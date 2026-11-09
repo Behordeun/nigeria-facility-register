@@ -232,7 +232,11 @@ def test_every_map_draws_a_measured_zero():
         params = chart["params"]
         if float(min(params["break_points"], key=float)) != 0:
             continue
-        expression = params["metric"]["sqlExpression"]
+        metric = params["metric"]
+        assert isinstance(metric, dict) and "sqlExpression" in metric, (
+            f"map {chart['slice_name']} needs a SQL metric so a measured 0 can be mapped to 0.001"
+        )
+        expression = metric["sqlExpression"]
         assert expression.startswith("CASE WHEN ") and " = 0 THEN 0.001 ELSE " in expression, (
             f"map {chart['slice_name']} would leave LGAs measuring 0 blank"
         )
