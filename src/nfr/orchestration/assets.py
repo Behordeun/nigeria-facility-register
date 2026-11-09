@@ -42,7 +42,7 @@ def raw_sources(context) -> None:
     # rather than leaving it under build/snapshots/ for a run that will not reach
     # dbt_models' cleanup. dbt_models re-creates nothing: on a successful
     # raw_sources the snapshot is left in place for it to read and then clear.
-    snapshot_dir = config.snapshot_dir(context.run_id)
+    snapshot_dir = config.run_snapshot_dir(context.run_id)
     snapshot.create_snapshot(config.RAW, snapshot_dir, config.RAW_GEOPACKAGES)
     try:
         snapshot.create_snapshot(config.FRAME, snapshot_dir / inputs.FRAME_SUBDIR, inputs.input_files(config.FRAME))
@@ -120,7 +120,7 @@ def dbt_models(context) -> None:
     # exactly the vintage being published even if the inputs have since changed. It
     # is recorded in the side database before promotion so the live DB always
     # knows which raw vintage it holds (the sensor reads this, not run history).
-    snapshot_dir = config.snapshot_dir(context.run_id)
+    snapshot_dir = config.run_snapshot_dir(context.run_id)
     if not snapshot_dir.is_dir():
         raise RuntimeError(
             f"snapshot {snapshot_dir} is missing; raw_sources must run first"

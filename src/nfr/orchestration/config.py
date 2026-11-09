@@ -66,7 +66,7 @@ def staging_db_path(run_id: str) -> Path:
     return STAGING_DIR / f"nfr_{safe}.duckdb"
 
 
-def snapshot_dir(run_id: str) -> Path:
+def run_snapshot_dir(run_id: str) -> Path:
     """Run-scoped directory holding this run's immutable copy of the raw inputs.
 
     Derived from the run id so two runs never share a snapshot; the loader reads
