@@ -4,6 +4,7 @@ sensor that records a failed refresh.
 """
 from __future__ import annotations
 
+import os
 import time
 from datetime import date
 
@@ -18,7 +19,7 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import config, inputs, publish, registers
+from nfr.orchestration import alerts, config, inputs, publish, registers
 from nfr.orchestration.jobs import refresh_job
 
 def _running_or_queued_refresh(instance) -> bool:
@@ -120,16 +121,31 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
 
 @run_failure_sensor(monitored_jobs=[refresh_job], default_status=DefaultSensorStatus.RUNNING)
 def refresh_failure_sensor(context) -> None:
-    """Log a failed refresh so the failure is visible in the sensor timeline.
+    """Record a failed refresh for operators and alert the team's channel.
 
     The re-fire itself is handled by new_vintage_sensor's published-vintage gate
     (a failed run never updates the sentinel, so the live fingerprint still
-    differs from the raw inputs and the next tick re-fires); this sensor only
-    records the failure for operators. It does not touch the vintage
-    sensor's cursor, which would be a fragile cross-sensor write.
+    differs from the inputs and the next tick re-fires); this sensor only
+    reports the failure. It does not touch the vintage sensor's cursor, which
+    would be a fragile cross-sensor write.
+
+    The alert names the vintage and the root cause (a gate rejection, a held
+    vintage, a failed dbt test). The vintage sensor retries a failing vintage
+    every half hour, so the same failure is sent once until a refresh publishes.
     """
+    run = context.dagster_run
+    vintage = run.tags.get(config.VINTAGE_FP_TAG, "scheduled or manual run")
+    causes = [alerts.root_cause(e.event_specific_data.error) for e in context.get_step_failure_events()
+              if e.event_specific_data is not None and e.event_specific_data.error is not None]
+    cause = causes[0] if causes else "the run failed before any step reported an error"
     context.log.warning(
-        f"refresh_register run {context.dagster_run.run_id} failed; the vintage will be "
-        "re-fired by new_vintage_sensor on the next tick because its fingerprint has no "
-        "successful run."
+        f"refresh_register run {run.run_id} failed ({cause}); the vintage will be re-fired by "
+        "new_vintage_sensor on the next tick because its fingerprint has no successful run."
     )
+    status = alerts.send_once(
+        os.environ.get(config.ALERT_WEBHOOK_URL_ENV), config.ALERT_STATE_FILE,
+        key=f"refresh_failed|{vintage}|{cause}",
+        title="Register refresh failed; the published register is unchanged",
+        body=f"Vintage: {vintage}\nCause: {cause}\nRun: {run.run_id}",
+    )
+    context.log.info(f"failure alert: {status}")

@@ -23,6 +23,9 @@ x-dagster-common: &dagster-common
     # Superset's chart-result cache. The refresh empties it right after it
     # publishes a new register, so the dashboard never serves the old figures.
     NFR_SUPERSET_CACHE_REDIS_URL: redis://redis:6379/3
+    # Optional chat webhook for failure and upstream-release alerts. Empty means
+    # no alerts; it is a credential, so it is never logged.
+    NFR_ALERT_WEBHOOK_URL: ${NFR_ALERT_WEBHOOK_URL:-}
   volumes:
     - dagster_home:/opt/dagster/home
     - build:/app/build

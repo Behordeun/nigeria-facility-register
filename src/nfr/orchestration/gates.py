@@ -14,7 +14,7 @@ from pathlib import Path
 
 from dagster import MetadataValue
 
-from nfr.orchestration import config, dashboard_cache, metrics, publish, registers, snapshot
+from nfr.orchestration import alerts, config, dashboard_cache, metrics, publish, registers, snapshot
 
 # Advisory floors for the asset checks. A refresh below one of these is not
 # necessarily broken, but it is worth a human glance, so the checks warn rather
@@ -72,6 +72,9 @@ def promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> Non
     with contextlib.suppress(OSError):
         if built_fingerprint != registers.read_hold(config.HOLD_FILE):
             registers.clear_hold(config.HOLD_FILE)
+    # A publish ends any run of failures, so the next failure alerts again.
+    with contextlib.suppress(OSError):
+        alerts.reset(config.ALERT_STATE_FILE)
 
 
 def clear_dashboard_cache(log) -> str:
