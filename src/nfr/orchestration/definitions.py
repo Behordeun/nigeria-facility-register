@@ -4,7 +4,8 @@ Dagster definitions for the facility-register refresh.
 The pipeline is two moving parts: load the source files into DuckDB, then run
 the dbt build (staging and marts). This wraps both as Dagster assets so a run is
 observable and re-runnable, adds a weekly schedule, and adds a sensor that fires
-only when a new GRID3 vintage actually lands in data/raw/.
+only when the inputs change: a new GRID3 vintage in data/raw/, an edited frame
+or derived table, a changed dbt model, or a new population year.
 
 One honest limit: GRID3 is published behind an AWS WAF challenge on HDX that a
 scripted download cannot clear, so the raw geopackage fetch stays a manual step
@@ -14,11 +15,11 @@ automated.
 """
 from __future__ import annotations
 
-import hashlib
 import os
 import subprocess
 import sys
 import time
+from datetime import date
 from pathlib import Path
 
 from dagster import (
@@ -42,10 +43,14 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import dashboard_cache, metrics, publish, snapshot, upstream
+from nfr.orchestration import dashboard_cache, inputs, metrics, publish, snapshot, upstream
 
 ROOT = Path(__file__).resolve().parents[3]
 RAW = ROOT / "data" / "raw"
+# The LGA frame and the derived enrichment tables the loader reads beside the
+# geopackages. They are part of every run's snapshot and fingerprint.
+FRAME = ROOT / "data" / inputs.FRAME_SUBDIR
+DERIVED = ROOT / "data" / inputs.DERIVED_SUBDIR
 # The live, reader-facing database. A refresh never builds here directly: it
 # builds into a run-scoped side file under BUILD_DIR/staging and promotes that
 # file onto this path only after the whole build and the quality gate pass.
@@ -55,8 +60,8 @@ BUILD_DIR = ROOT / "build"
 # compose deployment; unset in the dev loop, where no Superset is running.
 DASHBOARD_CACHE_URL_ENV = "NFR_SUPERSET_CACHE_REDIS_URL"
 STAGING_DIR = BUILD_DIR / "staging"
-# Per-run immutable copies of the raw inputs. A run snapshots the live data/raw/
-# here and loads from the snapshot, so a later change to data/raw/ cannot alter
+# Per-run immutable copies of the inputs. A run snapshots data/raw/, data/frame/
+# and data/derived/ here and loads from the snapshot, so a later change cannot alter
 # what the run builds.
 SNAPSHOTS_DIR = BUILD_DIR / "snapshots"
 # The env var the dbt profile reads for its DuckDB path. The orchestrated run
@@ -70,6 +75,12 @@ RAW_GEOPACKAGES = ["nga_health_facilities_v2_0.gpkg", "grid3_nga_health_faciliti
 # vintage sensor reads it back to tell whether a given vintage already SUCCEEDED,
 # which is what success-gates the sensor (see new_vintage_sensor).
 VINTAGE_FP_TAG = "nfr/vintage_fingerprint"
+# Run tag carrying the population year the sensor fingerprinted, so a run
+# launched just before 1 January still builds the year it was launched for.
+POPULATION_YEAR_TAG = "nfr/population_year"
+# The file in a run's snapshot that records the population year the run builds,
+# so the publish step fingerprints and dbt builds the same year.
+SNAPSHOT_YEAR_FILE = "population_year.txt"
 
 
 def _staging_db_path(run_id: str) -> Path:
@@ -92,7 +103,7 @@ def _snapshot_dir(run_id: str) -> Path:
     """Run-scoped directory holding this run's immutable copy of the raw inputs.
 
     Derived from the run id so two runs never share a snapshot; the loader reads
-    from here, not the live data/raw/, so a change to data/raw/ after the run
+    from here, not the live input folders, so a change to them after the run
     starts cannot alter what it builds.
     """
     safe = "".join(c for c in run_id if c.isalnum() or c in "-_") or "manual"
@@ -123,19 +134,23 @@ def _rate_meta(value: float | None) -> MetadataValue:
 def raw_sources(context) -> None:
     """Snapshot the raw inputs, then load the snapshot into the run's DuckDB.
 
-    The live data/raw/ is copied into a run-scoped immutable snapshot and the
-    loader reads from the snapshot, so a change to data/raw/ after the run starts
-    cannot alter what this run builds. If the run was launched by the sensor for
-    a specific fingerprint (the VINTAGE_FP_TAG), the snapshot's fingerprint is
-    verified against it and the run fails fast if they differ, so a vintage that
-    changed between the sensor's check and this load is never published under the
-    old fingerprint.
+    The live inputs (data/raw/, data/frame/, data/derived/) are copied into a
+    run-scoped immutable snapshot and the loader reads from the snapshot, so a
+    change to them after the run starts cannot alter what this run builds. If
+    the run was launched by the sensor for a specific fingerprint (the
+    VINTAGE_FP_TAG), the snapshot's fingerprint is verified against it and the
+    run fails fast if they differ, so a vintage that changed between the
+    sensor's check and this load is never published under the old fingerprint.
+    The population year is fixed here too (the sensor's tag, else today's) and
+    recorded in the snapshot, so dbt builds exactly the year fingerprinted.
     """
     if missing := [n for n in RAW_GEOPACKAGES if not (RAW / n).exists()]:
         raise RuntimeError(
             f"missing raw inputs {missing}; fetch them with scripts/fetch_sources.py "
             "(HDX serves them behind a WAF, so the download is manual)"
         )
+    if not (DERIVED / inputs.POPULATION_TABLE).is_file():
+        raise RuntimeError(f"missing {DERIVED / inputs.POPULATION_TABLE}; the build needs the population table")
 
     # Immutable per-run snapshot of the inputs; the loader reads from here.
     # Everything after the snapshot is created runs under try/except, so ANY
@@ -146,18 +161,22 @@ def raw_sources(context) -> None:
     snapshot_dir = _snapshot_dir(context.run_id)
     snapshot.create_snapshot(RAW, snapshot_dir, RAW_GEOPACKAGES)
     try:
-        snapshot_fp = fingerprint(snapshot_dir)
+        snapshot.create_snapshot(FRAME, snapshot_dir / inputs.FRAME_SUBDIR, inputs.input_files(FRAME))
+        snapshot.create_snapshot(DERIVED, snapshot_dir / inputs.DERIVED_SUBDIR, inputs.input_files(DERIVED))
+        population_year = _launch_population_year(context, snapshot_dir)
+        (snapshot_dir / SNAPSHOT_YEAR_FILE).write_text(str(population_year))
+        snapshot_fp = snapshot_fingerprint(snapshot_dir, population_year)
 
         # If the sensor launched this run for a specific vintage, confirm the
-        # snapshot is that vintage. A mismatch means data/raw/ changed between
+        # snapshot is that vintage. A mismatch means the inputs changed between
         # the sensor fingerprinting it and this snapshot, so the launched vintage
         # is no longer on disk; fail rather than publish the wrong bytes under
         # the requested fingerprint. The next sensor tick builds the new vintage.
         requested_fp = context.run.tags.get(VINTAGE_FP_TAG) if context.run else None
         if requested_fp and requested_fp != snapshot_fp:
             raise RuntimeError(
-                f"raw inputs changed since launch: run requested vintage {requested_fp} "
-                f"but data/raw/ now fingerprints as {snapshot_fp}. Not publishing; the next "
+                f"inputs changed since launch: run requested vintage {requested_fp} "
+                f"but the inputs now fingerprint as {snapshot_fp}. Not publishing; the next "
                 "sensor tick will build the current vintage."
             )
 
@@ -172,7 +191,9 @@ def raw_sources(context) -> None:
         # not a bare "python", so the subprocess runs this interpreter/venv.
         subprocess.run(
             [sys.executable, "-m", "nfr.load_sources", "--db", str(staging_db),
-             "--raw", str(snapshot_dir)],
+             "--raw", str(snapshot_dir),
+             "--frame", str(snapshot_dir / inputs.FRAME_SUBDIR),
+             "--derived", str(snapshot_dir / inputs.DERIVED_SUBDIR)],
             cwd=str(ROOT), check=True,
         )
         # raw_counts, not load_counts: the staging tables do not exist until
@@ -187,6 +208,7 @@ def raw_sources(context) -> None:
             "staging_db": str(staging_db),
             "snapshot_dir": str(snapshot_dir),
             "snapshot_fingerprint": snapshot_fp,
+            "population_year": population_year,
             "raw_v2_rows": counts["raw_v2_rows"],
             "raw_v3_rows": counts["raw_v3_rows"],
         }
@@ -279,9 +301,9 @@ def dbt_models(context) -> None:
             f"staging database {staging_db} is missing; raw_sources must run first"
         )
 
-    # Fingerprint the SNAPSHOT this build is made from, not the live data/raw/:
+    # Fingerprint the SNAPSHOT this build is made from, not the live inputs:
     # raw_sources loaded the snapshot, which is immutable for the run, so this is
-    # exactly the vintage being published even if data/raw/ has since changed. It
+    # exactly the vintage being published even if the inputs have since changed. It
     # is recorded in the side database before promotion so the live DB always
     # knows which raw vintage it holds (the sensor reads this, not run history).
     snapshot_dir = _snapshot_dir(context.run_id)
@@ -289,7 +311,8 @@ def dbt_models(context) -> None:
         raise RuntimeError(
             f"snapshot {snapshot_dir} is missing; raw_sources must run first"
         )
-    built_fingerprint = fingerprint(snapshot_dir)
+    population_year = int((snapshot_dir / SNAPSHOT_YEAR_FILE).read_text())
+    built_fingerprint = snapshot_fingerprint(snapshot_dir, population_year)
 
     try:
         # Build dbt against the SIDE database, not the live one: the profile
@@ -301,7 +324,8 @@ def dbt_models(context) -> None:
         # `-m dbt` fails with "No module named dbt.__main__". Running the cli
         # module keeps the subprocess on this interpreter's venv dbt.
         subprocess.run(
-            [sys.executable, "-m", "dbt.cli.main", "build", "--profiles-dir", "."],
+            [sys.executable, "-m", "dbt.cli.main", "build", "--profiles-dir", ".",
+             "--vars", f"{{population_year: {population_year}}}"],
             cwd=str(DBT_DIR), check=True, env=env,
         )
         # Enforce the hard carry-over gate against the staged build. Raises if
@@ -431,36 +455,32 @@ weekly_refresh = ScheduleDefinition(
 )
 
 
-def fingerprint(raw_dir: Path = RAW, names: list[str] | None = None) -> str:
-    """Hash the raw geopackage CONTENTS so the sensor fires only on a genuine
-    change.
+def live_fingerprint(population_year: int) -> str:
+    """Fingerprint the live inputs (data/raw/, data/frame/, data/derived/, the
+    dbt project) for the given population year; see nfr.orchestration.inputs."""
+    return inputs.fingerprint(RAW, RAW_GEOPACKAGES, FRAME, DERIVED,
+                              inputs.dbt_project_digest(DBT_DIR), population_year)
 
-    Hashes each file's bytes in chunks, not its size and mtime: a replacement
-    vintage of identical byte length with a preserved whole-second mtime (a cp
-    --preserve, an rsync --times, filesystem rounding) would otherwise produce
-    the same fingerprint and the rebuild would be silently skipped. Pure and
-    path-injectable so it can be tested without a Dagster context; an absent
-    file contributes nothing.
+
+def snapshot_fingerprint(snapshot_dir: Path, population_year: int) -> str:
+    """Fingerprint a run's snapshot the same way as the live inputs, so the two
+    agree exactly when the snapshot holds the inputs the sensor saw."""
+    return inputs.fingerprint(snapshot_dir, RAW_GEOPACKAGES, snapshot_dir / inputs.FRAME_SUBDIR,
+                              snapshot_dir / inputs.DERIVED_SUBDIR,
+                              inputs.dbt_project_digest(DBT_DIR), population_year)
+
+
+def _launch_population_year(context, snapshot_dir: Path) -> int:
+    """The year the run was launched for (the sensor's tag), else today's.
+
+    A schedule or manual run carries no tag, so it builds the year a build made
+    today describes, chosen from the snapshot's own population table.
     """
-    # Confine resolution to the directory being hashed: a listed name may not
-    # escape raw_dir via a symlink or a .. segment. This stops the sensor from
-    # reading bytes outside the watched directory (in production raw_dir is RAW,
-    # inside the project); a caller that passes its own raw_dir, such as a test,
-    # is still confined to that directory.
-    base = raw_dir.resolve()
-    h = hashlib.sha256()
-    for n in names or RAW_GEOPACKAGES:
-        p = raw_dir / n
-        if not p.exists():
-            continue
-        real = p.resolve()
-        if base != real and base not in real.parents:
-            raise ValueError(f"raw input {real} escapes the watched directory {base}")
-        h.update(n.encode())
-        with real.open("rb") as f:
-            for chunk in iter(lambda: f.read(1 << 20), b""):
-                h.update(chunk)
-    return h.hexdigest()[:16]
+    tagged = context.run.tags.get(POPULATION_YEAR_TAG) if context.run else None
+    if tagged:
+        return int(tagged)
+    table = snapshot_dir / inputs.DERIVED_SUBDIR / inputs.POPULATION_TABLE
+    return inputs.select_population_year(table, date.today())
 
 
 def _running_or_queued_refresh(instance) -> bool:
@@ -517,8 +537,16 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     """
     if missing := [n for n in RAW_GEOPACKAGES if not (RAW / n).is_file()]:
         return SensorResult(skip_reason=f"waiting for raw inputs: {', '.join(missing)}")
+    if not (DERIVED / inputs.POPULATION_TABLE).is_file():
+        return SensorResult(skip_reason=f"waiting for {inputs.POPULATION_TABLE}")
 
-    fp = fingerprint()
+    # An unreadable population table (empty, or mid-write) is a reason to wait,
+    # not a sensor error: skipping keeps the sensor healthy and says why.
+    try:
+        population_year = inputs.select_population_year(DERIVED / inputs.POPULATION_TABLE, date.today())
+    except ValueError as exc:
+        return SensorResult(skip_reason=f"waiting for a readable population table: {exc}")
+    fp = live_fingerprint(population_year)
 
     # Two-tick settle: the cursor holds the fingerprint last seen. Only act once
     # the same fingerprint has persisted across two evaluations, so a file still
@@ -526,7 +554,7 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     if fp != (context.cursor or ""):
         return SensorResult(
             cursor=fp,
-            skip_reason="data/raw/ changed since the last check; confirming it has settled",
+            skip_reason="the inputs changed since the last check; confirming they have settled",
         )
 
     published = publish.read_published_fingerprint(str(DB))
@@ -541,7 +569,8 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     # fingerprint for traceability in the UI.
     run_key = f"{fp}-{int(time.time())}"
     return SensorResult(
-        run_requests=[RunRequest(run_key=run_key, tags={VINTAGE_FP_TAG: fp})],
+        run_requests=[RunRequest(run_key=run_key, tags={VINTAGE_FP_TAG: fp,
+                                                        POPULATION_YEAR_TAG: str(population_year)})],
         cursor=fp,
     )
 

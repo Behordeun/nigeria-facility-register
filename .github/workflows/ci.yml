@@ -48,7 +48,7 @@ jobs:
       # the staging and marts models and runs the dbt tests, so the enforced data
       # contract is proven on every PR, not just parsed.
       - name: Load sample fixture into DuckDB
-        run: uv run python -m nfr.load_sources --db build/nfr.duckdb --raw data/sample
+        run: uv run python -m nfr.load_sources --db build/scratch.duckdb --raw data/sample
 
       # fixture_build=true enables the fixture-only coverage tests (e.g. that the
       # sample exercises all three lineage statuses). Those tests are disabled by
