@@ -104,6 +104,7 @@ The restore also holds the vintage it rolled back. While the inputs still finger
 - The base image is pinned to a SHA-256 digest, not just the floating tag, so a
   rebuild is reproducible; refresh the digest deliberately (see the Dockerfile
   comment) rather than letting the tag move.
+- The `uv sync` steps use a BuildKit cache mount, so packages downloaded or built once (including the dbt parser wheel fetched from GitHub releases) are reused by later builds. `docker compose build` already rebuilds the dependency layer when `uv.lock` changes, so `--no-cache` is rarely needed; it starts from an empty cache mount, and the dependency step then retries up to three times if an upstream download fails. `docker builder prune` clears the cache.
 - `data/raw` is mounted read-only, so a container cannot alter the operator's
   placed inputs.
 
