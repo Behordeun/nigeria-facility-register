@@ -97,6 +97,8 @@ def test_failed_publish_discards_the_side_db_and_keeps_the_live_db(tmp_path, mon
     snap.mkdir(parents=True)
     (snap / "a.gpkg").write_bytes(b"A")
     monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
 
     def fail(*_args):
         raise RuntimeError("sentinel write failed")
@@ -115,7 +117,49 @@ def test_promote_replaces_the_live_db_with_the_side_db(tmp_path, monkeypatch):
     staging = tmp_path / "nfr_run.duckdb"
     staging.write_bytes(b"new register")
     monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
     monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
     gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
     assert live.read_bytes() == b"new register", "promote must move the side database onto the live path"
     assert not staging.exists(), "the side database is renamed, not copied"
+
+
+def test_promote_archives_the_outgoing_register_and_lifts_a_hold(tmp_path, monkeypatch):
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"new register")
+    archive = tmp_path / "published"
+    hold = tmp_path / "hold.json"
+    registers.write_hold(hold, "rolled-back", "test")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
+    monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
+    kept = registers.archived(archive)
+    assert [p.read_bytes() for p in kept] == [b"previous register"], "the outgoing register must be archived"
+    assert live.read_bytes() == b"new register"
+    assert registers.read_hold(hold) is None, "publishing a different register lifts a rollback hold"
+
+
+def test_promote_keeps_only_the_newest_archived_registers(tmp_path, monkeypatch):
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"r0")
+    archive = tmp_path / "published"
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    for i in range(1, 6):
+        staging = tmp_path / f"nfr_run{i}.duckdb"
+        staging.write_bytes(f"r{i}".encode())
+        gates.promote(staging, f"fp{i}", tmp_path / "snapshots" / "run")
+    kept = registers.archived(archive)
+    assert len(kept) == config.ARCHIVE_KEEP, f"expected the newest {config.ARCHIVE_KEEP}, kept {len(kept)}"
+    assert [p.read_bytes() for p in kept] == [b"r2", b"r3", b"r4"], "the oldest registers are pruned first"

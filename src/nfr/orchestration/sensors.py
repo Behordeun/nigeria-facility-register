@@ -18,7 +18,7 @@ from dagster import (
     sensor,
 )
 
-from nfr.orchestration import config, inputs, publish
+from nfr.orchestration import config, inputs, publish, registers
 from nfr.orchestration.jobs import refresh_job
 
 def _running_or_queued_refresh(instance) -> bool:
@@ -70,6 +70,8 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
       path that promotes (schedule, manual, sensor) updates the sentinel, so the
       sensor sees it; and a restored older vintage differs from what is live, so
       it is rebuilt rather than skipped while stale data stays live.
+    - Rollback hold: a vintage held after a restore is not requested again (the
+      run itself would also refuse it); the hold lifts when the inputs change.
     - No double-dispatch: if a refresh is already queued or running, skip, so the
       per-tick run key does not stack duplicate requests behind it.
     """
@@ -98,6 +100,9 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     published = publish.read_published_fingerprint(str(config.DB))
     if fp == published:
         return SensorResult(cursor=fp, skip_reason=f"vintage {fp} is already published")
+
+    if fp == registers.read_hold(config.HOLD_FILE):
+        return SensorResult(cursor=fp, skip_reason=f"vintage {fp} is held after a rollback; change the inputs or release the hold")
 
     if _running_or_queued_refresh(context.instance):
         return SensorResult(cursor=fp, skip_reason="a refresh is already queued or running")

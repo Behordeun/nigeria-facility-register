@@ -31,6 +31,13 @@ STAGING_DIR = BUILD_DIR / "staging"
 # and data/derived/ here and loads from the snapshot, so a later change cannot alter
 # what the run builds.
 SNAPSHOTS_DIR = BUILD_DIR / "snapshots"
+# Previously published registers, kept so a bad release can be rolled back with
+# scripts/restore_register.py, and how many to keep.
+ARCHIVE_DIR = BUILD_DIR / "published"
+ARCHIVE_KEEP = 3
+# Written by a restore: the fingerprint of the register that was rolled back.
+# While the inputs still fingerprint the same, no refresh publishes them again.
+HOLD_FILE = BUILD_DIR / "publish_hold.json"
 # The env var the dbt profile reads for its DuckDB path. The orchestrated run
 # sets it to the run-scoped side file; unset (a plain make build) it defaults to
 # the live DB inside profiles.yml.
