@@ -56,10 +56,14 @@ def select_population_year(population_table: Path, today: date) -> int:
     The calendar year, capped to the years the population table carries, which
     is the same rule stg_access_population_lga applies when no year is pinned.
     Computing it here lets the refresh pin that year for dbt, so the year in
-    the fingerprint is exactly the year built.
+    the fingerprint is exactly the year built. Raises ValueError when the table
+    has no year column or no rows.
     """
     with population_table.open(newline="") as f:
-        years = {int(row[POPULATION_YEAR_COLUMN]) for row in csv.DictReader(f)}
+        reader = csv.DictReader(f)
+        if POPULATION_YEAR_COLUMN not in (reader.fieldnames or []):
+            raise ValueError(f"{population_table} has no {POPULATION_YEAR_COLUMN} column")
+        years = {int(row[POPULATION_YEAR_COLUMN]) for row in reader}
     if not years:
         raise ValueError(f"{population_table} carries no {POPULATION_YEAR_COLUMN} values")
     return min(max(today.year, min(years)), max(years))

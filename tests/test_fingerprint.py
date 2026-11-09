@@ -39,7 +39,9 @@ def _fp(root, year=2026):
 
 def test_stable_for_unchanged_inputs(tmp_path):
     _tree(tmp_path)
-    assert _fp(tmp_path) == _fp(tmp_path)
+    first = _fp(tmp_path)
+    second = _fp(tmp_path)
+    assert first == second, "unchanged inputs must fingerprint the same"
 
 
 @pytest.mark.parametrize("path", ["raw/a.gpkg", "frame/index.csv", f"derived/{inputs.POPULATION_TABLE}"])
@@ -136,5 +138,14 @@ def test_population_year_is_the_calendar_year_capped_to_the_table(tmp_path, toda
 def test_population_year_rejects_an_empty_table(tmp_path):
     table = tmp_path / inputs.POPULATION_TABLE
     table.write_text("shapeID,population_year\n")
+    today = date(2026, 1, 1)
     with pytest.raises(ValueError, match="carries no population_year"):
-        inputs.select_population_year(table, date(2026, 1, 1))
+        inputs.select_population_year(table, today)
+
+
+def test_population_year_rejects_a_table_without_the_year_column(tmp_path):
+    table = tmp_path / inputs.POPULATION_TABLE
+    table.write_text("shapeID,population\ns1,10\n")
+    today = date(2026, 1, 1)
+    with pytest.raises(ValueError, match="has no population_year column"):
+        inputs.select_population_year(table, today)

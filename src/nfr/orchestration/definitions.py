@@ -540,7 +540,12 @@ def new_vintage_sensor(context: SensorEvaluationContext) -> SensorResult:
     if not (DERIVED / inputs.POPULATION_TABLE).is_file():
         return SensorResult(skip_reason=f"waiting for {inputs.POPULATION_TABLE}")
 
-    population_year = inputs.select_population_year(DERIVED / inputs.POPULATION_TABLE, date.today())
+    # An unreadable population table (empty, or mid-write) is a reason to wait,
+    # not a sensor error: skipping keeps the sensor healthy and says why.
+    try:
+        population_year = inputs.select_population_year(DERIVED / inputs.POPULATION_TABLE, date.today())
+    except ValueError as exc:
+        return SensorResult(skip_reason=f"waiting for a readable population table: {exc}")
     fp = live_fingerprint(population_year)
 
     # Two-tick settle: the cursor holds the fingerprint last seen. Only act once

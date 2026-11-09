@@ -131,6 +131,19 @@ def test_snapshot_bytes_match_source(tmp_path):
         assert (dest / name).read_bytes() == (src / name).read_bytes()
 
 
+def test_a_stale_input_folder_is_cleared_when_it_is_snapshotted_again(tmp_path):
+    # A crashed run can leave snap/derived/ behind. The next run snapshots that
+    # folder with its own create_snapshot call, whose clean start removes every
+    # stale file, so a table dropped from data/derived/ cannot survive.
+    derived = tmp_path / "derived"
+    _seed(derived, {"kept.csv": b"k\n"})
+    folder = tmp_path / "snap" / "derived"
+    _seed(folder, {"kept.csv": b"old\n", "dropped.csv": b"stale\n"})
+    snapshot.create_snapshot(derived, folder, ["kept.csv"])
+    assert sorted(p.name for p in folder.iterdir()) == ["kept.csv"], "stale files must not survive"
+    assert (folder / "kept.csv").read_bytes() == b"k\n"
+
+
 def test_clear_snapshot_removes_the_input_folders_too(tmp_path):
     # A run's snapshot holds frame/ and derived/ beside the geopackages; clearing
     # it must remove them, or every run would leave a folder behind.
