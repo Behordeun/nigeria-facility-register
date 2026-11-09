@@ -195,7 +195,48 @@ def normalise_export(zip_path: Path, bundle_dir: Path) -> int:
         shutil.rmtree(staging, ignore_errors=True)
 
 
+def register_path(bundle_dir: Path) -> str:
+    """Return the container path of the DuckDB file the bundle's connection opens.
+
+    Read from the bundle's single database YAML, so the check below follows the
+    connection rather than a second copy of the path. Raises SystemExit when the
+    bundle does not hold exactly one duckdb:/// connection.
+    """
+    databases = sorted((bundle_dir / "databases").glob("*.yaml"))
+    if len(databases) != 1:
+        raise SystemExit(f"expected one database in the bundle, found {len(databases)}")
+    uri = yaml.safe_load(databases[0].read_text(encoding="utf-8"))["sqlalchemy_uri"]
+    prefix = "duckdb:///"
+    if not uri.startswith(prefix):
+        raise SystemExit(f"bundle connection is not a duckdb:/// file: {databases[0].name}")
+    return uri[len(prefix):].split("?", 1)[0]
+
+
+def require_register(project: str | None, path: str) -> None:
+    """Stop with a plain message when the register is not yet in the container.
+
+    The importer validates the connection by opening the file, and a fresh stack
+    has none until the first Dagster refresh publishes it, which otherwise
+    surfaces as a long Superset traceback ending in ImportFailedError.
+    """
+    cmd = _compose(project) + ["exec", "-T", SERVICE, "test", "-f", path]
+    result = subprocess.run(cmd, text=True, capture_output=True)
+    if result.returncode == 0:
+        return
+    # `test -f` exits 1 silently for a missing file; anything else (stack down,
+    # no such service) is reported as the docker error it is.
+    if result.returncode == 1 and not result.stderr.strip():
+        raise SystemExit(
+            f"the register {path} does not exist in the {SERVICE} container yet. "
+            "Run a refresh first (Dagster UI at http://127.0.0.1:3000 -> Jobs -> "
+            "refresh_register -> Launch), wait for it to succeed, then re-run the import."
+        )
+    sys.stderr.write(result.stderr[-4000:] + result.stdout[-4000:])
+    raise SystemExit(f"command failed ({result.returncode}): {' '.join(cmd[:6])} ...")
+
+
 def do_import(project: str | None) -> None:
+    require_register(project, register_path(BUNDLE_DIR))
     with tempfile.TemporaryDirectory() as tmp:
         zip_path = Path(tmp) / "bundle.zip"
         count = build_zip(BUNDLE_DIR, zip_path)

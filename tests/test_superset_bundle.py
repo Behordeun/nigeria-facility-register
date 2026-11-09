@@ -161,6 +161,36 @@ def test_import_runs_the_overwriting_assets_command():
     compile(program, "<import program>", "exec")
 
 
+def test_register_path_follows_the_bundle_connection():
+    assert sd.register_path(BUNDLE) == "/app/register/nfr.duckdb", \
+        "the preflight must check the file the connection opens, without its query string"
+
+
+def _fake_run(returncode: int, stderr: str = ""):
+    def run(cmd, **kwargs):
+        return sd.subprocess.CompletedProcess(cmd, returncode, stdout="", stderr=stderr)
+    return run
+
+
+def test_import_preflight_names_the_refresh_when_the_register_is_missing(monkeypatch):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(1))
+    with pytest.raises(SystemExit, match="refresh_register"):
+        sd.require_register(None, "/app/register/nfr.duckdb")
+
+
+def test_import_preflight_reports_docker_errors_as_they_are(monkeypatch, capsys):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(1, "service \"superset\" is not running"))
+    with pytest.raises(SystemExit, match="command failed") as excinfo:
+        sd.require_register(None, "/app/register/nfr.duckdb")
+    assert "refresh_register" not in str(excinfo.value), "a stopped stack is not a missing register"
+    assert "not running" in capsys.readouterr().err, "the docker error must reach the user"
+
+
+def test_import_preflight_passes_when_the_register_exists(monkeypatch):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(0))
+    sd.require_register(None, "/app/register/nfr.duckdb")
+
+
 def test_as_assets_metadata_rejects_a_non_mapping():
     with pytest.raises(SystemExit, match="not a mapping"):
         sd.as_assets_metadata("- just\n- a list\n")
