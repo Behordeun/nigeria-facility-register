@@ -37,6 +37,8 @@ The raw geopackages are license-fetched and never baked into the image. Place
 them on the host with `scripts/fetch_sources.py --place` (see the README), then
 they are visible read-only inside the containers at `/app/data/raw`.
 
+The image holds only what it runs. `.dockerignore` is an allowlist: it ignores everything, then re-includes the packaging files `uv sync` needs (`pyproject.toml`, `uv.lock`, `README.md`, `.python-version`), `dagster.yaml`, `src/`, `dbt/`, `data/` (without `raw/`) and `scripts/`. Local files such as `.env`, editor and agent settings, and internal notes never enter the build context. A new file the image must read has to be added to the allowlist, or the build will not see it.
+
 ## Run it
 
 ```bash

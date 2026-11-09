@@ -12,6 +12,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Changed
 
+- The Dagster image is built from an allowlist. `.dockerignore` now ignores everything and re-includes only the packaging files, `dagster.yaml`, `src/`, `dbt/`, `data/` (without `raw/`) and `scripts/`, so local files such as the `.env` file, editor and agent settings, and internal notes stay out of the image. Rebuild with `docker compose build webserver`.
 - `make dashboard` checks that the register exists in the Superset container before importing. On a fresh stack, where no refresh has published a register yet, it stops with a one-line pointer to the `refresh_register` job instead of a long Superset traceback; a Docker failure is still reported as such. The path is read from the bundle's own connection.
 - `data/sources.yml` records the flood-exposure flags as a fixed snapshot: derived from NASA MODIS products in a separate project, pinned by sha256 with their source file, and not refreshed by this pipeline. ATTRIBUTION.md and DATA_CONTRACT.md say the same.
 - The Dagster orchestration is split by concern: `config` (paths, run tags, the input fingerprint), `gates` (quality gates and the publish step), `assets`, `checks`, `jobs`, `schedules` and `sensors`, with `definitions` only registering them. Dagster loads the same assets, checks, jobs, schedules and sensors with the same settings, and `nfr.orchestration.definitions` stays the entry point, so deployments need no change.
