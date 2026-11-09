@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-09
+
 ### Added
 
 - The dashboard shows malaria on its own. The NTD burden tab, renamed Disease burden, gains a map of the malaria parasite rate in children aged 2-10 by LGA, in five bands (under 15%, 15-20%, 20-25%, 25-30%, 30% and over), beside a note on the source and how malaria enters the priority score. The per-LGA burden table adds the parasite rate and clinical cases per 1,000 a year, and the ranked high-priority table adds the parasite rate beside the malaria points. `lga_coverage_choropleth`'s Superset dataset exposes `pf_parasite_rate`. No published table changes.
@@ -12,6 +14,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - The docs match the shipped register. DATA_CONTRACT.md's opening names all six serving marts; ARCHITECTURE.md's layer table and the data-flow diagram add `stg_access_population_lga`, the LGA profile facts and the `malaria_lga` input, and the diagram lists the dashboard tabs in their real order; the README's layout lists every model; DEPLOYMENT.md's hover description includes malaria and the facility mix; the docs index names every licensed source.
 - The dashboard has a teal theme in place of Superset's default grey and blue: a deep teal title band, a warm off-white page, white rounded cards with a soft shadow, a teal mark on the open tab, and a pale teal rule beside the notes. The page styling is the dashboard's CSS in the bundle; Superset's accent colour comes from `THEME_OVERRIDES` in `superset/superset_config.py`, so the Superset image needs a rebuild (`docker compose build superset superset-worker`) to pick it up. Charts, data and the layout are unchanged.
+
+### Notes
+
+- No published table or column changes; the register built for 0.6.0 serves this release as it is.
+- To upgrade a running deployment: rebuild the Superset image (`docker compose build superset superset-worker`), run `docker compose up -d`, then re-run `make dashboard`. The register and `.env` are unchanged.
 
 ## [0.6.0] - 2026-11-08
 
@@ -164,7 +171,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...development
+[0.7.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.3.0...v0.4.0
