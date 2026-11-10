@@ -90,28 +90,32 @@ def test_deploy_refuses_a_tag_that_is_not_on_main(host, tmp_path):
     _git(work, "tag", "-a", "v9.9.9", "-m", "side")
     _git(work, "push", "-q", "origin", "v9.9.9")
     result = _deploy(host, "v9.9.9")
-    assert result.returncode != 0 and "is not on main" in result.stderr
+    assert result.returncode != 0, "the deploy must be refused"
+    assert "is not on main" in result.stderr
     assert _git(host, "describe", "--tags") == "v0.1.0"
 
 
 def test_deploy_refuses_to_move_the_host_backwards(host):
     assert _deploy(host, "v0.2.0").returncode == 0
     result = _deploy(host, "v0.1.0")
-    assert result.returncode != 0 and "already past v0.1.0" in result.stderr
+    assert result.returncode != 0, "the deploy must be refused"
+    assert "already past v0.1.0" in result.stderr
     assert _git(host, "describe", "--tags") == "v0.2.0", "rolling the code back is a manual step"
 
 
 def test_deploy_refuses_when_tracked_files_have_local_changes(host):
     (host / "VERSION").write_text("edited on the host")
     result = _deploy(host, "v0.2.0")
-    assert result.returncode != 0 and "local changes" in result.stderr
+    assert result.returncode != 0, "the deploy must be refused"
+    assert "local changes" in result.stderr
     assert (host / "VERSION").read_text() == "edited on the host", "local edits must be left alone"
 
 
 def test_deploy_refuses_a_checkout_off_main(host):
     _git(host, "switch", "-qc", "hotfix")
     result = _deploy(host, "v0.2.0")
-    assert result.returncode != 0 and "must be on main" in result.stderr
+    assert result.returncode != 0, "the deploy must be refused"
+    assert "must be on main" in result.stderr
 
 
 def test_redeploying_the_current_tag_runs_the_second_stage_again(host):
@@ -142,7 +146,8 @@ def test_workflow_keeps_expressions_out_of_the_shell_script():
 
 def test_workflow_verifies_the_host_key():
     run = _workflow()["jobs"]["deploy"]["steps"][-1]["run"]
-    assert "StrictHostKeyChecking=yes" in run and "UserKnownHostsFile=" in run
+    assert "StrictHostKeyChecking=yes" in run, "an unknown host key must be refused"
+    assert "UserKnownHostsFile=" in run, "the host key must come from DEPLOY_KNOWN_HOSTS"
     assert re.search(r'"\$DEPLOY_USER@\$DEPLOY_HOST" "\$TAG"\s*$', run), "the only remote argument is the tag"
 
 
@@ -201,9 +206,8 @@ def test_apply_waits_for_superset_before_importing_and_checks_both_uis(tmp_path)
     assert result.returncode == 0, result.stderr
     steps = [c for c in calls if c.startswith(("docker compose build", "docker compose up", "make", "curl"))]
     assert steps[:2] == ["docker compose build", "docker compose up -d"]
-    assert "8088/health" in steps[2] and steps[3] == "make dashboard PY=python3", (
-        "Superset must answer before the dashboard is imported"
-    )
+    assert "8088/health" in steps[2], "Superset must answer before the dashboard is imported"
+    assert steps[3] == "make dashboard PY=python3", "the dashboard import follows the Superset check"
     assert "3000/server_info" in steps[-1], "the Dagster UI is checked last"
     assert not any(c.startswith("make public-viewer") for c in calls), "no viewer password, no viewer step"
 
@@ -217,5 +221,6 @@ def test_apply_falls_back_to_the_url_check_without_a_healthcheck(tmp_path):
 
 def test_apply_stops_before_importing_when_superset_is_unhealthy(tmp_path):
     result, calls = _apply(tmp_path, ["c1"], ["c1=unhealthy"])
-    assert result.returncode != 0 and "unhealthy" in result.stderr
+    assert result.returncode != 0, "the deploy must be refused"
+    assert "unhealthy" in result.stderr
     assert not any(c.startswith("make") for c in calls), "nothing is imported into an unhealthy Superset"
