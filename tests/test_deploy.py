@@ -144,3 +144,78 @@ def test_workflow_verifies_the_host_key():
     run = _workflow()["jobs"]["deploy"]["steps"][-1]["run"]
     assert "StrictHostKeyChecking=yes" in run and "UserKnownHostsFile=" in run
     assert re.search(r'"\$DEPLOY_USER@\$DEPLOY_HOST" "\$TAG"\s*$', run), "the only remote argument is the tag"
+
+
+# The apply stage, with docker, make, curl and sleep replaced by stand-ins that
+# record each call, so the health wait and step order are checked without a stack.
+FAKE_DOCKER = r'''#!/usr/bin/env bash
+echo "docker $*" >> "$CALLS"
+# Each lookup returns the next line of its state file, then keeps the last one.
+next_line() {
+  local file=$1 n
+  n=$(cat "$file.n" 2>/dev/null || echo 0)
+  echo $((n + 1)) > "$file.n"
+  sed -n "$((n + 1))p" "$file" | grep . || tail -n 1 "$file"
+}
+case "$1 $2" in
+  "compose ps") next_line "$STATE/containers" ;;
+  "compose exec") exit 1 ;;
+  "inspect -f") next_line "$STATE/health.$4" ;;
+esac
+'''
+RECORDER = '#!/usr/bin/env bash\necho "$(basename "$0") $*" >> "$CALLS"\n'
+
+
+def _apply(tmp_path: Path, containers: list[str], health: list[str]) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    app, bin_dir, state = tmp_path / "app", tmp_path / "bin", tmp_path / "state"
+    for d in (app, bin_dir, state):
+        d.mkdir()
+    (app / ".env").write_text("")
+    (state / "containers").write_text("\n".join(containers) + "\n")
+    for container in containers:
+        statuses = [h.split("=", 1)[1] for h in health if h.startswith(f"{container}=")]
+        (state / f"health.{container}").write_text("\n".join(statuses) + "\n")
+    for name, body in {"docker": FAKE_DOCKER, "make": RECORDER, "curl": RECORDER, "sleep": RECORDER}.items():
+        (bin_dir / name).write_text(body)
+        (bin_dir / name).chmod(0o755)
+    calls = tmp_path / "calls"
+    env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "NFR_APP_DIR": str(app),
+           "CALLS": str(calls), "STATE": str(state)}
+    # The stand-in sleep returns at once, so a wait that never ends would spin;
+    # the timeout turns that into a failure instead of a hung run.
+    result = subprocess.run(["bash", str(DEPLOY_SCRIPT), "--apply", "v0.2.0"], env=env,
+                            capture_output=True, text=True, timeout=60)
+    return result, calls.read_text().splitlines() if calls.exists() else []
+
+
+def test_apply_follows_a_container_replaced_while_starting(tmp_path):
+    result, calls = _apply(tmp_path, ["old", "new"], ["old=starting", "new=healthy"])
+    assert result.returncode == 0, result.stderr
+    assert "docker inspect -f {{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}} new" in calls, (
+        "the health wait must look the container up again on each pass"
+    )
+
+
+def test_apply_waits_for_superset_before_importing_and_checks_both_uis(tmp_path):
+    result, calls = _apply(tmp_path, ["c1"], ["c1=starting", "c1=healthy"])
+    assert result.returncode == 0, result.stderr
+    steps = [c for c in calls if c.startswith(("docker compose build", "docker compose up", "make", "curl"))]
+    assert steps[:2] == ["docker compose build", "docker compose up -d"]
+    assert "8088/health" in steps[2] and steps[3] == "make dashboard PY=python3", (
+        "Superset must answer before the dashboard is imported"
+    )
+    assert "3000/server_info" in steps[-1], "the Dagster UI is checked last"
+    assert not any(c.startswith("make public-viewer") for c in calls), "no viewer password, no viewer step"
+
+
+def test_apply_falls_back_to_the_url_check_without_a_healthcheck(tmp_path):
+    result, calls = _apply(tmp_path, ["c1"], ["c1=none"])
+    assert result.returncode == 0, result.stderr
+    assert "no healthcheck" in result.stdout
+    assert any("8088/health" in c for c in calls), "the URL check must stand in for the healthcheck"
+
+
+def test_apply_stops_before_importing_when_superset_is_unhealthy(tmp_path):
+    result, calls = _apply(tmp_path, ["c1"], ["c1=unhealthy"])
+    assert result.returncode != 0 and "unhealthy" in result.stderr
+    assert not any(c.startswith("make") for c in calls), "nothing is imported into an unhealthy Superset"

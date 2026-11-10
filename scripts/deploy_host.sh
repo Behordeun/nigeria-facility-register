@@ -62,15 +62,20 @@ check_out_release() {
     git merge --ff-only --quiet "$tag"
 }
 
+# Waits on the image's own healthcheck. The container is looked up on every
+# pass, so a container that compose replaces while starting is still followed.
+# An image without a healthcheck reports none; the caller's URL check then
+# stands in for it.
 wait_until_healthy() {
     local service=$1 container status deadline=$((SECONDS + HEALTH_TIMEOUT_SECONDS))
-    container=$(docker compose ps -q "$service")
-    [ -n "$container" ] || fail "$service is not running"
     while :; do
+        container=$(docker compose ps -q "$service")
+        [ -n "$container" ] || fail "$service is not running"
         status=$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container")
         case $status in
             healthy) return ;;
-            unhealthy|none) fail "$service reports $status; see docker compose logs $service" ;;
+            none) log "$service has no healthcheck; relying on its URL check"; return ;;
+            unhealthy) fail "$service reports unhealthy; see docker compose logs $service" ;;
         esac
         ((SECONDS < deadline)) || fail "$service not healthy after ${HEALTH_TIMEOUT_SECONDS}s"
         sleep 5
@@ -100,13 +105,13 @@ apply_release() {
     log "starting the stack"
     docker compose up -d
     wait_until_healthy superset
+    wait_for_url "$SUPERSET_HEALTH_URL"
     log "importing the dashboard"
     make dashboard PY=python3
     if public_viewer_configured; then
         log "applying the public-viewer role"
         make public-viewer PY=python3
     fi
-    wait_for_url "$SUPERSET_HEALTH_URL"
     wait_for_url "$DAGSTER_HEALTH_URL"
     log "$tag deployed"
 }
