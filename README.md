@@ -49,7 +49,8 @@ scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sour
                   restore_register.py (roll back the published register),
                   build_espen_lga.py (rebuild the ESPEN table from ESPEN's public download),
                   score_sensitivity.py (how the high tier moves under other score weights),
-                  bootstrap_host.sh (install Docker on a fresh Ubuntu host)
+                  bootstrap_host.sh (install Docker on a fresh Ubuntu host),
+                  deploy_host.sh (deploy a release on the host; run by the deploy workflow)
 superset/         Superset image and config (server-side downloads, the teal accent), and the
                   dashboard import bundle (charts, layout, dashboard CSS)
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)

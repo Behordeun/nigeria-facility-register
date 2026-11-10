@@ -104,6 +104,8 @@ Then open `http://127.0.0.1:3000` (Dagster) and `http://127.0.0.1:8088` (Superse
 
 ## Updating
 
+Once automatic deploys are set up (next section), publishing a GitHub release updates the host. By hand, the same steps are:
+
 ```bash
 cd ~/nigeria-facility-register
 git pull
@@ -113,6 +115,58 @@ make dashboard PY=python3
 ```
 
 The register, the archived registers and Superset's records live in named volumes, so they survive a rebuild. Rolling back a register works as in DEPLOYMENT.md.
+
+## Automatic deploys
+
+The `deploy` workflow (`.github/workflows/deploy.yml`) deploys every published GitHub release, except pre-releases. To redeploy a tag, open the workflow in the Actions tab and choose "Run workflow". The workflow connects over SSH with a key that the host's `authorized_keys` pins to `scripts/deploy_host.sh`, so a leaked deploy key can deploy a release tag and do nothing else.
+
+The script refuses, and changes nothing, when:
+
+- the tag is not a release tag on `main`;
+- the checkout is not on `main`;
+- tracked files on the host have local changes;
+- the host is already past the tag.
+
+Otherwise it:
+
+1. Fast-forwards `main` to the tag.
+2. Hands over to that tag's own copy of the script.
+3. Rebuilds the images and restarts the stack.
+4. Waits for Superset to report healthy.
+5. Runs `make dashboard`, and also `make public-viewer` when `SUPERSET_PUBLIC_VIEWER_PASSWORD` is set.
+6. Checks that both UIs answer.
+
+The job log shows each step. It does not wait for a refresh: when a release changes the models or the inputs, the sensor starts that refresh on its own. Moving the code back to an older release is done by hand.
+
+### One-time setup
+
+1. The host needs a checkout that already contains `scripts/deploy_host.sh`. If yours predates it, run `git pull` on the host once.
+2. On your own machine, create a key used only for deploys:
+
+   ```bash
+   ssh-keygen -t ed25519 -N '' -C nfr-deploy -f nfr-deploy
+   ```
+
+3. On the host, add the public key to `~/.ssh/authorized_keys`, prefixed so that it can only run the deploy script. This is one line, with the contents of `nfr-deploy.pub` after the prefix:
+
+   ```
+   restrict,command="/home/ubuntu/nigeria-facility-register/scripts/deploy_host.sh" ssh-ed25519 AAAA... nfr-deploy
+   ```
+
+4. On GitHub, create an environment named `production` (Settings, Environments). To approve every deploy before it runs, add yourself as a required reviewer. Then store the key, the address and the host's public key on that environment, from your machine. Compare the fingerprint that `ssh-keyscan` prints with the output of `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the host before trusting it.
+
+   ```bash
+   gh secret set DEPLOY_SSH_KEY --env production < nfr-deploy
+   gh secret set DEPLOY_HOST --env production --body <public-ip>
+   ssh-keyscan -t ed25519 <public-ip> | gh secret set DEPLOY_KNOWN_HOSTS --env production
+   rm nfr-deploy
+   ```
+
+   If the host's user is not `ubuntu`, also set the variable `DEPLOY_USER` on the environment.
+
+5. To test the setup, run the workflow by hand with the tag that is already deployed. It rebuilds, restarts and checks the stack without moving the code.
+
+The default security list already admits SSH from anywhere, which is what GitHub's hosted runners need. Keep password login disabled on the host (the Ubuntu image's default). To take the deploy key out of service, delete its line from `authorized_keys`.
 
 ## Keeping it free
 
