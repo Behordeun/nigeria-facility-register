@@ -21,6 +21,11 @@ readonly SWAP_FILE=/swapfile
 readonly SWAP_SIZE=2G
 readonly DOCKER_KEYRING=/etc/apt/keyrings/docker.asc
 readonly DOCKER_SOURCES=/etc/apt/sources.list.d/docker.list
+# Primary fingerprint of Docker's apt signing key ("Docker Release (CE deb)").
+# The downloaded key is trusted only when it matches, so a substituted key
+# can never sign the packages apt then installs as root.
+readonly DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
+readonly AUTO_UPGRADES=/etc/apt/apt.conf.d/20auto-upgrades
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 die() { printf '[bootstrap] error: %s\n' "$*" >&2; exit 1; }
@@ -41,7 +46,21 @@ install_base_packages() {
     log "installing base packages"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -q
-    apt-get install -y -q ca-certificates curl git make python3 python3-yaml rsync unattended-upgrades
+    apt-get install -y -q ca-certificates curl git gnupg make python3 python3-yaml rsync unattended-upgrades
+}
+
+install_docker_key() {
+    local tmp_key fingerprint
+    tmp_key="$(mktemp)"
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o "$tmp_key"
+    fingerprint="$(gpg --show-keys --with-colons "$tmp_key" 2>/dev/null | awk -F: '/^fpr:/ {print $10; exit}')"
+    if [ "$fingerprint" != "$DOCKER_KEY_FINGERPRINT" ]; then
+        rm -f "$tmp_key"
+        die "Docker's signing key has fingerprint '${fingerprint:-none}', expected $DOCKER_KEY_FINGERPRINT; not trusting it"
+    fi
+    install -m 0644 "$tmp_key" "$DOCKER_KEYRING"
+    rm -f "$tmp_key"
+    log "verified Docker's signing key ($DOCKER_KEY_FINGERPRINT)"
 }
 
 install_docker() {
@@ -51,8 +70,7 @@ install_docker() {
     fi
     log "installing docker engine and the compose plugin from download.docker.com"
     install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o "$DOCKER_KEYRING"
-    chmod a+r "$DOCKER_KEYRING"
+    install_docker_key
     # shellcheck source=/dev/null
     . /etc/os-release
     printf 'deb [arch=%s signed-by=%s] https://download.docker.com/linux/ubuntu %s stable\n' \
@@ -81,8 +99,14 @@ ensure_swap() {
         log "swap is already active"
         return
     fi
-    log "creating a $SWAP_SIZE swap file at $SWAP_FILE"
-    fallocate -l "$SWAP_SIZE" "$SWAP_FILE"
+    if [ -e "$SWAP_FILE" ]; then
+        # Left by an earlier run that stopped before swapon; it may never have
+        # been formatted, so re-initialise it (safe, since it is not in use).
+        log "reusing the inactive swap file at $SWAP_FILE"
+    else
+        log "creating a $SWAP_SIZE swap file at $SWAP_FILE"
+        fallocate -l "$SWAP_SIZE" "$SWAP_FILE"
+    fi
     chmod 600 "$SWAP_FILE"
     mkswap "$SWAP_FILE" >/dev/null
     swapon "$SWAP_FILE"
@@ -90,9 +114,13 @@ ensure_swap() {
 }
 
 enable_security_upgrades() {
+    if grep -qs '^APT::Periodic::Update-Package-Lists "1";' "$AUTO_UPGRADES" \
+        && grep -qs '^APT::Periodic::Unattended-Upgrade "1";' "$AUTO_UPGRADES"; then
+        log "unattended security upgrades are already enabled"
+        return
+    fi
     log "enabling unattended security upgrades"
-    printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' \
-        > /etc/apt/apt.conf.d/20auto-upgrades
+    printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' > "$AUTO_UPGRADES"
 }
 
 main() {
