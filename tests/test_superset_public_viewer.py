@@ -133,11 +133,13 @@ def test_local_stack_keeps_plain_http_defaults(monkeypatch: pytest.MonkeyPatch):
 def test_public_url_turns_on_proxy_secure_cookie_and_login_rate_limit(monkeypatch: pytest.MonkeyPatch):
     config = _load_config(monkeypatch, "https://dashboard.example.org/")
     assert config.ENABLE_PROXY_FIX is True
-    assert config.PROXY_FIX_CONFIG["x_for"] == 1 and config.PROXY_FIX_CONFIG["x_proto"] == 1
+    assert config.PROXY_FIX_CONFIG["x_for"] == 1, "trust exactly one hop for the client address"
+    assert config.PROXY_FIX_CONFIG["x_proto"] == 1, "trust exactly one hop for the scheme"
     assert config.SESSION_COOKIE_SECURE is True, "the session cookie must be HTTPS-only when public"
     assert config.SESSION_COOKIE_HTTPONLY is True, "page scripts must not read the session cookie"
     assert config.SESSION_COOKIE_SAMESITE in {"Lax", "Strict"}, "the cookie must not be sent cross-site"
     assert config.PERMANENT_SESSION_LIFETIME.total_seconds() <= 24 * 3600, "public sessions must end within a day"
-    assert config.RATELIMIT_ENABLED is True and config.AUTH_RATE_LIMITED is True
+    assert config.RATELIMIT_ENABLED is True, "the rate limiter must be on when public"
+    assert config.AUTH_RATE_LIMITED is True, "sign-in attempts must be rate-limited when public"
     assert config.RATELIMIT_STORAGE_URI.endswith("/4"), "rate-limit counters need their own Redis database"
     assert config.WEBDRIVER_BASEURL_USER_FRIENDLY == "https://dashboard.example.org/"
