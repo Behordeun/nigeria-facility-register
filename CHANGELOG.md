@@ -4,6 +4,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- A restore that fails at any step after it archives the live register, including creating its staging file, removes that archive entry again, so `build/published/` holds exactly the registers it held before the attempt. A test covers a failure to create the staging file.
+- `superset_config.py` records why `SQLALCHEMY_DATABASE_URI` stays a rendered string rather than a SQLAlchemy `URL` object: Superset 4.1.1's migration step (`superset db upgrade`) treats the setting as text. No behaviour changes.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added
