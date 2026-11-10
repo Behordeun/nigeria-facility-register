@@ -7,7 +7,7 @@ DB ?= build/scratch.duckdb
 # dbt reads its database path from NFR_DUCKDB_PATH (see dbt/profiles.yml).
 DBT = cd dbt && NFR_DUCKDB_PATH=$(CURDIR)/$(DB) ../$(PY) -m dbt.cli.main
 
-.PHONY: help setup fetch load build sample test dagster dashboard dashboard-export registers restore release-hold lint clean
+.PHONY: help setup fetch load build sample test dagster dashboard dashboard-export public-viewer registers restore release-hold lint clean
 
 help:
 	@echo "setup   install the locked package, dev and orchestration deps into .venv (needs uv)"
@@ -22,6 +22,7 @@ help:
 	@echo "release-hold     let a vintage held after a rollback be published again"
 	@echo "dashboard        import the committed Superset dashboard into the running compose stack"
 	@echo "dashboard-export export the dashboard from the running Superset back into superset/"
+	@echo "public-viewer    create or update the view-only public-viewer Superset account (after make dashboard)"
 	@echo "lint    ruff"
 	@echo "clean   remove build artifacts"
 
@@ -73,6 +74,9 @@ dashboard:
 
 dashboard-export:
 	$(PY) scripts/superset_dashboard.py export
+
+public-viewer:
+	$(PY) scripts/superset_public_viewer.py
 
 lint:
 	$(PY) -m ruff check src tests

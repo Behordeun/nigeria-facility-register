@@ -112,6 +112,13 @@ services:
       MAPBOX_API_KEY: ${MAPBOX_API_KEY:-}
       # Superset's metadata database (superset-db). Required, like the keys above.
       SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:?SUPERSET_DB_PASSWORD is required; put it in a .env file}
+      # The public HTTPS address, when the dashboard is published through the
+      # Cloudflare Tunnel (the `public` profile below). Setting it turns on the
+      # proxy-aware settings in superset_config.py. Empty for a local stack.
+      SUPERSET_PUBLIC_URL: ${SUPERSET_PUBLIC_URL:-}
+      # Password for the shared, view-only public-viewer account, read by
+      # scripts/superset_public_viewer.py. Optional; empty means no such account.
+      SUPERSET_PUBLIC_VIEWER_PASSWORD: ${SUPERSET_PUBLIC_VIEWER_PASSWORD:-}
     volumes:
       # The live register, read-only: Superset reads it, never writes it.
       - build:/app/register:ro
@@ -137,6 +144,7 @@ services:
       - "127.0.0.1:8088:8088"
     networks:
       - internal
+      - public
     # The bootstrap above runs `superset db upgrade` first, so Postgres must be
     # accepting connections, not merely started.
     depends_on:
@@ -183,6 +191,33 @@ services:
       superset:
         condition: service_healthy
 
+  # Publishes Superset on the internet through a Cloudflare Tunnel: cloudflared
+  # dials out to Cloudflare, which serves the public hostname over HTTPS and
+  # forwards requests back down the tunnel, so the host opens no inbound port.
+  # Only started with `docker compose --profile public up -d`. The tunnel and
+  # its hostname route (to http://superset:8088) are set up in the Cloudflare
+  # dashboard; the token that binds this container to that tunnel stays in .env.
+  # It sits on the `public` network alone, which only Superset shares, so even
+  # a mistaken route in the dashboard cannot reach the unauthenticated Dagster
+  # UI, Redis or Postgres.
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.4@sha256:c6c7ae1d5dfdcb094ad344ed68ccffc26635c9c6be80965664c33baf064b0515
+    profiles: ["public"]
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      # Required for this profile, but defaulted here rather than marked :?,
+      # because Compose checks required variables even for services whose
+      # profile is off, which would stop every local stack. Without it
+      # cloudflared exits asking for a tunnel, which `docker compose logs
+      # cloudflared` shows.
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    restart: unless-stopped
+    networks:
+      - public
+    depends_on:
+      superset:
+        condition: service_healthy
+
   # Celery broker, the screenshot cache and the chart-result cache. Not
   # published on any host port.
   redis:
@@ -216,6 +251,9 @@ networks:
   # Dagster and Superset UIs. It is not an `internal: true` network, because the
   # browser and the screenshot worker load Mapbox basemap tiles from the web.
   internal:
+  # Superset and cloudflared only. A normal bridge, so cloudflared can reach
+  # Cloudflare.
+  public:
 
 volumes:
   dagster_home:

@@ -119,3 +119,7 @@ The register, the archived registers and Superset's records live in named volume
 - After the first week, check the instance's metrics page: memory utilisation should sit above 20%. If OCI ever reclaims the instance, recreate it with these steps; the dashboard comes back from the bundle with `make dashboard`, and the first refresh rebuilds the register.
 - Keep the instance at 1 OCPU and 6 GB, and do not attach block volumes beyond the free 200 GB in total.
 - Remove old images and build cache now and then with `docker image prune` and `docker builder prune`.
+
+## Publishing the dashboard
+
+To let people open the dashboard on the internet without SSH, follow "Publishing the dashboard" in DEPLOYMENT.md: a Cloudflare Tunnel serves Superset alone on an HTTPS address from a domain whose DNS is on Cloudflare, and `make public-viewer PY=python3` creates the shared, view-only `public-viewer` account. The tunnel dials out, so nothing changes in the OCI security list or the host firewall, and the instance keeps only SSH open.
