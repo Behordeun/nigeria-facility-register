@@ -161,6 +161,36 @@ def test_import_runs_the_overwriting_assets_command():
     compile(program, "<import program>", "exec")
 
 
+def test_register_path_follows_the_bundle_connection():
+    assert sd.register_path(BUNDLE) == "/app/register/nfr.duckdb", \
+        "the preflight must check the file the connection opens, without its query string"
+
+
+def _fake_run(returncode: int, stderr: str = ""):
+    def run(cmd, **kwargs):
+        return sd.subprocess.CompletedProcess(cmd, returncode, stdout="", stderr=stderr)
+    return run
+
+
+def test_import_preflight_names_the_refresh_when_the_register_is_missing(monkeypatch):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(1))
+    with pytest.raises(SystemExit, match="refresh_register"):
+        sd.require_register(None, "/app/register/nfr.duckdb")
+
+
+def test_import_preflight_reports_docker_errors_as_they_are(monkeypatch, capsys):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(1, "service \"superset\" is not running"))
+    with pytest.raises(SystemExit, match="command failed") as excinfo:
+        sd.require_register(None, "/app/register/nfr.duckdb")
+    assert "refresh_register" not in str(excinfo.value), "a stopped stack is not a missing register"
+    assert "not running" in capsys.readouterr().err, "the docker error must reach the user"
+
+
+def test_import_preflight_passes_when_the_register_exists(monkeypatch):
+    monkeypatch.setattr(sd.subprocess, "run", _fake_run(0))
+    sd.require_register(None, "/app/register/nfr.duckdb")
+
+
 def test_as_assets_metadata_rejects_a_non_mapping():
     with pytest.raises(SystemExit, match="not a mapping"):
         sd.as_assets_metadata("- just\n- a list\n")
@@ -219,6 +249,37 @@ def test_every_map_shows_the_lga_hover_summary():
         assert params.get("js_columns") == ["name"], f"map {chart['slice_name']} does not pass the hover summary"
         columns = {c["column_name"]: c for c in datasets[chart["dataset_uuid"]]["columns"]}
         assert columns.get("name", {}).get("expression"), "the map dataset must define the `name` hover column"
+
+
+def test_every_map_draws_a_measured_zero():
+    # The deck.gl Polygon layer leaves a polygon unfilled when its metric is
+    # falsy, so a measured 0 (a non-endemic rank, access risk 0) would look the
+    # same as an unmeasured LGA. Each map whose lowest band starts at 0 maps 0 to
+    # 0.001, which lands in that band; NULL stays NULL and stays blank.
+    maps = [c for c in _many("charts") if c["viz_type"] == "deck_polygon" and c["params"].get("break_points")]
+    assert maps, "expected banded map charts in the bundle"
+    for chart in maps:
+        params = chart["params"]
+        if float(min(params["break_points"], key=float)) != 0:
+            continue
+        metric = params["metric"]
+        needs_sql = f"map {chart['slice_name']} needs a SQL metric so a measured 0 can be mapped to 0.001"
+        assert isinstance(metric, dict), needs_sql
+        assert "sqlExpression" in metric, needs_sql
+        expression = metric["sqlExpression"]
+        leaves_zero_blank = f"map {chart['slice_name']} would leave LGAs measuring 0 blank"
+        assert expression.startswith("CASE WHEN "), leaves_zero_blank
+        assert " = 0 THEN 0.001 ELSE " in expression, leaves_zero_blank
+
+
+def test_sources_note_credits_every_licensed_source():
+    # CC BY sources require attribution wherever their figures are shown.
+    (dashboard,) = _many("dashboards")
+    notes = [n["meta"]["code"] for n in dashboard["position"].values()
+             if isinstance(n, dict) and n.get("type") == "MARKDOWN"]
+    (sources,) = [code for code in notes if code.startswith("### Sources and licences")]
+    for source in ("GRID3", "geoBoundaries", "ESPEN", "WorldPop", "Malaria Atlas Project", "NASA MODIS"):
+        assert source in sources, f"the Sources and licences note does not credit {source}"
 
 
 def test_lga_profile_link_targets_this_dashboard_filter_and_tab():

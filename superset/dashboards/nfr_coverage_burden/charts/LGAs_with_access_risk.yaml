@@ -16,7 +16,7 @@ params:
   - walking_minutes
   - walking_over_60min_share
   - motorised_minutes
-  - flood_affected_2024
+  - flood_affected_2024_label
   - access_risk_score
   - facilities
   - facilities_per_10k_population

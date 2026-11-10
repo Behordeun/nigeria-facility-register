@@ -22,7 +22,7 @@ params:
   subheader_font_size: 0.15
   y_axis_format: SMART_NUMBER
   time_format: smart_date
-  subheader: a name-join miss, not a measured zero
+  subheader: name-join misses, not zeros
   annotation_layers: []
 query_context: null
 cache_timeout: null

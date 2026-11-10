@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1280 760" width="1280" height="760" role="img" aria-labelledby="t d" font-family="Helvetica, Arial, sans-serif">
   <title id="t">Orchestration and atomic publish</title>
-  <desc id="d">A new-vintage sensor or the weekly schedule queues one refresh_register run. The run snapshots the raw inputs, loads them into a side DuckDB, runs the dbt build and tests, checks the carry-over gate, and only then promotes the side file onto the live register in one atomic rename. Any failure discards the side file and leaves the live register untouched.</desc>
+  <desc id="d">A new-vintage sensor or the weekly schedule queues one refresh_register run. The run snapshots the raw inputs, loads them into a side DuckDB, runs the dbt build and tests, checks the carry-over gate, and only then promotes the side file onto the live register in one atomic rename, keeping the outgoing register in build/published for rollback. Any failure discards the side file and leaves the live register untouched.</desc>
   <defs>
     <marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#6b7fa8"/></marker>
     <marker id="r" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#c0392b"/></marker>
@@ -40,7 +40,7 @@
     <rect x="40" y="104" width="400" height="104" rx="12" fill="#fff8ec" stroke="#f1d7a6" stroke-width="1.4"/>
     <use href="#i-radar" xlink:href="#i-radar" x="56" y="120" width="28" height="28" color="#c77d12"/>
     <text x="94" y="140" class="ct">new_vintage_sensor</text>
-    <text class="cb"><tspan x="58" y="166">fires when the raw inputs differ from the fingerprint</tspan><tspan x="58" y="184">the live register was built from; waits for every input</tspan><tspan x="58" y="200">and a stable fingerprint across two ticks</tspan></text>
+    <text class="cb"><tspan x="58" y="166">fires when the inputs differ from the fingerprint</tspan><tspan x="58" y="184">the live register was built from; waits for every input</tspan><tspan x="58" y="200">and a stable fingerprint across two ticks</tspan></text>
   </g>
   <g>
     <rect x="460" y="104" width="260" height="104" rx="12" fill="#fff8ec" stroke="#f1d7a6" stroke-width="1.4"/>
@@ -67,7 +67,7 @@
     <circle cx="62" cy="292" r="12" fill="#6a4fd1"/><text x="62" y="296" class="num" text-anchor="middle">1</text>
     <use href="#i-camera" xlink:href="#i-camera" x="232" y="280" width="26" height="26" color="#6a4fd1"/>
     <text x="84" y="297" class="ct">Snapshot inputs</text>
-    <text class="cb"><tspan x="54" y="326">raw_sources copies data/raw</tspan><tspan x="54" y="344">into a per-run snapshot; a later</tspan><tspan x="54" y="362">change to data/raw cannot alter</tspan><tspan x="54" y="380">what this run builds</tspan></text>
+    <text class="cb"><tspan x="54" y="326">raw_sources copies data/raw,</tspan><tspan x="54" y="344">frame and derived into a per-run</tspan><tspan x="54" y="362">snapshot; a later change cannot</tspan><tspan x="54" y="380">alter what this run builds</tspan></text>
     <text x="54" y="438" class="mono">build/snapshots/&lt;run&gt;/</text>
   </g>
   <g>
@@ -83,7 +83,7 @@
     <circle cx="546" cy="292" r="12" fill="#6a4fd1"/><text x="546" y="296" class="num" text-anchor="middle">3</text>
     <use href="#i-tests" xlink:href="#i-tests" x="716" y="280" width="26" height="26" color="#1f9d7a"/>
     <text x="568" y="297" class="ct">dbt build + tests</text>
-    <text class="cb"><tspan x="538" y="326">staging and marts with</tspan><tspan x="538" y="344">enforced contracts; blocking</tspan><tspan x="538" y="362">tests: row bounds, keys,</tspan><tspan x="538" y="380">referential integrity,</tspan><tspan x="538" y="398">missing is not zero</tspan></text>
+    <text class="cb"><tspan x="538" y="326">one Dagster asset per model,</tspan><tspan x="538" y="344">each test an asset check;</tspan><tspan x="538" y="362">enforced contracts; blocking</tspan><tspan x="538" y="380">tests: row bounds, keys,</tspan><tspan x="538" y="398">referential integrity,</tspan><tspan x="538" y="416">missing is not zero</tspan></text>
   </g>
   <g>
     <rect x="766" y="270" width="230" height="186" rx="12" fill="#fff" stroke="#cfc6f0" stroke-width="1.4"/>
@@ -97,7 +97,7 @@
     <circle cx="1030" cy="292" r="12" fill="#1f8a4c"/><text x="1030" y="296" class="num" text-anchor="middle">5</text>
     <use href="#i-swap" xlink:href="#i-swap" x="1202" y="280" width="26" height="26" color="#1f8a4c"/>
     <text x="1052" y="297" class="ct">Atomic promote</text>
-    <text class="cb"><tspan x="1022" y="326">one os.replace moves the</tspan><tspan x="1022" y="344">side file onto the live path</tspan><tspan x="1022" y="362">and records the snapshot's</tspan><tspan x="1022" y="380">fingerprint as published</tspan></text>
+    <text class="cb"><tspan x="1022" y="326">one os.replace moves the</tspan><tspan x="1022" y="344">side file onto the live path</tspan><tspan x="1022" y="362">and records the snapshot's</tspan><tspan x="1022" y="380">fingerprint as published;</tspan><tspan x="1022" y="398">the outgoing register is</tspan><tspan x="1022" y="416">kept for rollback (last 3)</tspan></text>
     <text x="1022" y="438" class="mono">build/nfr.duckdb</text>
   </g>
   <path class="e" d="M270,363 H280"/>

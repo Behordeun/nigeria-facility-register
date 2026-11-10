@@ -44,7 +44,12 @@ data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA
                   incidence (WorldPop + Malaria Atlas Project, CC BY)
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
 scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
-                  build_access_population.py, build_malaria_burden.py, superset_dashboard.py
+                  build_access_population.py, build_malaria_burden.py, superset_dashboard.py,
+                  superset_public_viewer.py (the view-only public account),
+                  restore_register.py (roll back the published register),
+                  build_espen_lga.py (rebuild the ESPEN table from ESPEN's public download),
+                  score_sensitivity.py (how the high tier moves under other score weights),
+                  bootstrap_host.sh (install Docker on a fresh Ubuntu host)
 superset/         Superset image and config (server-side downloads, the teal accent), and the
                   dashboard import bundle (charts, layout, dashboard CSS)
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)
@@ -69,8 +74,8 @@ make setup                     # venv + deps
     ~/Downloads/nga_health_facilities_v2_0.gpkg \
     ~/Downloads/grid3_nga_health_facilities_v3_0.gpkg
 make fetch                     # verify they are present and valid
-make build                     # load sources + dbt staging + marts
-make test                      # unit + dbt tests
+make build                     # load sources + dbt staging + marts + dbt tests, into build/scratch.duckdb
+make test                      # unit tests + the sample transform (what CI runs)
 ```
 
 The raw geopackages are fetched, not committed. HDX serves them behind a challenge that blocks scripted download, so download them in a browser using the links in `data/sources.yml`. Place the downloads with `scripts/fetch_sources.py --place <files>` (run it with the venv's Python, `.venv/bin/python`, so `pyogrio` is on the path). It validates each file is a complete, readable GeoPackage, then places a copy into `data/raw/` with an atomic rename, so the loader and the refresh sensor never see a half-written file. Pass both geopackages to one `--place` so they land as a consistent set rather than one new file beside one old one; your original downloads are left untouched.

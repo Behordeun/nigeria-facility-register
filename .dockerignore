@@ -1,15 +1,30 @@
-# Keep the build context small and the image clean. The deps come from the
-# lockfile, not a copied virtualenv, and build artifacts/history must not leak in.
-.venv/
-build/
-.git/
-.history/
+# An allowlist: ignore everything, then re-include only what the Dagster image
+# runs. A denylist lets any new local file into the image unnoticed, including
+# secrets (.env), editor and agent settings, and internal notes; with an
+# allowlist, a file reaches the image only when it is named here.
+*
+
+# What `uv sync` needs to install the locked dependencies and the project.
+!pyproject.toml
+!uv.lock
+!README.md
+!.python-version
+
+# What the refresh, the upstream check and the restore script run and read.
+!dagster.yaml
+!src/
+!dbt/
+!data/
+!scripts/
+
+# Re-excluded inside the directories above. dbt's target and logs are rebuilt
+# in the image (the Dockerfile parses the project); raw inputs are
+# licence-fetched and bind-mounted at run time, never baked in.
 dbt/target/
 dbt/logs/
-**/__pycache__/
-*.pyc
-.pytest_cache/
-coverage.xml
-.ruff_cache/
-# Raw inputs are license-fetched and bind-mounted at run time, never baked in.
+dbt/dbt_packages/
+dbt/.user.yml
 data/raw/
+**/__pycache__/
+**/*.pyc
+**/*.egg-info/

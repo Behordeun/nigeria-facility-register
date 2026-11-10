@@ -2,7 +2,9 @@
 
 The dev and CI loops do not need a container: `uv` plus the committed lockfile
 reproduce the environment, and `make sample` / `make build` run the transform
-directly. This document is for an **always-on deployment**, where the Dagster
+directly, into `build/scratch.duckdb`. Local builds never write
+`build/nfr.duckdb`, the published register that only the Dagster refresh
+promotes onto and that Superset reads. This document is for an **always-on deployment**, where the Dagster
 schedule and sensor must keep running so the register refreshes on its own.
 
 ## What runs
@@ -28,12 +30,14 @@ sensor, and a manual run never overlap on the shared database.
 | Path | Kind | Holds |
 | --- | --- | --- |
 | `dagster_home` volume | named volume | instance config, run storage, schedule/sensor state |
-| `build` volume | named volume | `nfr.duckdb` (live), `build/staging/` (run-scoped), `build/snapshots/` |
+| `build` volume | named volume | `nfr.duckdb` (live), `build/published/` (the last three published registers), `publish_hold.json` (a rollback hold, when set), `alert_state.json` (the last alert sent), `build/staging/` (run-scoped), `build/snapshots/` |
 | `./data/raw` | bind mount (read-only) | the GRID3 geopackages the operator places |
 
 The raw geopackages are license-fetched and never baked into the image. Place
 them on the host with `scripts/fetch_sources.py --place` (see the README), then
 they are visible read-only inside the containers at `/app/data/raw`.
+
+The image holds only what it runs. `.dockerignore` is an allowlist: it ignores everything, then re-includes the packaging files `uv sync` needs (`pyproject.toml`, `uv.lock`, `README.md`, `.python-version`), `dagster.yaml`, `src/`, `dbt/`, `data/` (without `raw/`) and `scripts/`. Local files such as `.env`, editor and agent settings, and internal notes never enter the build context. A new file the image must read has to be added to the allowlist, or the build will not see it.
 
 ## Run it
 
@@ -76,6 +80,30 @@ read-only mount inside the containers, place those on the host with
 `scripts/fetch_sources.py --place`, where the daemon and webserver then see them
 through the mount with no restart.
 
+## Alerts
+
+A failed refresh, a rejected build and an upstream release waiting for review are otherwise visible only in the Dagster UI. To have them posted to a chat channel, create an incoming webhook in Slack, Microsoft Teams, Mattermost, Google Chat or Discord, add it as `NFR_ALERT_WEBHOOK_URL=<url>` to the `.env` beside the compose file, then run `docker compose up -d` so the Dagster services pick it up. Anyone holding that URL can post to the channel, so treat it like the other secrets there; it is never logged.
+
+Two things alert:
+
+- **A failed refresh**, with the vintage and the root cause: the carry-over gate rejecting a build, a failed dbt test, a vintage held after a rollback, a missing input. The published register is unchanged in every case. The sensor retries a failing vintage every half hour, so each distinct failure is sent once (recorded in `build/alert_state.json`) until a refresh publishes again.
+- **The monthly upstream check**, when a publisher has a newer release to review or could not be read.
+
+Sending never affects a run: with no URL nothing is sent, and a webhook that is down or rejects the post is recorded as the alert's status in the run log and metadata, after a ten-second timeout at most. Only `https` URLs are accepted, except a relay on the same machine.
+
+## Rolling back a register
+
+A release that passes the quality gate can still be wrong (a bad upstream file that still carries enough facilities over). Every publish keeps the outgoing register in `build/published/`, the newest three, as a hard link, so keeping it costs no copy. To roll back, check in the Dagster UI that no refresh is running, then from the host:
+
+```bash
+docker compose exec daemon uv run python scripts/restore_register.py --list
+docker compose exec daemon uv run python scripts/restore_register.py --restore <archived file name>
+```
+
+The list shows the live register's fingerprint, any hold, and the archived registers, oldest first, each named by when it was archived and the fingerprint it was built from. The restore swaps the chosen register onto the live path with one atomic rename, archives the register it replaces (so the restore can itself be undone), and clears Superset's chart cache so the dashboard shows the restored figures at once. It refuses while a run's side database is in `build/staging/`, since a refresh finishing afterwards would publish over it; pass `--force` only for a file left behind by a crashed run.
+
+The restore also holds the vintage it rolled back. While the inputs still fingerprint the same, the sensor skips them and any refresh (the weekly schedule or a manual run) fails in `raw_sources` with a message naming the hold, so the bad release is not rebuilt and published again. The hold lifts by itself when the inputs change, since a corrected source gives a new fingerprint, and when a different register is published. To publish the held vintage anyway, release it with `--release-hold`. Outside the compose stack, `make registers`, `make restore REGISTER=<name>` and `make release-hold` run the same commands against the local `build/`.
+
 ## Security notes
 
 - The webserver is **unauthenticated**. Inside the container the process binds
@@ -89,6 +117,7 @@ through the mount with no restart.
 - The base image is pinned to a SHA-256 digest, not just the floating tag, so a
   rebuild is reproducible; refresh the digest deliberately (see the Dockerfile
   comment) rather than letting the tag move.
+- The `uv sync` steps use a BuildKit cache mount, so packages downloaded or built once (including the dbt parser wheel fetched from GitHub releases) are reused by later builds. `docker compose build` already rebuilds the dependency layer when `uv.lock` changes, so `--no-cache` is rarely needed; it starts from an empty cache mount, and the dependency step then retries up to three times if an upstream download fails. `docker builder prune` clears the cache.
 - `data/raw` is mounted read-only, so a container cannot alter the operator's
   placed inputs.
 
@@ -100,32 +129,34 @@ The dashboard ships with the repo as a Superset import bundle in `superset/dashb
 
 - **Coverage**: facilities in the register, LGAs matched and unmatched, high-priority LGAs; a ranked table of the high-priority LGAs, highest score and thinnest coverage first, with its malaria parasite rate and a plain-language reason for each part of the score, where selecting an LGA opens it on the LGA profile tab; maps of facilities per 10,000 people (LGAs with no matched facility left blank) and the 0-11 priority score (coloured in bands that follow the tiers); a note explaining the score; and a by-state table with population, the state's facilities per 10,000 people and its high-priority LGAs.
 - **LGA profile**: everything the register holds for one LGA, chosen in the LGA filter (required; it opens on the highest-priority LGA): a table of its 20 facts from `lga_profile_facts`, covering facilities by level, per-capita rates, functional status, population, travel time, flood exposure, disease ranks and the priority score with its four parts, beside a line of the LGA's facilities per 10,000 people to 2030.
-- **Disease burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank (LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, a map of the malaria parasite rate in children aged 2-10 (Malaria Atlas Project, 2025) in five bands from under 15% to 30% and over, with a note on how it enters the score, and a per-LGA burden table with population, facilities per 10,000 people, the five disease ranks, the malaria parasite rate and clinical cases per 1,000 a year.
-- **Access**: maps of the share of people over an hour's walk from a facility (Malaria Atlas Project travel time against WorldPop 2025) and of the 0-2 access risk score (hard to reach on foot, flood-affected in 2024), and a table of LGAs with access risk, hardest to reach first. Every map's hover summary also gives walking time, the 2024 flood flag and the score.
+- **Disease burden**: one map per ESPEN disease coloured by the 0-3 endemicity rank, two to a row (non-endemic LGAs shaded pale yellow; LGAs never reported with a known status stay blank, never shaded as 0), the rank distribution per disease, a map of the malaria parasite rate in children aged 2-10 (Malaria Atlas Project, 2025) in five bands from under 15% to 30% and over, with a legend and a note on how it enters the score, and a per-LGA burden table with population, facilities per 10,000 people, the five disease ranks, the malaria parasite rate and clinical cases per 1,000 a year.
+- **Access**: maps of the share of people over an hour's walk from a facility (Malaria Atlas Project travel time against WorldPop 2025) and of the 0-2 access risk score (hard to reach on foot, flood-affected in 2024), and a table of LGAs with access risk, hardest to reach first, flood-affected shown as Yes or No. Every map's hover summary also gives walking time, the 2024 flood flag and the score.
 - **Facility mix**: maps of secondary and tertiary facilities per 100,000 people and of the share of facilities recorded as not functional (shading only LGAs with at least five facilities of known status, since GRID3 records status only in v3.0 and often as Unknown), facilities by level per state (largest state first), and a point map of every secondary and tertiary facility with coordinates, coloured by level (primary facilities are already summarised in the per-capita maps, and at national scale their points would hide the rest).
 - **Outlook**: national facilities per 10,000 people for each WorldPop year to 2030 at today's facility count, LGAs below 2 per 10,000 by year, and the LGAs at or above 2 today that fall below it by 2030.
 - **Version drift**: the v2.0-to-v3.0 lineage split, name agreement of carried-over facilities, lineage by state, and the dropped/appeared review queue.
-- **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, the national population and facilities per 10,000 people, hard-to-reach and 2024 flood-affected LGAs, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences (ESPEN is non-commercial), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
+- **Data status**: a live summary of the published register (build time, the GRID3 release and state count for each version, facility totals, the national population and facilities per 10,000 people, hard-to-reach and 2024 flood-affected LGAs, LGAs with a known ESPEN status per disease, lineage totals), read from `register_summary` so it changes with every refresh; then the sources and licences for every source (GRID3, geoBoundaries, ESPEN, which is non-commercial, WorldPop, the Malaria Atlas Project and NASA MODIS), the "missing is not zero" rule, and links to the attribution, data contract and architecture documents on GitHub.
 
 Filters in the left panel: State, Facility status, Priority tier and Hard to reach apply across the dashboard; LGA applies to the LGA profile tab only, and its list narrows to the chosen state. The ranked list's links set the LGA filter through the dashboard URL (`?native_filters=` with the LGA, and `#TAB-profile`), so a profile link can also be shared or bookmarked.
 
-The dashboard has its own look: a deep teal title band (#034149, the darkest fill of the maps), a warm off-white page, white rounded cards with a soft shadow, and a pale teal rule beside the explanatory notes. That styling is the dashboard's CSS in the bundle, so `make dashboard` applies it. Superset's accent colour (buttons, links, the open tab, focus rings) is set to the same teal by `THEME_OVERRIDES` in `superset/superset_config.py`, which is built into the Superset image: after pulling a change to it, rebuild with `docker compose build superset superset-worker` and restart with `docker compose up -d`. The accent applies across the whole Superset instance, not only this dashboard.
+The dashboard has its own look: a deep teal title band (#034149, the darkest fill of the maps), a warm off-white page, and every chart on a plain white card framed by a hairline border, a rule under its title and a faint shadow, so map and chart colours read true; tables have a tinted header row and a row hover. Explanatory notes sit on a pale teal panel with a teal rule, so text never reads as data. That styling is the dashboard's CSS in the bundle, so `make dashboard` applies it. Superset's accent colour (buttons, links, the open tab, focus rings) is set to the same teal by `THEME_OVERRIDES` in `superset/superset_config.py`, which is built into the Superset image: after pulling a change to it, rebuild with `docker compose build superset superset-worker` and restart with `docker compose up -d`. The accent applies across the whole Superset instance, not only this dashboard.
 
 State and facility-status filters apply across the tabs.
 
 Presentation conventions, kept when charts are edited:
 
 - **Colour carries meaning, the same everywhere.** The dashboard's label colours fix it: the endemicity ranks 0-3 run pale yellow to dark red with unknown in grey; lineage and name agreement use the colour-blind-safe Okabe-Ito set (carried over or exact match blue or green, close amber, dropped or divergent vermilion); facility levels run light to dark blue with tertiary in vermilion.
-- **Maps frame Nigeria.** Polygon maps keep a saved viewport (Superset 4.1 fits only point layers to their data): zoom 4.85 for a map a third of the dashboard wide, 5.3 for half, centred on 8.7 E, 9.0 N.
-- **Bars start at zero; changes over time are lines.** Bar charts compare lengths, so their value axis starts at 0; a single LGA's trend is a line with exact labels instead.
-- **Numbers read as numbers.** Counts and populations carry thousands separators, rates two decimal places, shares a percent sign; the headline facility count is exact, not abbreviated.
+- **Maps frame Nigeria.** Polygon maps keep a saved viewport (Superset 4.1 fits only point layers to their data): zoom 5.0 for a map half the dashboard wide, 4.85 for two thirds, centred on 8.7 E, 9.0 N. Maps sit at most two to a row, so the whole country, Borno included, stays in frame.
+- **A measured zero is drawn.** The deck.gl Polygon layer leaves a polygon unfilled when its value is 0, which would make a measured 0 look unmeasured, so every map whose lowest band starts at 0 maps 0 to 0.001 in its metric (`CASE WHEN ... = 0 THEN 0.001 ELSE ... END`); the hover shows 0.001 for those LGAs. Blank always means not measured. A test enforces it.
+- **Legends where bands are ranges.** Continuous maps (rates, shares, the score) carry a legend; maps of a 0-3 rank or the 0-2 access score have a colour key in their note instead, because the legend can only label ranges (0 - 1, 1 - 2) and would misstate whole-number values.
+- **Bars and lines start at zero.** Bar charts compare lengths, so their value axis starts at 0; a single LGA's trend is a line with exact labels, and its axis starts at 0 too, so a small decline is not drawn as a cliff. Single-series charts use the dashboard teal.
+- **Numbers read as numbers.** Counts and populations carry thousands separators, rates two decimal places, shares a percent sign; the headline facility count and the by-state table are exact, not abbreviated, and tables carry no in-cell bars.
 - **Ranked lists are sorted by size,** largest first, never alphabetically by default.
 
 To bring it up:
 
 1. Set real credentials first. Copy `.env.example` to `.env` beside the compose file and fill in `SUPERSET_SECRET_KEY`, `SUPERSET_ADMIN_PASSWORD` and `SUPERSET_DB_PASSWORD` (`SUPERSET_ADMIN_USERNAME` defaults to `admin`). The compose file requires all three, so `docker compose up` aborts with a clear message if any is unset rather than booting with a guessable default. The real `.env` is gitignored. **Never commit real credentials.**
 2. Start the stack (`docker compose up -d`) and let a refresh publish the register.
-3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It zips the bundle, copies it into the `superset` container and loads it with Superset's assets importer (`ImportAssetsCommand`), which creates the connection, datasets, charts and dashboard, or on a re-run overwrites every one of them in place by UUID, so upgrading a deployment is re-running `make dashboard` after pulling the new bundle. The import runs as the user named by `SUPERSET_ADMIN_USERNAME`, which must exist. Changes made in the UI to these objects are replaced by the bundle on the next import, so export them first (below) if they should be kept. Then open `http://127.0.0.1:8088` and log in.
+3. Load the dashboard: `make dashboard` (or `python scripts/superset_dashboard.py import`). It first checks that the register the bundle's connection opens (`/app/register/nfr.duckdb`) exists in the `superset` container, and stops with a one-line pointer to the `refresh_register` job if step 2 has not published it yet. It then zips the bundle, copies it into the `superset` container and loads it with Superset's assets importer (`ImportAssetsCommand`), which creates the connection, datasets, charts and dashboard, or on a re-run overwrites every one of them in place by UUID, so upgrading a deployment is re-running `make dashboard` after pulling the new bundle. The import runs as the user named by `SUPERSET_ADMIN_USERNAME`, which must exist. Changes made in the UI to these objects are replaced by the bundle on the next import, so export them first (below) if they should be kept. Then open `http://127.0.0.1:8088` and log in.
 
 To change the dashboard, edit it in the Superset UI, then run `make dashboard-export` (or `python scripts/superset_dashboard.py export`). That exports only this dashboard, selected by UUID so other dashboards on the instance never land in the repo, and rewrites the bundle directory with stable filenames; review the diff and commit it. `tests/test_superset_bundle.py` checks the bundle in CI: every reference resolves, the connection stays read-only, and every column a dataset or chart names exists in the dbt contract, so renaming a mart column fails the tests instead of breaking a chart.
 
@@ -157,6 +188,7 @@ Chart query results are cached in Redis for up to a day, so repeat views of a ch
 
 The bundle's connection is exposed to SQL Lab on purpose, read-only; see [ADR 0001](adr/0001-superset-sql-lab-access.md). Access is controlled with Superset roles, not by hiding the connection:
 
+- **Public viewers**: the `Public viewer` role, made by `make public-viewer` for the shared `public-viewer` account (see "Publishing the dashboard" below). They can open and filter the dashboard and nothing else: no data export, no SQL, no chart building, no server-side downloads.
 - **Viewers**: the Gamma role plus access to the dashboard's datasets. They see the dashboard and can export chart data, but cannot run SQL.
 - **Analysts**: additionally the `sql_lab` role, which lets them query every table in the register (marts, staging, raw), read-only. Grant it only to named people who have accepted the ESPEN non-commercial terms, since SQL Lab makes the full per-LGA endemicity table easy to export.
 - **Admins**: manage roles and import the bundle.
@@ -167,6 +199,34 @@ Before opening the dashboard to anyone outside the team (self-registration, a pu
 2. Any public or guest role (`PUBLIC_ROLE_LIKE`, guest tokens) is limited to the dashboard's datasets and has no `sql_lab`.
 3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
 4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
+
+### Publishing the dashboard
+
+The compose file can publish Superset, and only Superset, on a public HTTPS address through a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). The `cloudflared` service (compose profile `public`) dials out to Cloudflare, which serves the hostname with its own certificate and forwards requests down the tunnel, so the host opens no inbound port and needs no firewall change. `cloudflared` shares a network with Superset alone, so the Dagster UI, which has no login, Redis and Postgres stay unreachable from it whatever route the Cloudflare dashboard holds. [ADR 0003](adr/0003-public-dashboard-access.md) records the decision. The domain's DNS must be on Cloudflare.
+
+1. In the Cloudflare dashboard, under Zero Trust, Networks, Tunnels, create a tunnel of type Cloudflared and copy its token. Add a public hostname to it (for example `dashboard` on your domain) with service type HTTP and URL `superset:8088`; Cloudflare creates the DNS record. Under the domain's SSL/TLS settings, turn on "Always Use HTTPS".
+2. In `.env` on the host, set `SUPERSET_PUBLIC_URL` to the address (`https://dashboard.example.org`), `CLOUDFLARE_TUNNEL_TOKEN` to the token, and `SUPERSET_PUBLIC_VIEWER_PASSWORD` to a generated password of at least 16 characters.
+3. Start with the profile, then make the account:
+
+   ```bash
+   docker compose --profile public up -d
+   make public-viewer PY=python3
+   ```
+
+4. Share the dashboard's address, `https://dashboard.example.org/superset/dashboard/nfr-coverage-burden/`, with the `public-viewer` login. After signing in, Superset returns the visitor to that page.
+
+With `SUPERSET_PUBLIC_URL` set, Superset trusts one proxy hop for the client address and scheme, marks its session cookie HTTPS-only, ends sessions after 12 hours, and limits sign-in attempts to 10 a minute per address, counting in Redis. Self-registration stays off. Chrome and Firefox still accept the HTTPS-only cookie on `http://127.0.0.1`, so the SSH tunnel keeps working for the admin; Safari does not, so sign in as admin through the public address there.
+
+`make public-viewer` builds the `Public viewer` role from an explicit allowlist (in `scripts/superset_public_viewer.py`, held by `tests/test_superset_public_viewer.py`), not by trimming Gamma, so a Superset upgrade cannot widen it. The role can read the dashboard and its charts, keep its own filter selections and open shared permalinks, and has access to exactly the datasets this dashboard's charts read, looked up from the dashboard at run time. It has no SQL Lab, Explore, CSV or Excel export, drill to detail, "view query", dashboard or chart export, server-side PDF or image download, dataset or database list, and it cannot create permalinks or change the shared account's password or profile. Each run replaces the role's permissions with exactly that set and resets the account's password from `.env`, so rotating the password is editing `.env`, `docker compose up -d superset`, then `make public-viewer` again. Sessions already signed in end within 12 hours, the public session lifetime; to cut the account off at once, deactivate it under Settings, List Users (the next `make public-viewer` reactivates it).
+
+What this does and does not keep from a viewer:
+
+- The dashboard menu still lists Download, because Superset 4.1 shows it to every role; for the public viewer the server refuses the request and the page says the screenshot could not be downloaded. Nothing is rendered, so the worker's one core is never spent on public downloads.
+- Removing export stops packaged downloads, not reading. A browser has to receive a chart's rows to draw it, and Superset's chart-data API answers any query, including raw sample rows, against a dataset the role may read, in JSON. Someone with the login and some effort can therefore collect the rows of the eight dashboard datasets, as they could by copying what the tables show. The register is built from openly published sources (data/ATTRIBUTION.md), so this reveals derived figures rather than data available nowhere else, but the ESPEN-derived columns stay under ESPEN's non-commercial terms; check item 3 above before publishing. Keep any dataset that must not be reachable this way off the dashboard.
+
+## A free host
+
+[DEPLOY_ORACLE.md](DEPLOY_ORACLE.md) runs this stack on one Oracle Cloud Always Free Arm instance at no cost: sizing it so it is not reclaimed as idle, `scripts/bootstrap_host.sh` to install Docker on a fresh Ubuntu host, placing the raw inputs, the first refresh, and reaching the UIs over an SSH tunnel.
 
 ## Not covered here
 

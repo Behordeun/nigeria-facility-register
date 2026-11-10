@@ -21,6 +21,7 @@ result can outlive a missed clear.
 """
 
 import os
+from datetime import timedelta
 
 from sqlalchemy.engine import URL
 
@@ -92,6 +93,39 @@ WEBDRIVER_BASEURL = os.environ.get("SUPERSET_WEBDRIVER_BASEURL", "http://superse
 # before the screenshot, and give the whole render more room than the default.
 SCREENSHOT_PLAYWRIGHT_WAIT_EVENT = "networkidle"
 SCREENSHOT_PLAYWRIGHT_DEFAULT_TIMEOUT = 90_000
+
+# Settings for serving Superset on the internet through the Cloudflare Tunnel
+# (the compose `public` profile). They apply only when SUPERSET_PUBLIC_URL names
+# the public HTTPS address, so a local stack keeps plain-HTTP defaults.
+PUBLIC_URL = os.environ.get("SUPERSET_PUBLIC_URL", "").rstrip("/")
+if PUBLIC_URL:
+    # Trust one proxy hop for the client address and scheme, so links, redirects
+    # and rate limits see the visitor and HTTPS rather than cloudflared. Safe
+    # here because only cloudflared and the host's loopback reach Superset.
+    ENABLE_PROXY_FIX = True
+    PROXY_FIX_CONFIG = {"x_for": 1, "x_proto": 1, "x_host": 1, "x_port": 0, "x_prefix": 0}
+    PREFERRED_URL_SCHEME = "https"
+    # The session cookie only travels over HTTPS. Browsers other than Safari
+    # still accept it on http://127.0.0.1, so the SSH tunnel keeps working.
+    SESSION_COOKIE_SECURE = True
+    # Stated here rather than left to the defaults, since the login is public.
+    # Lax, not Strict: Strict would drop the cookie when a visitor follows a
+    # shared dashboard link from another site, sending them to the login page;
+    # state-changing requests already carry Superset's CSRF token.
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    # A shared public login should not stay signed in for Superset's default
+    # 31 days; this also bounds how long a rotated password's sessions live.
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=12)
+    # Slow down password guessing against the public login form. The limiter
+    # keeps its counters in Redis (database 4, nothing else there), so both
+    # gunicorn workers share them.
+    RATELIMIT_ENABLED = True
+    RATELIMIT_STORAGE_URI = f"{REDIS_URL}/4"
+    AUTH_RATE_LIMITED = True
+    AUTH_RATE_LIMIT = "10 per minute"
+    # Links in emails and downloads point at the public address.
+    WEBDRIVER_BASEURL_USER_FRIENDLY = f"{PUBLIC_URL}/"
 
 # Superset's accent colour (buttons, links, the open tab, focus rings) in the
 # deep teal of the maps' darkest fill, replacing the default blue. The shades

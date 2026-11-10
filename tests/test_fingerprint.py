@@ -1,81 +1,151 @@
-"""Unit tests for the refresh sensor's change-detection fingerprint.
+"""Unit tests for the refresh's input fingerprint.
 
-The sensor rebuilds only when the raw geopackages actually change, so the
-fingerprint must be stable for unchanged files and differ when a file appears,
-grows, or is replaced with different content (even at the same size and mtime).
-Skipped when dagster is not installed (the orchestration extra), because the
-module imports dagster at the top.
+The sensor rebuilds only when the inputs actually change, and the live register
+records the fingerprint it was built from, so the fingerprint must be stable for
+unchanged inputs and change whenever anything that shapes the register changes:
+a geopackage, a frame or derived table, a dbt model, or the population year.
 """
+from __future__ import annotations
+
+import os
+from datetime import date
+
 import pytest
 
-pytest.importorskip("dagster")  # the module imports dagster at top level
+from nfr.orchestration import inputs, snapshot
 
-from nfr.orchestration.definitions import fingerprint  # noqa: E402
-
-
-def test_stable_for_unchanged_files(tmp_path):
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
-    names = ["a.gpkg"]
-    first = fingerprint(tmp_path, names)
-    assert fingerprint(tmp_path, names) == first
+GPKGS = ["a.gpkg", "b.gpkg"]
 
 
-def test_changes_when_a_file_appears(tmp_path):
-    names = ["a.gpkg", "b.gpkg"]
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
-    before = fingerprint(tmp_path, names)
-    (tmp_path / "b.gpkg").write_bytes(b"y" * 100)
-    assert fingerprint(tmp_path, names) != before
+def _tree(root):
+    """A minimal input set: raw geopackages, frame, derived, and a dbt project."""
+    raw, frame, derived, dbt = (root / n for n in ("raw", "frame", "derived", "dbt"))
+    for d in (raw, frame, derived, dbt / "models", dbt / "tests"):
+        d.mkdir(parents=True)
+    (raw / "a.gpkg").write_bytes(b"A" * 100)
+    (raw / "b.gpkg").write_bytes(b"B" * 100)
+    (frame / "index.csv").write_text("lga\nX\n")
+    (derived / inputs.POPULATION_TABLE).write_text("shapeID,population_year\ns1,2025\ns1,2026\ns1,2030\n")
+    (dbt / "dbt_project.yml").write_text("name: nfr\n")
+    (dbt / "models" / "mart.sql").write_text("select 1\n")
+    (dbt / "tests" / "check.sql").write_text("select 1 where false\n")
+    return raw, frame, derived, dbt
 
 
-def test_changes_when_only_one_of_a_pair_changes(tmp_path):
-    # The combined fingerprint covers both inputs, so updating only one file
-    # (a half-applied set) changes it. The sensor therefore does not mistake a
-    # one-file update for the already-built vintage; combined with the
-    # all-present guard, a mixed pair is never silently accepted as unchanged.
-    names = ["a.gpkg", "b.gpkg"]
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
-    (tmp_path / "b.gpkg").write_bytes(b"y" * 100)
-    before = fingerprint(tmp_path, names)
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 100 + b"NEW")  # only a changes
-    assert fingerprint(tmp_path, names) != before
+def _fp(root, year=2026):
+    raw, frame, derived, dbt = (root / n for n in ("raw", "frame", "derived", "dbt"))
+    return inputs.fingerprint(raw, GPKGS, frame, derived, inputs.dbt_project_digest(dbt), year)
 
 
-def test_changes_when_a_file_grows(tmp_path):
-    names = ["a.gpkg"]
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 100)
-    before = fingerprint(tmp_path, names)
-    (tmp_path / "a.gpkg").write_bytes(b"x" * 200)
-    assert fingerprint(tmp_path, names) != before
+def test_stable_for_unchanged_inputs(tmp_path):
+    _tree(tmp_path)
+    first = _fp(tmp_path)
+    second = _fp(tmp_path)
+    assert first == second, "unchanged inputs must fingerprint the same"
 
 
-def test_empty_dir_is_stable(tmp_path):
-    first = fingerprint(tmp_path, ["none.gpkg"])
-    assert fingerprint(tmp_path, ["none.gpkg"]) == first
+@pytest.mark.parametrize("path", ["raw/a.gpkg", "frame/index.csv", f"derived/{inputs.POPULATION_TABLE}"])
+def test_changes_when_any_input_file_changes(tmp_path, path):
+    _tree(tmp_path)
+    before = _fp(tmp_path)
+    target = tmp_path / path
+    target.write_bytes(target.read_bytes() + b"\n")
+    assert _fp(tmp_path) != before, f"editing {path} must change the fingerprint"
+
+
+def test_changes_when_a_derived_table_is_added(tmp_path):
+    _tree(tmp_path)
+    before = _fp(tmp_path)
+    (tmp_path / "derived" / "malaria_lga.csv").write_text("shapeID\ns1\n")
+    assert _fp(tmp_path) != before, "a new enrichment table must change the fingerprint"
+
+
+def test_changes_when_a_dbt_model_changes(tmp_path):
+    _tree(tmp_path)
+    before = _fp(tmp_path)
+    (tmp_path / "dbt" / "models" / "mart.sql").write_text("select 2\n")
+    assert _fp(tmp_path) != before, "a model edit changes the marts, so it must change the fingerprint"
+
+
+def test_a_dbt_test_edit_does_not_change_the_fingerprint(tmp_path):
+    # dbt tests gate a build but never change its output, so editing one must
+    # not republish an identical register.
+    _tree(tmp_path)
+    before = _fp(tmp_path)
+    (tmp_path / "dbt" / "tests" / "check.sql").write_text("select 1 where 1 = 0\n")
+    assert _fp(tmp_path) == before
+
+
+def test_changes_with_the_population_year(tmp_path):
+    _tree(tmp_path)
+    assert _fp(tmp_path, 2026) != _fp(tmp_path, 2027), "a new population year must change the fingerprint"
+
+
+def test_same_file_name_in_two_folders_is_kept_distinct(tmp_path):
+    raw, frame, derived, dbt = _tree(tmp_path)
+    (frame / "shared.csv").write_text("x\n")
+    in_frame = _fp(tmp_path)
+    (frame / "shared.csv").unlink()
+    (derived / "shared.csv").write_text("x\n")
+    assert _fp(tmp_path) != in_frame
 
 
 def test_detects_same_size_same_mtime_content_change(tmp_path):
-    # A replacement vintage of identical byte length with a preserved mtime must
-    # still change the fingerprint; hashing content, not size+mtime, catches it.
-    import os
-
-    f = tmp_path / "a.gpkg"
-    f.write_bytes(b"AAAA")
+    _tree(tmp_path)
+    f = tmp_path / "raw" / "a.gpkg"
     st = f.stat()
-    before = fingerprint(tmp_path, ["a.gpkg"])
-    f.write_bytes(b"BBBB")
+    before = _fp(tmp_path)
+    f.write_bytes(b"Z" * 100)
     os.utime(f, (st.st_atime, st.st_mtime))
-    assert fingerprint(tmp_path, ["a.gpkg"]) != before
+    assert _fp(tmp_path) != before
 
 
-def test_rejects_a_symlink_escaping_the_watched_dir(tmp_path):
-    # A name inside the watched dir that symlinks outside it must be refused,
-    # so the sensor never hashes bytes beyond the directory it watches.
+def test_rejects_a_symlink_escaping_its_folder(tmp_path):
+    _tree(tmp_path)
     outside = tmp_path / "outside"
     outside.mkdir()
-    (outside / "secret").write_bytes(b"x")
-    watched = tmp_path / "raw"
-    watched.mkdir()
-    (watched / "a.gpkg").symlink_to(outside / "secret")
+    (outside / "secret.csv").write_text("x\n")
+    (tmp_path / "derived" / "leak.csv").symlink_to(outside / "secret.csv")
     with pytest.raises(ValueError, match="escapes the watched directory"):
-        fingerprint(watched, ["a.gpkg"])
+        _fp(tmp_path)
+
+
+def test_a_snapshot_fingerprints_the_same_as_the_inputs_it_copies(tmp_path):
+    # The run verifies its snapshot against the sensor's fingerprint, so a
+    # faithful snapshot of every input folder must fingerprint identically.
+    raw, frame, derived, dbt = _tree(tmp_path)
+    snap = tmp_path / "snap"
+    snapshot.create_snapshot(raw, snap, GPKGS)
+    snapshot.create_snapshot(frame, snap / inputs.FRAME_SUBDIR, inputs.input_files(frame))
+    snapshot.create_snapshot(derived, snap / inputs.DERIVED_SUBDIR, inputs.input_files(derived))
+    digest = inputs.dbt_project_digest(dbt)
+    live = inputs.fingerprint(raw, GPKGS, frame, derived, digest, 2026)
+    copied = inputs.fingerprint(snap, GPKGS, snap / inputs.FRAME_SUBDIR, snap / inputs.DERIVED_SUBDIR, digest, 2026)
+    assert copied == live
+
+
+@pytest.mark.parametrize(("today", "expected"), [
+    (date(2024, 6, 1), 2025),  # before the table starts: its first year
+    (date(2026, 1, 1), 2026),  # inside the table: the calendar year
+    (date(2031, 3, 1), 2030),  # after it ends: its last year
+])
+def test_population_year_is_the_calendar_year_capped_to_the_table(tmp_path, today, expected):
+    _tree(tmp_path)
+    table = tmp_path / "derived" / inputs.POPULATION_TABLE
+    assert inputs.select_population_year(table, today) == expected
+
+
+def test_population_year_rejects_an_empty_table(tmp_path):
+    table = tmp_path / inputs.POPULATION_TABLE
+    table.write_text("shapeID,population_year\n")
+    today = date(2026, 1, 1)
+    with pytest.raises(ValueError, match="carries no population_year"):
+        inputs.select_population_year(table, today)
+
+
+def test_population_year_rejects_a_table_without_the_year_column(tmp_path):
+    table = tmp_path / inputs.POPULATION_TABLE
+    table.write_text("shapeID,population\ns1,10\n")
+    today = date(2026, 1, 1)
+    with pytest.raises(ValueError, match="has no population_year column"):
+        inputs.select_population_year(table, today)

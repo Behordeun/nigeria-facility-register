@@ -10,7 +10,7 @@ read surface. Source files are fetched separately (see scripts/fetch_sources.py)
 and their provenance is pinned in data/sources.yml.
 
 Usage:
-    python -m nfr.load_sources --db build/nfr.duckdb --frame data/frame
+    python -m nfr.load_sources --db build/scratch.duckdb --frame data/frame
 """
 from __future__ import annotations
 

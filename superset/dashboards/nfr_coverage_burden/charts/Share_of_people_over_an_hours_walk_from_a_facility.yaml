@@ -13,7 +13,7 @@ params:
   line_type: json
   metric:
     expressionType: SQL
-    sqlExpression: MAX(walking_over_60min_share) * 100
+    sqlExpression: CASE WHEN MAX(walking_over_60min_share) * 100 = 0 THEN 0.001 ELSE MAX(walking_over_60min_share) * 100 END
     label: '% over an hour''s walk'
     hasCustomLabel: true
     optionName: metric_ca09e5c7b9b3
@@ -29,7 +29,7 @@ params:
   viewport:
     longitude: 8.7
     latitude: 9.0
-    zoom: 5.3
+    zoom: 5.0
     bearing: 0
     pitch: 0
     width: 800

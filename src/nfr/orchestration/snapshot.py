@@ -1,5 +1,6 @@
 """
-Immutable per-run snapshot of the raw inputs.
+Immutable per-run snapshot of the inputs: the raw geopackages, plus the LGA
+frame and the derived tables in frame/ and derived/ folders beside them.
 
 The sensor fingerprints the live data/raw/ directory and launches a run for that
 fingerprint, but the run reads the same mutable directory later, so between the
@@ -85,6 +86,17 @@ def clear_snapshot(dest_dir: Path) -> None:
     if not dest_dir.exists():
         return
     for existing in dest_dir.iterdir():
+        # A run's snapshot holds the geopackages plus one level of input
+        # folders (the frame and the derived tables); clear each folder's files
+        # and then the folder, never recursing further than the snapshot builds.
+        if existing.is_dir() and not existing.is_symlink():
+            for inner in existing.iterdir():
+                with contextlib.suppress(OSError):
+                    if inner.is_file():
+                        inner.unlink()
+            with contextlib.suppress(OSError):
+                existing.rmdir()
+            continue
         with contextlib.suppress(OSError):
             if existing.is_file():
                 existing.unlink()

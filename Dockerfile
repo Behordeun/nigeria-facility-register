@@ -31,13 +31,40 @@ WORKDIR /app
 # is reinstalled only when the lock or project metadata changes. --frozen fails
 # if the lock is out of date, matching CI. The orchestration extra brings in
 # dagster + the webserver; dev is not installed in the deployment image.
+#
+# Both uv steps mount a persistent BuildKit cache at uv's cache directory. That
+# cache lives outside the image layers, so when a code or lockfile change
+# invalidates these layers, wheels downloaded or built earlier are reused rather
+# than fetched again. This matters most for dbt-core-experimental-parser, which
+# ships only an sdist whose build step downloads its platform wheel from GitHub
+# releases; with the cache, that download happens once per machine and parser
+# version. UV_LINK_MODE=copy (above) copies packages out of the mounted cache
+# into the venv, since hard links cannot cross into a cache mount.
+#
+# `--no-cache` builds start from an empty cache mount, so the dependency step
+# also retries up to three times, 30s apart, to ride out a short upstream
+# download outage. Packages fetched by a failed attempt stay in the mount, so a
+# retry fetches only what is still missing.
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-install-project --extra orchestration
+RUN --mount=type=cache,target=/root/.cache/uv \
+    for attempt in 1 2 3; do \
+        uv sync --frozen --no-install-project --extra orchestration && exit 0; \
+        echo "uv sync failed (attempt $attempt of 3)" >&2; \
+        [ "$attempt" = 3 ] || sleep 30; \
+    done; \
+    exit 1
 
 # Then the project source. Copied after the dependency layer so a code change
 # does not invalidate the dependency install.
 COPY . .
-RUN uv sync --frozen --extra orchestration
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --extra orchestration
+
+# Parse the dbt project into dbt/target/manifest.json, which the Dagster code
+# reads at load time to define one asset per dbt model. dbt/target/ is excluded
+# from the build context, so the manifest always matches the models in this
+# image. Parsing opens no database.
+RUN .venv/bin/dbt parse --project-dir dbt --profiles-dir dbt
 
 # The instance config seed; the compose daemon/webserver share a DAGSTER_HOME
 # volume, and the entrypoint copies this in if the volume is empty.

@@ -3,23 +3,23 @@
 The gate's blocking carry-over floor must sit below the advisory warn floor, or
 the blocking check would fire before (or together with) the warning and the two
 severities would collapse into one. dagster is an optional install, so skip when
-it is absent (the definitions module imports dagster at the top).
+it is absent (the gates module imports dagster at the top).
 """
 import pytest
 
 pytest.importorskip("dagster")
 
-from nfr.orchestration import definitions as d  # noqa: E402
+from nfr.orchestration import config, gates  # noqa: E402
 
 
 def test_hard_carryover_floor_is_below_the_warn_floor():
     # The gate (blocking) must trip only on a genuine collapse, strictly below
     # the advisory warn floor, so a dip warns before it ever blocks.
-    assert d.HARD_MIN_CARRYOVER_RATE < d.MIN_CARRYOVER_RATE
+    assert gates.HARD_MIN_CARRYOVER_RATE < gates.MIN_CARRYOVER_RATE
 
 
 def test_floors_are_fractions():
-    for floor in (d.MIN_LGA_RESOLVE_RATE, d.MIN_CARRYOVER_RATE, d.HARD_MIN_CARRYOVER_RATE):
+    for floor in (gates.MIN_LGA_RESOLVE_RATE, gates.MIN_CARRYOVER_RATE, gates.HARD_MIN_CARRYOVER_RATE):
         assert 0.0 < floor < 1.0
 
 
@@ -48,14 +48,14 @@ def _gate_db(tmp_path, *, v2_in_covered: int, carried: int):
 def test_gate_returns_rate_when_it_clears_floor(tmp_path):
     # 9 carried of 10 expected = 0.9, well above the hard floor.
     db = _gate_db(tmp_path, v2_in_covered=10, carried=9)
-    assert d._enforce_carryover_gate(db) == pytest.approx(0.9)
+    assert gates.enforce_carryover_gate(db) == pytest.approx(0.9)
 
 
 def test_gate_raises_when_rate_below_floor(tmp_path):
     # 1 carried of 10 expected = 0.1, below the 0.30 hard floor.
     db = _gate_db(tmp_path, v2_in_covered=10, carried=1)
     with pytest.raises(RuntimeError, match="data-quality gate failed"):
-        d._enforce_carryover_gate(db)
+        gates.enforce_carryover_gate(db)
 
 
 def test_gate_raises_when_rate_is_undefined(tmp_path):
@@ -63,28 +63,28 @@ def test_gate_raises_when_rate_is_undefined(tmp_path):
     # gate rather than pass as "nothing to check".
     db = _gate_db(tmp_path, v2_in_covered=0, carried=0)
     with pytest.raises(RuntimeError, match="data-quality gate failed"):
-        d._enforce_carryover_gate(db)
+        gates.enforce_carryover_gate(db)
 
 
 def test_staging_db_path_has_a_single_dot_and_is_run_scoped():
     # dbt-duckdb reads a path like nfr.<id>.duckdb as a catalog.schema
     # reference, so the stem must carry no interior dot. Two different run ids
     # must map to two different side files, and both must sit under STAGING_DIR.
-    a = d._staging_db_path("33e0370b-89fc-4e29")
-    b = d._staging_db_path("other-run-id")
+    a = config.staging_db_path("33e0370b-89fc-4e29")
+    b = config.staging_db_path("other-run-id")
     assert a.name == "nfr_33e0370b-89fc-4e29.duckdb"
     assert a.name.count(".") == 1
     assert a != b
-    assert a.parent == d.STAGING_DIR
+    assert a.parent == config.STAGING_DIR
 
 
 def test_staging_db_path_sanitises_and_falls_back():
     # A run id with path-unsafe characters is stripped to safe ones; an empty
     # result falls back to a fixed name rather than producing a bare "nfr_.duckdb"
     # that could collide or escape the staging dir.
-    assert d._staging_db_path("../../etc/passwd").name.startswith("nfr_")
-    assert "/" not in d._staging_db_path("../../etc/passwd").name
-    assert d._staging_db_path("").name == "nfr_manual.duckdb"
+    assert config.staging_db_path("../../etc/passwd").name.startswith("nfr_")
+    assert "/" not in config.staging_db_path("../../etc/passwd").name
+    assert config.staging_db_path("").name == "nfr_manual.duckdb"
 
 
 def test_failed_publish_discards_the_side_db_and_keeps_the_live_db(tmp_path, monkeypatch):
@@ -96,14 +96,17 @@ def test_failed_publish_discards_the_side_db_and_keeps_the_live_db(tmp_path, mon
     snap = tmp_path / "snapshots" / "run"
     snap.mkdir(parents=True)
     (snap / "a.gpkg").write_bytes(b"A")
-    monkeypatch.setattr(d, "DB", live)
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
 
     def fail(*_args):
         raise RuntimeError("sentinel write failed")
 
-    monkeypatch.setattr(d.publish, "write_published_fingerprint", fail)
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", fail)
     with pytest.raises(RuntimeError, match="sentinel write failed"):
-        d._promote(staging, "fp", snap)
+        gates.promote(staging, "fp", snap)
     assert live.read_bytes() == b"previous register", "a failed publish must leave the live register untouched"
     assert not staging.exists(), "a failed publish must discard the side database"
     assert not snap.exists(), "a failed publish must clear the run snapshot"
@@ -114,8 +117,91 @@ def test_promote_replaces_the_live_db_with_the_side_db(tmp_path, monkeypatch):
     live.write_bytes(b"previous register")
     staging = tmp_path / "nfr_run.duckdb"
     staging.write_bytes(b"new register")
-    monkeypatch.setattr(d, "DB", live)
-    monkeypatch.setattr(d.publish, "write_published_fingerprint", lambda *_args: None)
-    d._promote(staging, "fp", tmp_path / "snapshots" / "run")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
     assert live.read_bytes() == b"new register", "promote must move the side database onto the live path"
     assert not staging.exists(), "the side database is renamed, not copied"
+
+
+def test_promote_archives_the_outgoing_register_and_lifts_a_hold(tmp_path, monkeypatch):
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"new register")
+    archive = tmp_path / "published"
+    hold = tmp_path / "hold.json"
+    registers.write_hold(hold, "rolled-back", "test")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
+    monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "fp", tmp_path / "snapshots" / "run")
+    kept = registers.archived(archive)
+    assert [p.read_bytes() for p in kept] == [b"previous register"], "the outgoing register must be archived"
+    assert live.read_bytes() == b"new register"
+    assert registers.read_hold(hold) is None, "publishing a different register lifts a rollback hold"
+
+
+def test_promote_keeps_only_the_newest_archived_registers(tmp_path, monkeypatch):
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"r0")
+    archive = tmp_path / "published"
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", archive)
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    for i in range(1, 6):
+        staging = tmp_path / f"nfr_run{i}.duckdb"
+        staging.write_bytes(f"r{i}".encode())
+        gates.promote(staging, f"fp{i}", tmp_path / "snapshots" / "run")
+    kept = registers.archived(archive)
+    assert len(kept) == config.ARCHIVE_KEEP, f"expected the newest {config.ARCHIVE_KEEP}, kept {len(kept)}"
+    assert [p.read_bytes() for p in kept] == [b"r2", b"r3", b"r4"], "the oldest registers are pruned first"
+
+
+def test_publishing_the_held_vintage_keeps_the_hold(tmp_path, monkeypatch):
+    # The refresh never builds a held vintage, but should any other path publish
+    # it, the hold must survive so the rollback protection is not silently lost.
+    from nfr.orchestration import registers
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"restored register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"held vintage")
+    hold = tmp_path / "hold.json"
+    registers.write_hold(hold, "held-fp", "test")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", hold)
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", tmp_path / "alert_state.json")
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "held-fp", tmp_path / "snapshots" / "run")
+    assert registers.read_hold(hold) == "held-fp", "publishing the held vintage must not lift its hold"
+
+
+def test_a_publish_rearms_failure_alerts(tmp_path, monkeypatch):
+    from nfr.orchestration import alerts
+
+    live = tmp_path / "nfr.duckdb"
+    live.write_bytes(b"previous register")
+    staging = tmp_path / "nfr_run.duckdb"
+    staging.write_bytes(b"new register")
+    state = tmp_path / "alert_state.json"
+    alerts.record_sent(state, "refresh_failed|fp|gate")
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(config, "ARCHIVE_DIR", tmp_path / "published")
+    monkeypatch.setattr(config, "HOLD_FILE", tmp_path / "hold.json")
+    monkeypatch.setattr(config, "ALERT_STATE_FILE", state)
+    monkeypatch.setattr(gates.publish, "write_published_fingerprint", lambda *_args: None)
+    gates.promote(staging, "fp2", tmp_path / "snapshots" / "run")
+    assert not alerts.already_sent(state, "refresh_failed|fp|gate"), "after a publish the next failure must alert"
