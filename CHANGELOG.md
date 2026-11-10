@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-10
+
 ### Added
 
 - Public access to the dashboard. A `cloudflared` service (compose profile `public`) publishes Superset alone on an HTTPS address through a Cloudflare Tunnel, so the host opens no inbound port; it shares a network only with Superset, keeping the Dagster UI, Redis and Postgres out of its reach. Setting `SUPERSET_PUBLIC_URL` turns on Superset's proxy handling, an HTTPS-only session cookie with a 12-hour lifetime and a sign-in rate limit kept in Redis. `make public-viewer` (`scripts/superset_public_viewer.py`) creates the shared `public-viewer` account with a `Public viewer` role built from an explicit allowlist: it opens and filters the dashboard and reaches only its datasets, with no SQL Lab, Explore, data export, drill to detail, server-side downloads, or changes to the shared account. A test holds the allowlist. DEPLOYMENT.md has the setup and what the role does not prevent, and ADR 0003 records the decision.
@@ -26,6 +28,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 - The dashboard reads more cleanly. Every chart sits on a plain white card with a hairline border and a rule under its title, tables have a tinted header row, and the explanatory notes sit on a pale teal panel. The disease maps run two to a row and every half-width map frames the whole country, the northeast included. The malaria map gains a legend, the priority score legend ends at 11, and the access map's colour key moves to its note. The LGA profile's 2030 line starts at zero, so a small decline no longer looks like a cliff, and single-series charts use the dashboard teal. The by-state table shows exact counts without in-cell bars, the access table shows flood exposure as Yes or No, all 37 states are labelled on the facilities-by-level chart, and the headline tiles' captions are shortened to read at one size.
 - The Data status tab's sources and licences note credits every source the dashboard shows: WorldPop, the Malaria Atlas Project and NASA MODIS join GRID3, geoBoundaries and ESPEN.
 - The Dagster image build keeps uv's cache in a BuildKit cache mount, so packages downloaded or built once are reused when a code or lockfile change rebuilds the dependency layer. `dbt-core-experimental-parser` fetches its platform wheel from GitHub releases at install time; with the cache that download happens once per machine and parser version. Builds that start from an empty cache, such as `docker compose build --no-cache`, retry the dependency install up to three times, 30 seconds apart, so a short upstream download outage does not fail the build.
+
+### Notes
+
+- No published table or column changes, and every value is the same as in 0.7.0. The refresh fingerprint now covers more inputs, so the first refresh after upgrading rebuilds and republishes the register once, with the same figures.
+- To upgrade a running deployment: pull, rebuild both images (`docker compose build`), run `docker compose up -d`, then re-run `make dashboard`. The Dagster image now runs dagster 1.13.22 and the per-model dbt assets; the Superset image carries the public-access settings, which stay off until `SUPERSET_PUBLIC_URL` is set.
+- New optional settings, all empty by default: `NFR_ALERT_WEBHOOK_URL` for failure and upstream alerts, and `SUPERSET_PUBLIC_URL`, `CLOUDFLARE_TUNNEL_TOKEN` and `SUPERSET_PUBLIC_VIEWER_PASSWORD` for publishing the dashboard. `.env` needs none of them for a local stack.
 
 ## [0.7.0] - 2026-11-09
 
@@ -194,7 +202,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...development
+[0.8.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.4.0...v0.5.0
