@@ -167,6 +167,8 @@ docker compose up -d
 make dashboard PY=python3
 ```
 
+If the dashboard is published through the Cloudflare Tunnel (below), start with `docker compose --profile public up -d` instead, so the tunnel keeps running.
+
 The register, the archived registers and Superset's records live in named volumes, so they survive a rebuild. Rolling back a register works as in DEPLOYMENT.md.
 
 ## Keeping it free
