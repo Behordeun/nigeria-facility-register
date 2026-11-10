@@ -8,6 +8,11 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - Releases deploy themselves. The `deploy` workflow runs when a GitHub release is published, or by hand for a given tag. It connects to the host over SSH with a key that `authorized_keys` pins to `scripts/deploy_host.sh`. That script fast-forwards the host's `main` to the tag and continues with the tag's own copy of itself. It then rebuilds the images, restarts the stack, waits for Superset to report healthy, re-imports the dashboard (and the public-viewer role when that account is configured) and checks that both UIs answer. It changes nothing when the tag is not a release on `main`, the host has local changes or is off `main`, or the host is already past the tag. The host key is verified, the job holds no repository permissions, the deploy settings live on a `production` environment that can require approval, and one deploy runs at a time. DEPLOY_ORACLE.md has the one-time setup.
 
+### Changed
+
+- A restore that fails at any step after it archives the live register, including creating its staging file, removes that archive entry again, so `build/published/` holds exactly the registers it held before the attempt. A test covers a failure to create the staging file.
+- `superset_config.py` records why `SQLALCHEMY_DATABASE_URI` stays a rendered string rather than a SQLAlchemy `URL` object: Superset 4.1.1's migration step (`superset db upgrade`) treats the setting as text. No behaviour changes.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added
