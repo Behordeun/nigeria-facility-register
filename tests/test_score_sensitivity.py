@@ -10,6 +10,8 @@ import pytest
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location("score_sensitivity", ROOT / "scripts" / "score_sensitivity.py")
+if _spec is None:
+    raise ImportError(f"cannot load scripts/score_sensitivity.py under {ROOT}")
 ss = importlib.util.module_from_spec(_spec)
 # Dataclasses look their module up in sys.modules while the class is built.
 sys.modules[_spec.name] = ss
