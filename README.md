@@ -46,7 +46,8 @@ data/raw/         fetched geopackages (gitignored, see data/sources.yml)
 scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
                   build_access_population.py, build_malaria_burden.py, superset_dashboard.py,
                   restore_register.py (roll back the published register),
-                  build_espen_lga.py (rebuild the ESPEN table from ESPEN's public download)
+                  build_espen_lga.py (rebuild the ESPEN table from ESPEN's public download),
+                  bootstrap_host.sh (install Docker on a fresh Ubuntu host)
 superset/         Superset image and config (server-side downloads, the teal accent), and the
                   dashboard import bundle (charts, layout, dashboard CSS)
 tests/            unit tests (join keys, loader guards, orchestration, derived inputs, dashboard bundle)
