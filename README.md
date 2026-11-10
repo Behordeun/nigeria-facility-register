@@ -45,6 +45,7 @@ data/derived/     derived per-state and per-LGA ESPEN NTD summaries (CC BY-NC-SA
 data/raw/         fetched geopackages (gitignored, see data/sources.yml)
 scripts/          fetch_sources.py, build_lga_geometry.py, build_enrichment_sources.py,
                   build_access_population.py, build_malaria_burden.py, superset_dashboard.py,
+                  superset_public_viewer.py (the view-only public account),
                   restore_register.py (roll back the published register),
                   build_espen_lga.py (rebuild the ESPEN table from ESPEN's public download),
                   bootstrap_host.sh (install Docker on a fresh Ubuntu host)

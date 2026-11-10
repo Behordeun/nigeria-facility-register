@@ -188,6 +188,7 @@ Chart query results are cached in Redis for up to a day, so repeat views of a ch
 
 The bundle's connection is exposed to SQL Lab on purpose, read-only; see [ADR 0001](adr/0001-superset-sql-lab-access.md). Access is controlled with Superset roles, not by hiding the connection:
 
+- **Public viewers**: the `Public viewer` role, made by `make public-viewer` for the shared `public-viewer` account (see "Publishing the dashboard" below). They can open and filter the dashboard and nothing else: no data export, no SQL, no chart building, no server-side downloads.
 - **Viewers**: the Gamma role plus access to the dashboard's datasets. They see the dashboard and can export chart data, but cannot run SQL.
 - **Analysts**: additionally the `sql_lab` role, which lets them query every table in the register (marts, staging, raw), read-only. Grant it only to named people who have accepted the ESPEN non-commercial terms, since SQL Lab makes the full per-LGA endemicity table easy to export.
 - **Admins**: manage roles and import the bundle.
@@ -198,6 +199,30 @@ Before opening the dashboard to anyone outside the team (self-registration, a pu
 2. Any public or guest role (`PUBLIC_ROLE_LIKE`, guest tokens) is limited to the dashboard's datasets and has no `sql_lab`.
 3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
 4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
+
+### Publishing the dashboard
+
+The compose file can publish Superset, and only Superset, on a public HTTPS address through a [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/). The `cloudflared` service (compose profile `public`) dials out to Cloudflare, which serves the hostname with its own certificate and forwards requests down the tunnel, so the host opens no inbound port and needs no firewall change. `cloudflared` shares a network with Superset alone, so the Dagster UI, which has no login, Redis and Postgres stay unreachable from it whatever route the Cloudflare dashboard holds. [ADR 0003](adr/0003-public-dashboard-access.md) records the decision. The domain's DNS must be on Cloudflare.
+
+1. In the Cloudflare dashboard, under Zero Trust, Networks, Tunnels, create a tunnel of type Cloudflared and copy its token. Add a public hostname to it (for example `dashboard` on your domain) with service type HTTP and URL `superset:8088`; Cloudflare creates the DNS record. Under the domain's SSL/TLS settings, turn on "Always Use HTTPS".
+2. In `.env` on the host, set `SUPERSET_PUBLIC_URL` to the address (`https://dashboard.example.org`), `CLOUDFLARE_TUNNEL_TOKEN` to the token, and `SUPERSET_PUBLIC_VIEWER_PASSWORD` to a generated password of at least 16 characters.
+3. Start with the profile, then make the account:
+
+   ```bash
+   docker compose --profile public up -d
+   make public-viewer PY=python3
+   ```
+
+4. Share the dashboard's address, `https://dashboard.example.org/superset/dashboard/nfr-coverage-burden/`, with the `public-viewer` login. After signing in, Superset returns the visitor to that page.
+
+With `SUPERSET_PUBLIC_URL` set, Superset trusts one proxy hop for the client address and scheme, marks its session cookie HTTPS-only, ends sessions after 12 hours, and limits sign-in attempts to 10 a minute per address, counting in Redis. Self-registration stays off. Chrome and Firefox still accept the HTTPS-only cookie on `http://127.0.0.1`, so the SSH tunnel keeps working for the admin; Safari does not, so sign in as admin through the public address there.
+
+`make public-viewer` builds the `Public viewer` role from an explicit allowlist (in `scripts/superset_public_viewer.py`, held by `tests/test_superset_public_viewer.py`), not by trimming Gamma, so a Superset upgrade cannot widen it. The role can read the dashboard and its charts, keep its own filter selections and open shared permalinks, and has access to exactly the datasets this dashboard's charts read, looked up from the dashboard at run time. It has no SQL Lab, Explore, CSV or Excel export, drill to detail, "view query", dashboard or chart export, server-side PDF or image download, dataset or database list, and it cannot create permalinks or change the shared account's password or profile. Each run replaces the role's permissions with exactly that set and resets the account's password from `.env`, so rotating the password is editing `.env`, `docker compose up -d superset`, then `make public-viewer` again. Sessions already signed in end within 12 hours, the public session lifetime; to cut the account off at once, deactivate it under Settings, List Users (the next `make public-viewer` reactivates it).
+
+What this does and does not keep from a viewer:
+
+- The dashboard menu still lists Download, because Superset 4.1 shows it to every role; for the public viewer the server refuses the request and the page says the screenshot could not be downloaded. Nothing is rendered, so the worker's one core is never spent on public downloads.
+- Removing export stops packaged downloads, not reading. A browser has to receive a chart's rows to draw it, and Superset's chart-data API answers any query, including raw sample rows, against a dataset the role may read, in JSON. Someone with the login and some effort can therefore collect the rows of the eight dashboard datasets, as they could by copying what the tables show. The register is built from openly published sources (data/ATTRIBUTION.md), so this reveals derived figures rather than data available nowhere else, but the ESPEN-derived columns stay under ESPEN's non-commercial terms; check item 3 above before publishing. Keep any dataset that must not be reachable this way off the dashboard.
 
 ## A free host
 
