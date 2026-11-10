@@ -20,7 +20,53 @@ In the OCI console, create a compute instance:
 - **SSH key:** upload your public key.
 - **Boot volume:** the default size (about 47-50 GB) is enough for the images, the Docker build cache and the registers.
 
-If the console reports that it is out of capacity for the shape, try another availability domain, or try again later; Arm capacity in busy regions comes and goes.
+Before you press Create, check the shape once more. Changing the availability domain on the form can reset the shape to the console's default, which is a billable AMD shape, not the Always Free Ampere one.
+
+If the wizard is also creating a new virtual cloud network, the "Assign a public IPv4 address" toggle may be greyed out. Either create the network first (Networking, Virtual cloud networks, "Start VCN Wizard", "Create VCN with Internet Connectivity") and pick its public subnet on the instance form, or use the CLI route below, which sets up the network itself.
+
+### When the console is out of capacity
+
+Arm capacity in busy regions comes and goes, and the console may report "Out of capacity" in every availability domain. Rather than retrying the form by hand, launch from the OCI CLI, which tries each availability domain in turn and can be re-run until one has room.
+
+Set up the CLI once on your own machine. `oci setup config` asks for your user and tenancy OCIDs (Profile, then User settings and Tenancy, in the console) and your home region, and generates an API signing key. Add the public half under your user's "API keys" (Add API key, Paste a public key); the first call can return 401 for a minute while the new key propagates.
+
+```bash
+brew install oci-cli   # or: pip install oci-cli
+oci setup config
+oci iam region list    # checks that the key works
+```
+
+Create the network (a VCN, an internet gateway, a default route to it and a public subnet; the default security list admits only SSH) in the root compartment:
+
+```bash
+C="$(awk -F= '/^tenancy=/{print $2}' ~/.oci/config)"
+VCN="$(oci network vcn create --compartment-id "$C" --display-name nfr-vcn --cidr-blocks '["10.0.0.0/16"]' \
+    --dns-label nfrvcn --wait-for-state AVAILABLE --query 'data.id' --raw-output)"
+IGW="$(oci network internet-gateway create --compartment-id "$C" --vcn-id "$VCN" --display-name nfr-igw \
+    --is-enabled true --wait-for-state AVAILABLE --query 'data.id' --raw-output)"
+RT="$(oci network vcn get --vcn-id "$VCN" --query 'data."default-route-table-id"' --raw-output)"
+oci network route-table update --rt-id "$RT" --force \
+    --route-rules "[{\"destination\":\"0.0.0.0/0\",\"destinationType\":\"CIDR_BLOCK\",\"networkEntityId\":\"$IGW\"}]"
+SUBNET="$(oci network subnet create --compartment-id "$C" --vcn-id "$VCN" --display-name nfr-public-subnet \
+    --cidr-block 10.0.0.0/24 --dns-label nfrpub --prohibit-public-ip-on-vnic false \
+    --wait-for-state AVAILABLE --query 'data.id' --raw-output)"
+IMAGE="$(oci compute image list --compartment-id "$C" --operating-system "Canonical Ubuntu" \
+    --operating-system-version 24.04 --shape VM.Standard.A1.Flex --sort-by TIMECREATED --sort-order DESC \
+    --query 'data[?!contains("display-name", `Minimal`)] | [0].id' --raw-output)"
+```
+
+Then try each availability domain with the Always Free shape and size fixed, so a retry can never fall back to a billable shape:
+
+```bash
+for AD in $(oci iam availability-domain list --compartment-id "$C" --query 'data[].name' --raw-output | tr -d '[]", '); do
+    oci compute instance launch --compartment-id "$C" --availability-domain "$AD" --display-name nfr-register \
+        --shape VM.Standard.A1.Flex --shape-config '{"ocpus":1,"memoryInGBs":6}' \
+        --image-id "$IMAGE" --subnet-id "$SUBNET" --assign-public-ip true \
+        --ssh-authorized-keys-file ~/.ssh/id_ed25519.pub && break
+done
+```
+
+If every domain is still out of capacity, run the loop again later, by hand or every ten minutes from a scheduler (cron, or a launchd agent on macOS). Before each attempt, check that no `nfr-register` instance exists yet (`oci compute instance list --compartment-id "$C" --display-name nfr-register --lifecycle-state RUNNING`), so a scheduled retry never launches a second one. Once it is running, read its public IP with `oci compute instance list-vnics --instance-id <instance-ocid> --query 'data[0]."public-ip"' --raw-output`.
 
 ## 2. Add a budget alert
 
@@ -38,7 +84,16 @@ sudo bash scripts/bootstrap_host.sh
 exit
 ```
 
-Log back in so the `docker` group applies. The script is safe to run again.
+Log back in so the `docker` group applies. The script is safe to run again, which matters on a fresh instance: the package upgrade can restart the SSH daemon and drop your session part way through. If that happens, reconnect and run the same command again; it picks up where it stopped.
+
+An entry in `~/.ssh/config` on your own machine saves typing the address and key in the steps that follow:
+
+```text
+Host nfr-oracle
+    HostName <public-ip>
+    User ubuntu
+    IdentityFile ~/.ssh/id_ed25519
+```
 
 ## 4. Configure the secrets
 
@@ -100,7 +155,7 @@ Both UIs listen on the instance's `127.0.0.1` only. Reach them through an SSH tu
 ssh -N -L 3000:127.0.0.1:3000 -L 8088:127.0.0.1:8088 ubuntu@<public-ip>
 ```
 
-Then open `http://127.0.0.1:3000` (Dagster) and `http://127.0.0.1:8088` (Superset) locally. To share the dashboard with people who should not have SSH access, put an authenticating proxy or tunnel in front of Superset first, and work through "Who can see what" in DEPLOYMENT.md; do not publish the ports directly.
+Then open `http://127.0.0.1:3000` (Dagster) and `http://127.0.0.1:8088` (Superset) locally. If the stack also runs on your own machine, those local ports are taken and the tunnel fails with "Address already in use"; forward to other local ports instead, for example `-L 13000:127.0.0.1:3000 -L 18088:127.0.0.1:8088`, and open `http://127.0.0.1:13000` and `http://127.0.0.1:18088`. To share the dashboard with people who should not have SSH access, put an authenticating proxy or tunnel in front of Superset first, and work through "Who can see what" in DEPLOYMENT.md; do not publish the ports directly.
 
 ## Updating
 
