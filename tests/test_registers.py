@@ -164,6 +164,25 @@ def test_a_failed_restore_leaves_the_live_register_and_the_archive_as_they_were(
     assert registers.read_hold(tmp_path / "hold.json") is None
 
 
+def test_a_restore_that_cannot_stage_its_copy_leaves_the_archive_as_it_was(tmp_path, monkeypatch):
+    archive = tmp_path / "published"
+    live = _register(tmp_path / "nfr.duckdb", "good", "good")
+    good = registers.archive_live(live, archive, _at(1))
+    live.unlink()
+    _register(live, "bad", "bad")
+    before = sorted(p.name for p in registers.archived(archive))
+
+    def fail(*_args, **_kwargs):
+        raise OSError("no space for the staging file")
+
+    monkeypatch.setattr(registers.tempfile, "mkstemp", fail)
+    with pytest.raises(OSError, match="no space for the staging file"):
+        registers.restore(good, live, archive, tmp_path / "hold.json", keep=3)
+    assert _marker(live) == "bad", "a restore that cannot stage its copy must leave the live register alone"
+    assert sorted(p.name for p in registers.archived(archive)) == before, "the archive entry made for the live register is removed"
+    assert registers.read_hold(tmp_path / "hold.json") is None
+
+
 def test_restore_creates_the_live_folder_when_nothing_is_published(tmp_path):
     archive = tmp_path / "published"
     archive.mkdir()

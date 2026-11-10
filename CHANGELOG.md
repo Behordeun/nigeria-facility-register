@@ -4,6 +4,23 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-10
+
+### Added
+
+- Releases deploy themselves. The `deploy` workflow runs when a GitHub release is published, or by hand for a given tag. It connects to the host over SSH with a key that `authorized_keys` pins to `scripts/deploy_host.sh`. That script fast-forwards the host's `main` to the tag and continues with the tag's own copy of itself. It then rebuilds the images, restarts the stack, waits for Superset to report healthy, re-imports the dashboard (and the public-viewer role when that account is configured) and checks that both UIs answer. It changes nothing when the tag is not a release on `main`, the host has local changes or is off `main`, or the host is already past the tag. The host key is verified, the job holds no repository permissions, the deploy settings live on a `production` environment that can require approval, and one deploy runs at a time. DEPLOY_ORACLE.md has the one-time setup.
+
+### Changed
+
+- The Oracle runbook covers launching the instance from the OCI CLI when the console reports no Arm capacity: setting up the CLI and an API key, creating the network, and trying each availability domain with the Always Free shape and size fixed, so a retry never falls back to a billable shape. It also notes that changing the availability domain on the console form can reset the shape, how to get a public IP when the wizard creates the network, re-running the bootstrap if the SSH session drops part way, an SSH config entry for the host, and alternative local tunnel ports for when the stack also runs locally.
+- A restore that fails at any step after it archives the live register, including creating its staging file, removes that archive entry again, so `build/published/` holds exactly the registers it held before the attempt. A test covers a failure to create the staging file.
+- `superset_config.py` records why `SQLALCHEMY_DATABASE_URI` stays a rendered string rather than a SQLAlchemy `URL` object: Superset 4.1.1's migration step (`superset db upgrade`) treats the setting as text. No behaviour changes.
+
+### Notes
+
+- No published table or column changes; the 0.8.0 register serves this release as it is.
+- To upgrade by hand: pull, rebuild both images (`docker compose build`), run `docker compose up -d`, then re-run `make dashboard`. This is the first release that carries `scripts/deploy_host.sh`, so a host set up for automatic deploys needs this one update by hand; later releases deploy through the `deploy` workflow (DEPLOY_ORACLE.md, "Automatic deploys").
+
 ## [0.8.0] - 2026-11-10
 
 ### Added
@@ -202,7 +219,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...development
+[0.9.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.5.0...v0.6.0

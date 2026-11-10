@@ -30,6 +30,11 @@ REDIS_URL = os.environ.get("REDIS_URL", "redis://redis:6379")
 # Built with URL.create so a password with special characters is escaped, not
 # misread as part of the URL. The password has no default: the compose file
 # requires it.
+#
+# The setting stays a rendered string rather than the URL object, whose repr
+# masks the password, because Superset 4.1.1 treats it as text in places that
+# Flask-SQLAlchemy does not: `superset db upgrade` (migrations/env.py) calls
+# str.replace on it to escape "%" for ConfigParser, which a URL object lacks.
 SQLALCHEMY_DATABASE_URI = URL.create(
     "postgresql+psycopg2",
     username=os.environ.get("SUPERSET_DB_USER", "superset"),

@@ -1,0 +1,71 @@
+name: deploy
+
+# Deploys a release to the host that runs the compose stack (docs/DEPLOY_ORACLE.md,
+# "Automatic deploys"). Publishing a GitHub release starts it; "Run workflow"
+# redeploys a given tag. The job only opens an SSH connection: the host's
+# authorized_keys pins the deploy key to scripts/deploy_host.sh, which receives
+# the tag and does the work, so this key cannot run anything else there.
+#
+# Settings, all on the `production` environment (Settings > Environments):
+#   secrets DEPLOY_SSH_KEY (the private deploy key), DEPLOY_HOST (address) and
+#   DEPLOY_KNOWN_HOSTS (the host's key line, so the connection is verified);
+#   variable DEPLOY_USER (optional, default ubuntu).
+# Required reviewers on the environment make every deploy wait for approval.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy, such as v0.9.0
+        required: true
+
+# The job reads no repository content and writes nothing back.
+permissions: {}
+
+# One deploy at a time; a second waits rather than cancelling one mid-build.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # Pre-releases are not deployed automatically.
+    if: github.event_name == 'workflow_dispatch' || !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 60
+    steps:
+      # Untrusted values reach the shell only through the environment, never
+      # spliced into the script text.
+      - name: Deploy over SSH
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER || 'ubuntu' }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in DEPLOY_SSH_KEY DEPLOY_HOST DEPLOY_KNOWN_HOSTS; do
+            [ -n "${!name}" ] || missing+=("$name")
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::error::set ${missing[*]} on the production environment"
+            exit 1
+          fi
+          if ! [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::expected a release tag such as v0.9.0"
+            exit 1
+          fi
+          ssh_dir=$(mktemp -d)
+          trap 'rm -rf "$ssh_dir"' EXIT
+          (umask 077; printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key")
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
+          ssh -i "$ssh_dir/key" \
+            -o IdentitiesOnly=yes -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$ssh_dir/known_hosts" \
+            -o ServerAliveInterval=30 -o ConnectTimeout=20 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "$TAG"
