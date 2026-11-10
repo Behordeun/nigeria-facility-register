@@ -20,6 +20,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _load_module(name: str, path: Path):
     spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"cannot load {name!r} from {path}; was the file moved?")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -84,12 +86,25 @@ def test_viewer_spec_never_carries_the_password():
     assert spec["min_password_length"] >= 16
 
 
+def test_viewer_program_carries_the_spec_on_stdin_not_in_the_environment():
+    program = pv.build_program()
+    first_line = program.splitlines()[0]
+    assert first_line.startswith("SPEC_JSON = "), "the spec must be bound inside the program"
+    assert json.loads(json.loads(first_line.split(" = ", 1)[1])) == pv.build_spec()
+    assert "os.environ[\"NFR_VIEWER_SPEC\"]" not in program
+
+
+def _networks(service: dict) -> set[str]:
+    """Network names of a compose service, whether written as a list or a mapping."""
+    return set(service.get("networks") or [])
+
+
 def test_cloudflared_is_opt_in_and_shares_a_network_with_superset_only():
     services = COMPOSE["services"]
     tunnel = services["cloudflared"]
     assert tunnel.get("profiles") == ["public"], "the tunnel must only start with --profile public"
-    assert tunnel["networks"] == ["public"], "the tunnel must not join the internal network"
-    on_public = sorted(name for name, svc in services.items() if "public" in (svc.get("networks") or []))
+    assert _networks(tunnel) == {"public"}, "the tunnel must not join the internal network"
+    on_public = sorted(name for name, svc in services.items() if "public" in _networks(svc))
     assert on_public == ["cloudflared", "superset"], f"only Superset may share the tunnel's network, got {on_public}"
     assert "ports" not in tunnel, "the tunnel dials out; it must publish no host port"
 
@@ -120,6 +135,8 @@ def test_public_url_turns_on_proxy_secure_cookie_and_login_rate_limit(monkeypatc
     assert config.ENABLE_PROXY_FIX is True
     assert config.PROXY_FIX_CONFIG["x_for"] == 1 and config.PROXY_FIX_CONFIG["x_proto"] == 1
     assert config.SESSION_COOKIE_SECURE is True, "the session cookie must be HTTPS-only when public"
+    assert config.SESSION_COOKIE_HTTPONLY is True, "page scripts must not read the session cookie"
+    assert config.SESSION_COOKIE_SAMESITE in {"Lax", "Strict"}, "the cookie must not be sent cross-site"
     assert config.PERMANENT_SESSION_LIFETIME.total_seconds() <= 24 * 3600, "public sessions must end within a day"
     assert config.RATELIMIT_ENABLED is True and config.AUTH_RATE_LIMITED is True
     assert config.RATELIMIT_STORAGE_URI.endswith("/4"), "rate-limit counters need their own Redis database"

@@ -108,6 +108,12 @@ if PUBLIC_URL:
     # The session cookie only travels over HTTPS. Browsers other than Safari
     # still accept it on http://127.0.0.1, so the SSH tunnel keeps working.
     SESSION_COOKIE_SECURE = True
+    # Stated here rather than left to the defaults, since the login is public.
+    # Lax, not Strict: Strict would drop the cookie when a visitor follows a
+    # shared dashboard link from another site, sending them to the login page;
+    # state-changing requests already carry Superset's CSRF token.
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
     # A shared public login should not stay signed in for Superset's default
     # 31 days; this also bounds how long a rotated password's sessions live.
     PERMANENT_SESSION_LIFETIME = timedelta(hours=12)

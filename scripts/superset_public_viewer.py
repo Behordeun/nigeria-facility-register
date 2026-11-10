@@ -94,7 +94,8 @@ FORBIDDEN_PERMISSIONS: frozenset[tuple[str, str]] = frozenset(
 )
 
 # Runs inside the superset container (fed on stdin to `python -`). The spec
-# arrives as JSON in NFR_VIEWER_SPEC; the password comes from the container's
+# is prepended to it on stdin as a JSON literal, so nothing reaches the exec's
+# environment or arguments; the password comes from the container's
 # own environment, never from this script.
 _PROGRAM = """
 import json
@@ -103,7 +104,7 @@ import sys
 
 from superset.app import create_app
 
-spec = json.loads(os.environ["NFR_VIEWER_SPEC"])
+spec = json.loads(SPEC_JSON)
 app = create_app()
 with app.app_context():
     from superset import db, security_manager as sm
@@ -182,12 +183,14 @@ def apply(project: str | None) -> int:
 
     Returns the program's exit status; its own message explains a failure.
     """
-    cmd = _compose(project) + [
-        "exec", "-T", "-e", f"NFR_VIEWER_SPEC={json.dumps(build_spec())}",
-        SERVICE, "python", "-",
-    ]
-    result = subprocess.run(cmd, input=_PROGRAM, text=True, check=False)
+    cmd = _compose(project) + ["exec", "-T", SERVICE, "python", "-"]
+    result = subprocess.run(cmd, input=build_program(), text=True, check=False)
     return result.returncode
+
+
+def build_program() -> str:
+    """Return the in-container program with the spec bound as a JSON string literal."""
+    return f"SPEC_JSON = {json.dumps(json.dumps(build_spec()))}\n" + _PROGRAM
 
 
 def main(argv: list[str] | None = None) -> int:
