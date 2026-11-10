@@ -164,7 +164,7 @@ Per-LGA facility coverage crossed with NTD burden. One row per LGA, all 774 pres
 | `priority_coverage_points` | integer | yes | 0-3 by national quartile of `facilities_per_10k_population` over the matched LGAs: 3 in the lowest quartile, 0 in the highest; a value on a boundary takes the less urgent band; null where the rate is null |
 | `priority_malaria_points` | integer | yes | 0-3 by national quartile of `pf_parasite_rate`: 3 in the highest quartile, 0 in the lowest; a value on a boundary takes the more urgent band; null where the rate is null |
 | `priority_score` | integer | yes | 0-11: `priority_burden_points` + `priority_coverage_points` + `access_risk_score` + `priority_malaria_points`; null when any part is null; higher is more urgent |
-| `priority_tier` | varchar | yes | `high` (score 8-11), `medium` (6-7) or `low` (0-5); null where `priority_score` is null |
+| `priority_tier` | varchar | yes | `high` (score 8-11), `medium` (6-7) or `low` (0-5); null where `priority_score` is null. The method and its sensitivity to the weights are recorded in [ADR 0004](adr/0004-priority-score-method.md) |
 | `priority_reasons` | varchar | yes | why the LGA scores what it does, one clause per part, e.g. `burden 3 (highest of 3 known disease ranks) · coverage 3 (0.6 facilities per 10,000 people) · access 1 (flooded in 2024)`; null exactly where `priority_score` is null |
 | `lga_summary` | varchar | no | a one-line summary of the LGA (facilities and register version, per-capita rate, the five endemicity ranks, travel time, flood flag, access risk, malaria, facility mix, priority score and original flag), missing values written out (`n/a`, `unknown`); the dashboard's map hover |
 
