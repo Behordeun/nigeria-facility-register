@@ -199,6 +199,10 @@ Before opening the dashboard to anyone outside the team (self-registration, a pu
 3. The audience may use the ESPEN data under its non-commercial terms; if not, remove the ESPEN charts or datasets for that audience.
 4. If that audience should never run SQL, set `expose_in_sqllab: false` in `superset/dashboards/nfr_coverage_burden/databases/NFR_register.yaml` and update ADR 0001 and its test in the same change.
 
+## A free host
+
+[DEPLOY_ORACLE.md](DEPLOY_ORACLE.md) runs this stack on one Oracle Cloud Always Free Arm instance at no cost: sizing it so it is not reclaimed as idle, `scripts/bootstrap_host.sh` to install Docker on a fresh Ubuntu host, placing the raw inputs, the first refresh, and reaching the UIs over an SSH tunnel.
+
 ## Not covered here
 
 This is a single-host compose deployment. A cloud/orchestrated deployment
