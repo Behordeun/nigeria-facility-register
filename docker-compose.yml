@@ -29,6 +29,9 @@ x-dagster-common: &dagster-common
     # Optional chat webhook for failure and upstream-release alerts. Empty means
     # no alerts; it is a credential, so it is never logged.
     NFR_ALERT_WEBHOOK_URL: ${NFR_ALERT_WEBHOOK_URL:-}
+    # Optional check-in URL called after each successful refresh, so a stopped
+    # daemon or host is noticed. Empty means no heartbeat; never logged.
+    NFR_HEARTBEAT_URL: ${NFR_HEARTBEAT_URL:-}
   volumes:
     - dagster_home:/opt/dagster/home
     - build:/app/build

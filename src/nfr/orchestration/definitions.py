@@ -28,7 +28,7 @@ from nfr.orchestration.checks import (
 from nfr.orchestration.dbt_project import DBT_EXECUTABLE, DBT_PROJECT
 from nfr.orchestration.jobs import refresh_job, upstream_check_job
 from nfr.orchestration.schedules import monthly_upstream_check, weekly_refresh
-from nfr.orchestration.sensors import new_vintage_sensor, refresh_failure_sensor
+from nfr.orchestration.sensors import new_vintage_sensor, refresh_failure_sensor, refresh_heartbeat_sensor
 
 defs = Definitions(
     assets=[raw_sources, register_models, published_register, upstream_releases],
@@ -37,6 +37,6 @@ defs = Definitions(
     ],
     jobs=[refresh_job, upstream_check_job],
     schedules=[weekly_refresh, monthly_upstream_check],
-    sensors=[new_vintage_sensor, refresh_failure_sensor],
+    sensors=[new_vintage_sensor, refresh_failure_sensor, refresh_heartbeat_sensor],
     resources={"dbt": DbtCliResource(project_dir=DBT_PROJECT, dbt_executable=DBT_EXECUTABLE)},
 )

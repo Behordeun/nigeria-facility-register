@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- A heartbeat for the refresh pipeline. After each successful refresh the Dagster daemon makes one `GET` to `NFR_HEARTBEAT_URL`, a check-in URL from a service such as healthchecks.io, which alerts when check-ins stop. The weekly schedule refreshes every Monday even when no input changed, so a stopped daemon, a broken schedule or a host that is down is noticed within a week and a day, which a failure alert cannot do when nothing runs. A failed refresh never checks in; unset does nothing; the URL is https-only and never logged. Alerts and check-ins no longer follow redirects, and a URL with spaces or control characters, or an endpoint that answers with a malformed response, is reported as not sent without the URL. Compose passes the setting to the Dagster services, and DEPLOYMENT.md, "Heartbeat", covers the setup and an uptime check on the public site.
+
 ## [0.10.0] - 2026-11-12
 
 ### Added
