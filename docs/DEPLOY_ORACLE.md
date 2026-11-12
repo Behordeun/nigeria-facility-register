@@ -293,13 +293,14 @@ docker compose exec daemon uv run python scripts/restore_register.py --restore <
 
 On a fresh instance, a refresh rebuilds the register from the geopackages anyway; the backup matters when you need an earlier vintage back.
 
-**Superset's records.** Stop the two Superset services, restore the dump over the database, and start them again:
+**Superset's records.** Stop the two Superset services, restore the dump over the database, and start them again. The `&&` starts Superset only if the restore succeeds; `--exit-on-error` stops the restore at its first error instead of carrying on:
 
 ```bash
 docker compose stop superset superset-worker
-docker compose exec -T superset-db pg_restore -U superset -d superset --clean --if-exists < <time>-superset.dump
-docker compose start superset superset-worker
+docker compose exec -T superset-db pg_restore -U superset -d superset --clean --if-exists --exit-on-error < <time>-superset.dump && docker compose start superset superset-worker
 ```
+
+If it stops with an error, Superset stays stopped. Fix the cause and run the restore again, or restore the previous night's dump.
 
 Restore into a stack whose `.env` has the same `SUPERSET_SECRET_KEY`, or anyone signed in has to sign in again.
 

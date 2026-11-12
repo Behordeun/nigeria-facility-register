@@ -27,7 +27,6 @@ set -euo pipefail
 APP_DIR="${NFR_APP_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 URL_KEY=NFR_BACKUP_PAR_URL
 LIVE_REGISTER=/app/build/nfr.duckdb
-CONTAINER_COPY=/tmp/nfr-backup.duckdb
 UPLOAD_TIMEOUT_SECONDS=900
 FINGERPRINT_PROGRAM='import sys; from nfr.orchestration import publish; print(publish.read_published_fingerprint(sys.argv[1]) or "")'
 
@@ -65,11 +64,13 @@ upload() {
     log "uploaded $object ($(wc -c < "$file" | tr -d ' ') bytes)"
 }
 
-back_up_register() {
+# Writes the gzipped register to the work folder and prints its object name.
+copy_out_register() {
     local stamp=$1 fingerprint
     # Copy first, then read and stream the copy: a publish during the backup
     # swaps the live file by rename, so the copy stays one consistent register
-    # and its fingerprint matches its contents.
+    # and its fingerprint matches its contents. The copy's name is unique to
+    # this run, so two runs at once never read each other's copy.
     docker compose exec -T daemon cp "$LIVE_REGISTER" "$CONTAINER_COPY" \
         || fail "no published register to back up at $LIVE_REGISTER"
     fingerprint=$(docker compose exec -T daemon uv run python -c "$FINGERPRINT_PROGRAM" "$CONTAINER_COPY")
@@ -77,20 +78,20 @@ back_up_register() {
         || fail "the live register records no publish fingerprint; not backing it up"
     docker compose exec -T daemon cat "$CONTAINER_COPY" | gzip -c > "$WORK_DIR/register.duckdb.gz" \
         || fail "copying the register out of the daemon container failed"
-    upload "$WORK_DIR/register.duckdb.gz" "register/${stamp}-${fingerprint}.duckdb.gz"
+    printf 'register/%s-%s.duckdb.gz' "$stamp" "$fingerprint"
 }
 
-back_up_superset_records() {
-    local stamp=$1
+dump_superset_records() {
     # Custom format is compressed and restores with pg_restore.
     docker compose exec -T superset-db pg_dump -U superset -d superset --format=custom \
         > "$WORK_DIR/superset.dump" || fail "pg_dump of superset-db failed"
-    upload "$WORK_DIR/superset.dump" "superset/${stamp}-superset.dump"
 }
 
 cleanup() {
     rm -rf "$WORK_DIR"
-    docker compose exec -T daemon rm -f "$CONTAINER_COPY" >/dev/null 2>&1 || true
+    if [ -n "${CONTAINER_COPY:-}" ]; then
+        docker compose exec -T daemon rm -f "$CONTAINER_COPY" >/dev/null 2>&1 || true
+    fi
 }
 
 main() {
@@ -105,10 +106,15 @@ main() {
         || fail "$URL_KEY must be an Object Storage pre-authenticated request URL for a bucket, ending in /o/"
     WORK_DIR=$(mktemp -d)
     trap cleanup EXIT
-    local stamp
+    local stamp register_object
     stamp=$(date -u +%Y%m%dT%H%M%SZ)
-    back_up_register "$stamp"
-    back_up_superset_records "$stamp"
+    CONTAINER_COPY="/tmp/nfr-backup-${stamp}-$$.duckdb"
+    # Both files are made before either is uploaded, so a failed dump leaves no
+    # register in the bucket without its Superset records from the same run.
+    register_object=$(copy_out_register "$stamp")
+    dump_superset_records
+    upload "$WORK_DIR/register.duckdb.gz" "$register_object"
+    upload "$WORK_DIR/superset.dump" "superset/${stamp}-superset.dump"
     log "backup $stamp complete"
 }
 

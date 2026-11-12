@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import gzip
 import os
+import re
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -29,7 +30,7 @@ case "$service $1" in
   "daemon uv") cat "$STATE/fingerprint" ;;
   "daemon cat") printf 'register-bytes' ;;
   "daemon rm") exit 0 ;;
-  "superset-db pg_dump") printf 'pg-dump-bytes' ;;
+  "superset-db pg_dump") [ -e "$STATE/dump_fails" ] && exit 1; printf 'pg-dump-bytes' ;;
   *) echo "unexpected docker call: $service $*" >&2; exit 2 ;;
 esac
 '''
@@ -62,7 +63,8 @@ def _par_url(bucket) -> str:
     return f"http://127.0.0.1:{bucket.server_port}/p/{PAR_TOKEN}/n/ns/b/nfr-backups/o/"
 
 
-def _run(tmp_path: Path, env_line: str | None, fingerprint: str = "abc123", has_register: bool = True):
+def _run(tmp_path: Path, env_line: str | None, fingerprint: str = "abc123", has_register: bool = True,
+         dump_fails: bool = False):
     app, bin_dir, state = tmp_path / "app", tmp_path / "bin", tmp_path / "state"
     for d in (app, bin_dir, state):
         d.mkdir()
@@ -71,6 +73,8 @@ def _run(tmp_path: Path, env_line: str | None, fingerprint: str = "abc123", has_
     (state / "fingerprint").write_text(fingerprint)
     if not has_register:
         (state / "no_register").touch()
+    if dump_fails:
+        (state / "dump_fails").touch()
     (bin_dir / "docker").write_text(FAKE_DOCKER)
     (bin_dir / "docker").chmod(0o755)
     env = {**os.environ, "PATH": f"{bin_dir}:{os.environ['PATH']}", "NFR_APP_DIR": str(app), "STATE": str(state)}
@@ -89,12 +93,11 @@ def test_backup_uploads_the_register_and_superset_records(tmp_path, bucket):
     names = sorted(path.rsplit("/o/", 1)[1] for path in bucket.uploads)
     assert len(names) == 2, f"expected two uploads, got {names}"
     register, superset = names
-    assert register.startswith("register/"), "the register goes under register/"
-    assert register.endswith("-abc123.duckdb.gz"), (
-        "the register is named <stamp>-<fingerprint>.duckdb.gz, like build/published/"
-    )
-    assert superset.startswith("superset/"), "the database dump goes under superset/"
-    assert superset.endswith("-superset.dump")
+    register_name = re.fullmatch(r"register/(\d{8}T\d{6}Z)-abc123\.duckdb\.gz", register)
+    assert register_name, f"the register is named <stamp>-<fingerprint>.duckdb.gz, like build/published/: {register}"
+    superset_name = re.fullmatch(r"superset/(\d{8}T\d{6}Z)-superset\.dump", superset)
+    assert superset_name, f"the database dump is named superset/<stamp>-superset.dump: {superset}"
+    assert register_name[1] == superset_name[1], "both files of one run carry the same stamp"
     uploads = {path.rsplit("/o/", 1)[1]: body for path, body in bucket.uploads.items()}
     assert gzip.decompress(uploads[register]) == b"register-bytes", "the register is uploaded gzipped and whole"
     assert uploads[superset] == b"pg-dump-bytes"
@@ -108,13 +111,23 @@ def test_backup_accepts_a_quoted_url_and_never_prints_it(tmp_path, bucket, quote
     assert PAR_TOKEN not in _output(result), "the PAR URL is a credential and must not be logged"
 
 
-def test_backup_reads_the_register_from_one_copy(tmp_path, bucket):
+def test_backup_reads_the_register_from_one_copy_unique_to_the_run(tmp_path, bucket):
     _, calls = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}")
     copy_steps = [c for c in calls if c.startswith("compose exec -T daemon")]
-    assert copy_steps[0] == "compose exec -T daemon cp /app/build/nfr.duckdb /tmp/nfr-backup.duckdb"
-    assert copy_steps[1].endswith(" /tmp/nfr-backup.duckdb"), "the fingerprint is read from the copy"
-    assert copy_steps[2] == "compose exec -T daemon cat /tmp/nfr-backup.duckdb", "the copy is what is uploaded"
-    assert calls[-1] == "compose exec -T daemon rm -f /tmp/nfr-backup.duckdb", "the copy is removed afterwards"
+    copied = re.fullmatch(r"compose exec -T daemon cp /app/build/nfr\.duckdb (/tmp/nfr-backup-\d{8}T\d{6}Z-\d+\.duckdb)",
+                          copy_steps[0])
+    assert copied, f"the live register is copied to a per-run path first: {copy_steps[0]}"
+    copy = copied[1]
+    assert copy_steps[1].endswith(f" {copy}"), "the fingerprint is read from the copy"
+    assert copy_steps[2] == f"compose exec -T daemon cat {copy}", "the copy is what is uploaded"
+    assert calls[-1] == f"compose exec -T daemon rm -f {copy}", "the copy is removed afterwards"
+
+
+def test_backup_uploads_nothing_when_the_database_dump_fails(tmp_path, bucket):
+    result, _ = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}", dump_fails=True)
+    assert result.returncode != 0
+    assert "pg_dump of superset-db failed" in result.stderr
+    assert bucket.uploads == {}, "no register is uploaded without its Superset records from the same run"
 
 
 def test_backup_is_off_when_the_url_is_not_set(tmp_path, bucket):
