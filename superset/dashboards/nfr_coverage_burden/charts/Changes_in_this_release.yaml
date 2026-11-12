@@ -1,0 +1,37 @@
+slice_name: Changes in this release
+description: What moved against the register this one replaced, read from register_changes.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 9__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - change
+  - lga_label
+  - previous
+  - current
+  - facilities_change
+  - detail
+  order_by_cols:
+  - '["change_order", true]'
+  adhoc_filters: []
+  row_limit: 2000
+  server_pagination: false
+  server_page_length: 20
+  page_length: 20
+  include_search: true
+  show_cell_bars: false
+  table_timestamp_format: smart_date
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: e12c1b1a-a2fc-5309-af4a-b384e8e3cbc8
+version: 1.0.0
+dataset_uuid: 90aa9a21-7c1e-5c50-9e06-898a52a3a445

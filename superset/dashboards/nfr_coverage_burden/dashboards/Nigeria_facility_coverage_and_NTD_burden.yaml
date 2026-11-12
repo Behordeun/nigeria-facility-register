@@ -647,6 +647,7 @@ position:
     - TABS-main
     children:
     - ROW-about-0
+    - ROW-about-changes
     - ROW-about-1
     meta:
       text: Data status
@@ -698,6 +699,32 @@ position:
       height: 62
       sliceName: Register status
       uuid: fb31b5fd-4ca5-53f4-8be9-ce113e789f58
+  ROW-about-changes:
+    id: ROW-about-changes
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-about
+    children:
+    - CHART-changes
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-changes:
+    id: CHART-changes
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-about
+    - ROW-about-changes
+    children: []
+    meta:
+      chartId: 34
+      width: 12
+      height: 60
+      sliceName: Changes in this release
+      uuid: e12c1b1a-a2fc-5309-af4a-b384e8e3cbc8
   ROW-about-1:
     id: ROW-about-1
     type: ROW
@@ -1355,6 +1382,7 @@ metadata:
       - ROOT_ID
       excluded:
       - 27
+      - 34
     chartsInScope:
     - 1
     - 2
@@ -1414,6 +1442,7 @@ metadata:
       - 23
       - 28
       - 27
+      - 34
     chartsInScope:
     - 1
     - 2
@@ -1498,6 +1527,7 @@ metadata:
       - ROOT_ID
       excluded:
       - 27
+      - 34
     tabsInScope:
     - TAB-overview
     - TAB-profile
@@ -1532,6 +1562,7 @@ metadata:
       - ROOT_ID
       excluded:
       - 27
+      - 34
     tabsInScope:
     - TAB-overview
     - TAB-profile
