@@ -12,7 +12,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ### Changed
 
-- Every service in the compose stack restarts with Docker (`restart: unless-stopped`), so the register, Superset and the public dashboard come back on their own after a host reboot or a crash. A service stopped by hand stays stopped. `bootstrap_host.sh` enables Docker at boot on a host where Docker was already installed, and Superset's startup stops if its database upgrade or init fails, so the restart policy retries it until Postgres is ready instead of Gunicorn starting without them.
+- Every service in the compose stack restarts with Docker (`restart: unless-stopped`), so the register, Superset and the public dashboard come back on their own after a host reboot or a crash. A service stopped by hand stays stopped. `bootstrap_host.sh` enables Docker at boot on a host where Docker was already installed, and Superset's startup stops if its database upgrade, admin creation or init fails, so the restart policy retries it until Postgres is ready instead of Gunicorn starting without them.
 
 ### Notes
 
