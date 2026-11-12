@@ -16,7 +16,7 @@ from pathlib import Path
 from dagster import AssetExecutionContext, MetadataValue, asset
 from dagster_dbt import DbtCliResource, dbt_assets
 
-from nfr.orchestration import alerts, changes, config, gates, inputs, metrics, publish, registers, snapshot, upstream
+from nfr.orchestration import alerts, config, gates, inputs, metrics, registers, snapshot, upstream
 from nfr.orchestration.dbt_project import DBT_PROJECT, REFRESH_GROUP, TRANSLATOR, dbt_database
 
 # `dagster dev` parses the dbt project on start so the manifest below exists;
@@ -171,23 +171,10 @@ def published_register(context) -> None:
     population_year = int((snapshot_dir / config.SNAPSHOT_YEAR_FILE).read_text())
     built_fingerprint = config.snapshot_fingerprint(snapshot_dir, population_year)
 
-    try:
-        # Enforce the hard carry-over gate against the staged build. Raises if
-        # the rate does not clear the floor, so the side file is never promoted.
-        gates.enforce_carryover_gate(str(staging_db))
-        m = metrics.collect_from_path(str(staging_db))
-        # Record what changed against the register about to be replaced, into
-        # the staged build, so the record is promoted with the register.
-        changes.write_register_changes(staging_db, config.DB, built_fingerprint,
-                                       publish.read_published_fingerprint(str(config.DB)))
-    except BaseException:
-        # Any failure (the gate, the metrics read, the change record, a
-        # cancellation) discards the staged register and the run's snapshot,
-        # and leaves the live DB untouched.
-        staging_db.unlink(missing_ok=True)
-        snapshot.clear_snapshot(snapshot_dir)
-        raise
-
+    # Gate the staged build, read its metrics and record what it changes against
+    # the live register. Raises, after discarding the staged build and the
+    # snapshot, if any of that fails, so nothing unchecked is promoted.
+    m = gates.check_staged_build(staging_db, built_fingerprint, snapshot_dir)
     gates.promote(staging_db, built_fingerprint, snapshot_dir)
     dashboard_cache_status = gates.clear_dashboard_cache(context.log)
     context.add_output_metadata(

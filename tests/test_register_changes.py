@@ -11,9 +11,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from dagster import build_asset_context
-
-from nfr.orchestration import assets, changes, config, gates
+from nfr.orchestration import changes, config, gates
 
 _FULL = ("state varchar, canonical_lga varchar, lga_label varchar, priority_tier varchar, "
          "facilities bigint, facility_status varchar")
@@ -126,28 +124,33 @@ def test_the_table_has_the_published_columns(tmp_path):
     assert columns == changes.COLUMNS
 
 
-def test_a_failed_change_record_stops_the_publish_before_promote(tmp_path, monkeypatch):
+def test_a_failed_change_record_discards_the_staged_build(tmp_path, monkeypatch):
     live = tmp_path / "nfr.duckdb"
     live.write_bytes(b"the live register")
     staging = tmp_path / "staging.duckdb"
     staging.write_bytes(b"the staged build")
     snapshot_dir = tmp_path / "snapshot"
     snapshot_dir.mkdir()
-    (snapshot_dir / config.SNAPSHOT_YEAR_FILE).write_text("2026")
-    promoted = []
 
     def fail(*_args):
         raise duckdb.IOException("disk full")
 
     monkeypatch.setattr(config, "DB", live)
-    monkeypatch.setattr(assets, "_staged_inputs", lambda _context: (staging, snapshot_dir))
-    monkeypatch.setattr(config, "snapshot_fingerprint", lambda *_args: "new-fp")
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
-    monkeypatch.setattr(assets.metrics, "collect_from_path", lambda _db: None)
+    monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: None)
     monkeypatch.setattr(changes, "write_register_changes", fail)
-    monkeypatch.setattr(gates, "promote", lambda *args: promoted.append(args))
     with pytest.raises(duckdb.IOException):
-        assets.published_register(build_asset_context())
-    assert promoted == [], "nothing is promoted when the change record fails"
-    assert not staging.exists(), "the staged build is discarded"
+        gates.check_staged_build(staging, "new-fp", snapshot_dir)
+    assert not staging.exists(), "the staged build is discarded, so nothing can be promoted"
+    assert not snapshot_dir.exists(), "the run's snapshot is cleared"
     assert live.read_bytes() == b"the live register", "the live register is untouched"
+
+
+def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
+    live = _register(tmp_path / "nfr.duckdb", [_lga("Ajingi", tier="medium")])
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi", tier="high")])
+    monkeypatch.setattr(config, "DB", live)
+    monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
+    monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
+    assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
+    assert [r["change"] for r in _changes(staging)] == ["summary", "priority tier"]

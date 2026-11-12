@@ -14,7 +14,7 @@ from pathlib import Path
 
 from dagster import MetadataValue
 
-from nfr.orchestration import alerts, config, dashboard_cache, metrics, publish, registers, snapshot
+from nfr.orchestration import alerts, changes, config, dashboard_cache, metrics, publish, registers, snapshot
 
 # Advisory floors for the asset checks. A refresh below one of these is not
 # necessarily broken, but it is worth a human glance, so the checks warn rather
@@ -35,6 +35,27 @@ HARD_MIN_CARRYOVER_RATE = 0.30
 def rate_meta(value: float | None) -> MetadataValue:
     """Render a rate as a percentage for the Dagster UI, or n/a when undefined."""
     return MetadataValue.text("n/a" if value is None else f"{value * 100:.1f}%")
+
+
+def check_staged_build(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> metrics.RunMetrics:
+    """Gate a staged build, read its metrics and record what it changes; discard it on failure.
+
+    The carry-over gate decides whether the build may be published at all. The
+    change record (register_changes) is written into the build against the live
+    register, which is only read. Any failure here (the gate, the metrics read,
+    the change record, a cancellation) removes the staged build and the run's
+    snapshot and leaves the live register untouched, so nothing reaches promote.
+    """
+    try:
+        enforce_carryover_gate(str(staging_db))
+        run_metrics = metrics.collect_from_path(str(staging_db))
+        changes.write_register_changes(staging_db, config.DB, built_fingerprint,
+                                       publish.read_published_fingerprint(str(config.DB)))
+    except BaseException:
+        staging_db.unlink(missing_ok=True)
+        snapshot.clear_snapshot(snapshot_dir)
+        raise
+    return run_metrics
 
 
 def promote(staging_db: Path, built_fingerprint: str, snapshot_dir: Path) -> None:
