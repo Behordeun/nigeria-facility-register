@@ -130,9 +130,10 @@ services:
       # deployment from before that change keeps its old SQLite file here.
       - superset_home:/app/superset_home
     # Bootstrap the metadata DB and admin, then start. Idempotent: re-running
-    # upgrade/init/create-admin is safe. set -e stops the container if the
-    # upgrade or init fails (Postgres still recovering after a reboot, say), so
-    # the restart policy retries it instead of Gunicorn serving without them.
+    # upgrade/init/create-admin is safe, and create-admin exits 0 when the admin
+    # already exists. set -e stops the container if any step fails (Postgres
+    # still recovering after a reboot, say), so the restart policy retries it
+    # instead of Gunicorn serving without them.
     command:
       - /bin/sh
       - -c
@@ -141,7 +142,7 @@ services:
         superset db upgrade
         superset fab create-admin \
           --username "$${SUPERSET_ADMIN_USERNAME}" --firstname Admin --lastname User \
-          --email admin@example.com --password "$${SUPERSET_ADMIN_PASSWORD}" || true
+          --email admin@example.com --password "$${SUPERSET_ADMIN_PASSWORD}"
         superset init
         exec gunicorn --bind 0.0.0.0:8088 --workers 2 --timeout 120 'superset.app:create_app()'
     ports:

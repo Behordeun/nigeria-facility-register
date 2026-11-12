@@ -147,12 +147,21 @@ install_backup_timer() {
 Description=Back up the facility register and Superset records off the host
 Wants=network-online.target
 After=network-online.target docker.service
+# A run that fails (the stack still starting after a reboot, say) is retried
+# 15 minutes later, up to four tries. The window spans four runs that each hit
+# the one-hour timeout (4 x 75 minutes), so the cap holds even then.
+StartLimitIntervalSec=6h
+StartLimitBurst=4
 
 [Service]
 Type=oneshot
 User=$user
 WorkingDirectory=$REPO_DIR
 ExecStart=$REPO_DIR/scripts/backup_host.sh
+Restart=on-failure
+RestartSec=15min
+# A stuck run is stopped, so the next night's run can start.
+TimeoutStartSec=1h
 EOF
     cat > "$SYSTEMD_DIR/nfr-backup.timer" <<'EOF'
 [Unit]

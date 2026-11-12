@@ -82,9 +82,19 @@ copy_out_register() {
 }
 
 dump_superset_records() {
-    # Custom format is compressed and restores with pg_restore.
+    # Custom format is compressed and restores with pg_restore. A bounded lock
+    # wait makes a dump blocked by a long-held lock fail, not hang.
     docker compose exec -T superset-db pg_dump -U superset -d superset --format=custom \
-        > "$WORK_DIR/superset.dump" || fail "pg_dump of superset-db failed"
+        --lock-wait-timeout=5min > "$WORK_DIR/superset.dump" || fail "pg_dump of superset-db failed"
+}
+
+# One backup at a time: two runs in the same second would share object names.
+# flock is part of util-linux on the Linux host; a machine without it (macOS,
+# where only the tests run) skips the lock.
+hold_backup_lock() {
+    command -v flock >/dev/null 2>&1 || return 0
+    exec 9<"${BASH_SOURCE[0]}"
+    flock -n 9 || fail "another backup is already running"
 }
 
 cleanup() {
@@ -104,6 +114,7 @@ main() {
     fi
     is_bucket_par_url "$BACKUP_URL" \
         || fail "$URL_KEY must be an Object Storage pre-authenticated request URL for a bucket, ending in /o/"
+    hold_backup_lock
     WORK_DIR=$(mktemp -d)
     trap cleanup EXIT
     local stamp register_object
