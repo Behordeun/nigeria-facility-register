@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- The linter is ruff 0.17.4 (from 0.8.4). `pyproject.toml` now names the lint rules CI enforces (pyflakes and the pycodestyle errors, as before), so a ruff upgrade never changes what is checked; newer ruff enables more rules by default, and adopting any of them is a change of its own.
+
 ## [0.11.0] - 2026-11-12
 
 ### Added
