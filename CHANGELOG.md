@@ -13,7 +13,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Changed
 
 - The linter is ruff 0.17.4 (from 0.8.4). `pyproject.toml` now names the lint rules CI enforces (pyflakes and the pycodestyle errors, as before), so a ruff upgrade never changes what is checked; newer ruff enables more rules by default, and adopting any of them is a change of its own.
-- geopandas is 1.2.0 (from 1.1.2). It is used by the scripts that build the derived inputs, not by the running stack; the code calls none of the options 1.2 deprecates or removes, and the locked pandas, numpy, pyproj and shapely already meet its new minimums.
+- geopandas is 1.2.0 (from 1.1.2). The refresh uses it to read the GRID3 geopackages (`nfr.load_sources`), and the scripts that build the derived inputs use it too. CI loads the sample geopackages with it on every build. The code calls none of the options 1.2 deprecates or removes, and the locked pandas, numpy, pyproj and shapely already meet its new minimums.
 - CI installs uv with setup-uv 10.3.3 (from 7.6.0), still pinned by commit. CI passes only the Python version, so the action's breaking changes since v7 (the manifest format, cache pruning, and caching on `pull_request_target` and `workflow_run`) do not apply.
 - DEPLOYMENT.md's heartbeat section names an uptime service such as UptimeRobot for the check on the public `/health` page, since healthchecks.io only receives check-ins.
 
