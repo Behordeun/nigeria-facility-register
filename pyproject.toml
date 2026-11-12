@@ -12,7 +12,7 @@ authors = [
 ]
 dependencies = [
     "duckdb==1.5.6",
-    "geopandas==1.1.2",
+    "geopandas==1.2.0",
     "pandas==3.1.1",
     "scipy==1.17.1",
     "pyyaml==6.0.3",
