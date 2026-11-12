@@ -149,12 +149,17 @@ def test_a_failed_change_record_discards_the_staged_build(tmp_path, monkeypatch)
 
 def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
     live = _register(tmp_path / "nfr.duckdb", [_lga("Ajingi", tier="medium")])
+    publish.write_published_fingerprint(str(live), "live-fp")
     staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi", tier="high")])
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
     assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
-    assert [r["change"] for r in _changes(staging)] == ["summary", "priority tier"]
+    rows = _changes(staging)
+    assert [r["change"] for r in rows] == ["summary", "priority tier"]
+    assert (rows[0]["previous"], rows[0]["current"]) == ("live-fp", "new-fp"), (
+        "the summary names the live register's fingerprint and the build's own"
+    )
 
 
 def test_lgas_in_only_one_register_are_counted_not_compared(tmp_path):
