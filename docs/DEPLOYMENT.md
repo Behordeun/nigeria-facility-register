@@ -101,7 +101,7 @@ Alerts report a refresh that fails, but not one that never runs: a stopped daemo
 
 The same rules as the alerts apply: unset does nothing, a failed check-in is logged in the run's sensor log and never affects the run, only `https` is accepted (see above), redirects are not followed, and the URL is never logged. A failed refresh never checks in.
 
-The heartbeat watches the pipeline, not the public site. To be told when the dashboard itself is unreachable, add an HTTP check on `https://<your-host>/health` in the same service (or any uptime monitor); that needs no change here.
+The heartbeat watches the pipeline, not the public site. To be told when the dashboard itself is unreachable, add an HTTP monitor on `https://<your-host>/health` in an uptime service such as UptimeRobot; healthchecks.io only receives check-ins and does not visit sites. That needs no change here.
 
 ## Rolling back a register
 
