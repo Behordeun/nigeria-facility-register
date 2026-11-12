@@ -154,6 +154,8 @@ def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
+    # This minimal build has no register_summary; the history is tested in test_lga_history.
+    monkeypatch.setattr(gates.history, "write_lga_history", lambda *_args: None)
     assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
     rows = _changes(staging)
     assert [r["change"] for r in rows] == ["summary", "priority tier"]
