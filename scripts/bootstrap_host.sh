@@ -8,6 +8,10 @@
 # unattended security upgrades, and lets the invoking user run docker without
 # sudo. Safe to run again: each step checks whether it is already done.
 #
+# It also installs the nfr-backup systemd timer, which runs
+# scripts/backup_host.sh nightly as the invoking user; the script does nothing
+# until NFR_BACKUP_PAR_URL is set in .env (docs/DEPLOY_ORACLE.md, "Backups").
+#
 # Usage (on the host, from the repository root):
 #     sudo bash scripts/bootstrap_host.sh
 # Then log out and back in so the docker group membership applies.
@@ -26,6 +30,9 @@ readonly DOCKER_SOURCES=/etc/apt/sources.list.d/docker.list
 # can never sign the packages apt then installs as root.
 readonly DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 readonly AUTO_UPGRADES=/etc/apt/apt.conf.d/20auto-upgrades
+readonly SYSTEMD_DIR=/etc/systemd/system
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly REPO_DIR
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 die() { printf '[bootstrap] error: %s\n' "$*" >&2; exit 1; }
@@ -123,6 +130,44 @@ enable_security_upgrades() {
     printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' > "$AUTO_UPGRADES"
 }
 
+# The service runs as the sudo user, who is in the docker group and owns the
+# checkout and its .env. The timer is Persistent, so a backup missed while the
+# host was off runs at the next boot.
+install_backup_timer() {
+    local user="${SUDO_USER:-}"
+    if [ -z "$user" ] || [ "$user" = "root" ]; then
+        log "no sudo user to run backups as; skipping the backup timer"
+        return
+    fi
+    cat > "$SYSTEMD_DIR/nfr-backup.service" <<EOF
+[Unit]
+Description=Back up the facility register and Superset records off the host
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+User=$user
+WorkingDirectory=$REPO_DIR
+ExecStart=$REPO_DIR/scripts/backup_host.sh
+EOF
+    cat > "$SYSTEMD_DIR/nfr-backup.timer" <<'EOF'
+[Unit]
+Description=Nightly off-host backup of the facility register
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now nfr-backup.timer >/dev/null
+    log "nightly backup timer installed (runs as $user from $REPO_DIR)"
+}
+
 main() {
     require_root_on_ubuntu
     install_base_packages
@@ -130,6 +175,7 @@ main() {
     add_user_to_docker_group
     ensure_swap
     enable_security_upgrades
+    install_backup_timer
     log "done: $(docker --version); $(docker compose version)"
 }
 

@@ -93,6 +93,8 @@ Sending never affects a run: with no URL nothing is sent, and a webhook that is 
 
 ## Rolling back a register
 
+The archive lives on the same volume as the live register. On the Oracle deployment, a nightly backup also copies the register and Superset's database off the host (DEPLOY_ORACLE.md, "Backups").
+
 A release that passes the quality gate can still be wrong (a bad upstream file that still carries enough facilities over). Every publish keeps the outgoing register in `build/published/`, the newest three, as a hard link, so keeping it costs no copy. To roll back, check in the Dagster UI that no refresh is running, then from the host:
 
 ```bash
