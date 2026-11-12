@@ -36,6 +36,7 @@ from urllib.parse import urlsplit
 
 TIMEOUT_SECONDS = 10
 MAX_TEXT_CHARS = 1500
+NOT_CONFIGURED = "not configured"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
@@ -78,7 +79,7 @@ def _deliver(url: str | None, receiver: str, timeout: float, data: bytes | None 
     "sent", or "not sent: <reason>", safe to log and to record in metadata.
     """
     if not url:
-        return "not configured"
+        return NOT_CONFIGURED
     try:
         _check_url(url)
     except ValueError as exc:
@@ -112,8 +113,6 @@ def send(url: str | None, title: str, body: str, timeout: float = TIMEOUT_SECOND
     The returned status never contains the URL, so it is safe to log and to
     record in run metadata.
     """
-    if not url:
-        return "not configured"
     return _deliver(url, "webhook", timeout, data=payload(title, body),
                     headers={"Content-Type": "application/json"})
 
@@ -145,7 +144,7 @@ def reset(state_file: Path) -> None:
 def send_once(url: str | None, state_file: Path, key: str, title: str, body: str) -> str:
     """Send unless this alert was the last one sent; record it when it goes out."""
     if not url:
-        return "not configured"
+        return NOT_CONFIGURED
     if already_sent(state_file, key):
         return "already sent"
     status = send(url, title, body)
