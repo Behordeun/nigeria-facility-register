@@ -156,3 +156,22 @@ def test_a_failed_history_discards_the_staged_build(tmp_path, monkeypatch):
         gates.check_staged_build(staging, "fp1", snapshot_dir)
     assert not staging.exists(), "the staged build is discarded, so nothing can be promoted"
     assert live.read_bytes() == before
+
+
+def test_ensure_history_replaces_a_table_missing_published_columns(tmp_path):
+    db = _build(tmp_path / "old.duckdb", "fp0", "2026-10-01 06:00", 7)
+    con = duckdb.connect(str(db))
+    con.execute("create table lga_history (fingerprint varchar, canonical_lga varchar)")
+    con.close()
+    assert history.ensure_history(db) is True, "a table the dashboard cannot read is replaced"
+    assert _history(db) == [("fp0", "Ajingi", 7), ("fp0", "Bebeji", 7)]
+
+
+def test_only_the_main_schema_counts(tmp_path):
+    db = _build(tmp_path / "old.duckdb", "fp0", "2026-10-01 06:00", 7)
+    con = duckdb.connect(str(db))
+    con.execute("create schema archive")
+    con.execute("create table archive.lga_history as select 1 as built_at")
+    con.close()
+    assert history.ensure_history(db) is True, "a same-named table in another schema is not the register's history"
+    assert _history(db) == [("fp0", "Ajingi", 7), ("fp0", "Bebeji", 7)]

@@ -60,7 +60,9 @@ _SELECT_HISTORY = (
     "select built_at, fingerprint, state, canonical_lga, lga_label, facilities, "
     "facilities_per_10k_population, priority_score, priority_tier from lga_history"
 )
-_TABLE_COLUMNS = "select column_name from information_schema.columns where table_name = ?"
+# The register's own tables live in the main schema; another schema or an
+# attached database never counts.
+_TABLE_COLUMNS = "select column_name from information_schema.columns where table_schema = 'main' and table_name = ?"
 
 
 def write_lga_history(staging_db: Path, live_db: Path, current_fingerprint: str) -> None:
@@ -89,16 +91,18 @@ def write_lga_history(staging_db: Path, live_db: Path, current_fingerprint: str)
 
 
 def ensure_history(db: Path) -> bool:
-    """Give a register without `lga_history` its own vintage as its history; return whether one was added.
+    """Give a register without a usable `lga_history` its own vintage; return whether one was written.
 
-    Used on a restored copy before it goes live. A register that has the table
-    keeps its own history; one that lacks the columns to describe itself gets an
-    empty table, so the dashboard always finds it.
+    Used on a restored copy before it goes live. A register whose table has every
+    published column keeps its own history. One without the table, or with a
+    table missing columns (which neither the dashboard nor the next publish could
+    read), gets its own vintage instead, or an empty table when it lacks the
+    columns to describe itself, so the dashboard always finds a readable table.
     """
     fingerprint = publish.read_published_fingerprint(str(db))
     con = duckdb.connect(str(db))
     try:
-        if con.execute(_TABLE_COLUMNS, [TABLE]).fetchall():
+        if set(COLUMNS) <= {row[0] for row in con.execute(_TABLE_COLUMNS, [TABLE]).fetchall()}:
             return False
         describable = fingerprint is not None and _has_own_vintage(con)
         con.execute("begin")

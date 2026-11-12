@@ -354,7 +354,7 @@ Guarantees:
 
 - One row per (`fingerprint`, `state`, `canonical_lga`): publishing the same inputs again (the weekly refresh when nothing changed) adds no rows, so the table grows by 774 rows only when the inputs change.
 - The current register's own figures are always the vintage with its fingerprint.
-- When the replaced register predates this table, its own figures become the first vintage, if it has the columns to describe itself. A register restored from an archive made before this table existed is given its own figures in the same way, or an empty table if it cannot describe itself.
+- When the replaced register predates this table, its own figures become the first vintage, if it has the columns to describe itself. A register restored from an archive made before this table existed is given its own figures in the same way, or an empty table if it cannot describe itself; a restored `lga_history` that lacks any of the columns above is replaced the same way, since neither the dashboard nor the next publish could read it.
 - After a rollback, the restored register's history is the one it had; the next publish carries that history forward, so a rolled-back vintage does not reappear.
 - The live register is only read. If this table cannot be written, the publish fails and the live register stays as it was.
 
