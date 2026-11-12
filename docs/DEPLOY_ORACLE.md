@@ -318,13 +318,13 @@ docker compose cp <name>.duckdb daemon:/tmp/restore-check.duckdb
 docker compose exec -T daemon uv run python -c 'import sys; from nfr.orchestration import publish; print(publish.read_published_fingerprint(sys.argv[1]))' /tmp/restore-check.duckdb
 docker compose exec -T daemon rm /tmp/restore-check.duckdb
 docker run --rm -d --name nfr-restore-check -e POSTGRES_PASSWORD=check postgres:16.10-alpine
-until docker exec nfr-restore-check pg_isready -h 127.0.0.1 -U postgres -q; do sleep 1; done
+timeout 60 sh -c 'until docker exec nfr-restore-check pg_isready -h 127.0.0.1 -U postgres -q; do sleep 1; done'
 docker exec -i nfr-restore-check pg_restore -U postgres -d postgres --no-owner --no-privileges < <time>-superset.dump
 docker exec nfr-restore-check psql -U postgres -tAc 'select count(*) from ab_user'
 docker rm -f nfr-restore-check
 ```
 
-The fingerprint printed matches the one in the register's name, which shows the file opens as the published register. The last query prints the number of Superset accounts in the backup.
+The wait gives up after a minute if Postgres does not start; then run the last line to remove the container. The fingerprint printed matches the one in the register's name, which shows the file opens as the published register. The last query prints the number of Superset accounts in the backup.
 
 ## Keeping it free
 

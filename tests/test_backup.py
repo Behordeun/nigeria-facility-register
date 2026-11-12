@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import threading
+import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -183,14 +184,18 @@ def test_backup_needs_the_env_file(tmp_path, bucket):
 def test_backup_bounds_the_database_dumps_lock_wait(tmp_path, bucket):
     _, calls = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}")
     dump = next(c for c in calls if " pg_dump " in f" {c} ")
-    assert "--lock-wait-timeout=" in dump, "a dump blocked on a lock must fail, not hang the nightly service"
+    assert "--lock-wait-timeout=5min" in dump.split(), "a dump blocked on a lock must give up after five minutes"
 
 
 @pytest.mark.skipif(shutil.which("flock") is None, reason="flock is part of util-linux on the Linux host")
 def test_backup_refuses_to_run_beside_another_backup(tmp_path, bucket):
-    holder = subprocess.Popen(["flock", str(BACKUP_SCRIPT), "sleep", "30"])
+    locked = tmp_path / "locked"
+    holder = subprocess.Popen(["flock", str(BACKUP_SCRIPT), "sh", "-c", f"touch {locked}; sleep 30"])
     try:
-        subprocess.run(["sleep", "0.5"], check=True)
+        deadline = time.monotonic() + 10
+        while not locked.exists():
+            assert time.monotonic() < deadline, "the lock holder never took the lock"
+            time.sleep(0.05)
         result, calls = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}")
     finally:
         holder.kill()

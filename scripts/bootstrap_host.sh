@@ -148,8 +148,9 @@ Description=Back up the facility register and Superset records off the host
 Wants=network-online.target
 After=network-online.target docker.service
 # A run that fails (the stack still starting after a reboot, say) is retried
-# every 15 minutes, up to four tries in two hours.
-StartLimitIntervalSec=2h
+# 15 minutes later, up to four tries. The window spans four runs that each hit
+# the one-hour timeout (4 x 75 minutes), so the cap holds even then.
+StartLimitIntervalSec=6h
 StartLimitBurst=4
 
 [Service]
