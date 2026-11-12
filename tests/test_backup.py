@@ -89,7 +89,8 @@ def test_backup_uploads_the_register_and_superset_records(tmp_path, bucket):
     names = sorted(path.rsplit("/o/", 1)[1] for path in bucket.uploads)
     assert len(names) == 2, f"expected two uploads, got {names}"
     register, superset = names
-    assert register.startswith("register/") and register.endswith("-abc123.duckdb.gz"), (
+    assert register.startswith("register/"), "the register goes under register/"
+    assert register.endswith("-abc123.duckdb.gz"), (
         "the register is named <stamp>-<fingerprint>.duckdb.gz, like build/published/"
     )
     assert superset.startswith("superset/"), "the database dump goes under superset/"
@@ -99,9 +100,11 @@ def test_backup_uploads_the_register_and_superset_records(tmp_path, bucket):
     assert uploads[superset] == b"pg-dump-bytes"
 
 
-def test_backup_never_prints_the_upload_url(tmp_path, bucket):
-    result, _ = _run(tmp_path, f'NFR_BACKUP_PAR_URL="{_par_url(bucket)}"')
+@pytest.mark.parametrize("quote", ['"', "'"])
+def test_backup_accepts_a_quoted_url_and_never_prints_it(tmp_path, bucket, quote):
+    result, _ = _run(tmp_path, f"NFR_BACKUP_PAR_URL={quote}{_par_url(bucket)}{quote}")
     assert result.returncode == 0, result.stderr
+    assert len(bucket.uploads) == 2, "a quoted value is unwrapped, not rejected"
     assert PAR_TOKEN not in _output(result), "the PAR URL is a credential and must not be logged"
 
 
@@ -138,6 +141,9 @@ def test_backup_reports_a_rejected_upload_without_the_url(tmp_path, bucket):
     assert result.returncode != 0, "a rejected upload must fail the backup"
     assert "check that NFR_BACKUP_PAR_URL is current" in result.stderr
     assert PAR_TOKEN not in _output(result)
+    assert not any("/superset/" in path for path in bucket.uploads), (
+        "a rejected register upload must stop the backup before the database dump is sent"
+    )
 
 
 def test_backup_refuses_a_register_without_a_fingerprint(tmp_path, bucket):

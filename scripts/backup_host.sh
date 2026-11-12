@@ -34,13 +34,15 @@ FINGERPRINT_PROGRAM='import sys; from nfr.orchestration import publish; print(pu
 log() { printf '%s backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 fail() { log "$*" >&2; exit 1; }
 
-# Reads only this one key from .env, so no other setting enters the script.
+# Reads only this one key from .env, so no other setting enters the script. A
+# value wrapped in one matching pair of double or single quotes is unwrapped.
 configured_url() {
     local line
     line=$(grep -m1 "^${URL_KEY}=" .env || true)
     line=${line#*=}
-    line=${line%\"}
-    line=${line#\"}
+    if [[ "$line" =~ ^\"(.*)\"$ ]] || [[ "$line" =~ ^\'(.*)\'$ ]]; then
+        line=${BASH_REMATCH[1]}
+    fi
     printf '%s' "$line"
 }
 
