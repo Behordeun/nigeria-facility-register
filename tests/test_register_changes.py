@@ -11,7 +11,7 @@ from pathlib import Path
 
 import duckdb
 import pytest
-from nfr.orchestration import changes, config, gates
+from nfr.orchestration import changes, config, gates, publish, registers
 
 _FULL = ("state varchar, canonical_lga varchar, lga_label varchar, priority_tier varchar, "
          "facilities bigint, facility_status varchar")
@@ -125,10 +125,11 @@ def test_the_table_has_the_published_columns(tmp_path):
 
 
 def test_a_failed_change_record_discards_the_staged_build(tmp_path, monkeypatch):
-    live = tmp_path / "nfr.duckdb"
-    live.write_bytes(b"the live register")
-    staging = tmp_path / "staging.duckdb"
-    staging.write_bytes(b"the staged build")
+    # A real live register, so the failure comes from writing the record, not
+    # from reading the live register's fingerprint.
+    live = _register(tmp_path / "nfr.duckdb", [_lga("Ajingi")])
+    before = live.read_bytes()
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi")])
     snapshot_dir = tmp_path / "snapshot"
     snapshot_dir.mkdir()
 
@@ -139,11 +140,11 @@ def test_a_failed_change_record_discards_the_staged_build(tmp_path, monkeypatch)
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: None)
     monkeypatch.setattr(changes, "write_register_changes", fail)
-    with pytest.raises(duckdb.IOException):
+    with pytest.raises(duckdb.IOException, match="disk full"):
         gates.check_staged_build(staging, "new-fp", snapshot_dir)
     assert not staging.exists(), "the staged build is discarded, so nothing can be promoted"
     assert not snapshot_dir.exists(), "the run's snapshot is cleared"
-    assert live.read_bytes() == b"the live register", "the live register is untouched"
+    assert live.read_bytes() == before, "the live register is untouched"
 
 
 def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
@@ -154,3 +155,42 @@ def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
     assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
     assert [r["change"] for r in _changes(staging)] == ["summary", "priority tier"]
+
+
+def test_lgas_in_only_one_register_are_counted_not_compared(tmp_path):
+    live = _register(tmp_path / "live.duckdb", [_lga("Ajingi"), _lga("Old name")])
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi"), _lga("New name"), _lga("Split off")])
+    changes.write_register_changes(staging, live, "new-fp", "old-fp")
+    rows = _changes(staging)
+    assert [r["change"] for r in rows] == ["summary"], "an LGA without a counterpart has nothing to compare"
+    assert "2 LGA(s) are only in this register and 1 only in the previous one" in rows[0]["detail"]
+
+
+def test_ensure_record_adds_a_summary_only_once(tmp_path):
+    db = _register(tmp_path / "old.duckdb", [_lga("Ajingi")])
+    publish.write_published_fingerprint(str(db), "old-fp")
+    assert changes.ensure_record(db, "restored") is True
+    assert changes.ensure_record(db, "again") is False, "an existing record is kept"
+    rows = _changes(db)
+    assert [(r["change"], r["previous"], r["current"], r["detail"]) for r in rows] == [
+        ("summary", None, "old-fp", "restored")]
+
+
+def test_restoring_an_archive_from_before_change_records_gives_it_one(tmp_path):
+    archive = tmp_path / "published"
+    live = _register(tmp_path / "nfr.duckdb", [_lga("Ajingi")])
+    publish.write_published_fingerprint(str(live), "old-fp")
+    kept = registers.archive_live(live, archive)
+    archived_bytes = kept.read_bytes()
+    live.unlink()
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi")])
+    changes.write_register_changes(staging, tmp_path / "absent.duckdb", "new-fp", None)
+    staging.rename(live)
+
+    registers.restore(kept, live, archive, tmp_path / "hold.json", keep=3)
+
+    rows = _changes(live)
+    assert [r["change"] for r in rows] == ["summary"]
+    assert rows[0]["current"] == "old-fp"
+    assert "restored from an archive made before change records" in rows[0]["detail"]
+    assert kept.read_bytes() == archived_bytes, "the archive itself is left as it was"

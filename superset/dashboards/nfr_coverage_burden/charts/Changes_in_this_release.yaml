@@ -19,7 +19,7 @@ params:
   order_by_cols:
   - '["change_order", true]'
   adhoc_filters: []
-  row_limit: 1000
+  row_limit: 2000
   server_pagination: false
   server_page_length: 20
   page_length: 20

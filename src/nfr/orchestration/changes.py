@@ -17,13 +17,19 @@ One row per change, in display order:
   - the LGAs whose facility count changed most (FACILITY_CHANGES_LISTED of them).
 
 On a first publish, or when the outgoing register predates the columns compared
-here, only the summary row is written and its detail says why.
+here, only the summary row is written and its detail says why. An LGA whose key
+is in only one of the two registers cannot be compared; the summary counts them.
+
+A register restored from an archive made before this table existed is given a
+summary-only record by ensure_record, so the dashboard always finds the table.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 import duckdb
+
+from nfr.orchestration import publish
 
 TABLE = "register_changes"
 FACILITY_CHANGES_LISTED = 25
@@ -104,9 +110,12 @@ from listed
 _COUNTS = """
 select count(*) filter (where p.priority_tier is distinct from c.priority_tier),
        count(*) filter (where (p.facility_status = 'unmatched') is distinct from (c.facility_status = 'unmatched')),
-       count(*) filter (where p.facilities is distinct from c.facilities)
+       count(*) filter (where p.facilities is distinct from c.facilities),
+       (select count(*) from lga_coverage_burden c anti join previous_lgas p using (state, canonical_lga)),
+       (select count(*) from previous_lgas p anti join lga_coverage_burden c using (state, canonical_lga))
 from lga_coverage_burden c join previous_lgas p using (state, canonical_lga)
 """
+_TABLE_EXISTS = "select 1 from information_schema.tables where table_name = ?"
 
 
 def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint: str,
@@ -127,9 +136,8 @@ def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint:
         else:
             con.execute(_CREATE_PREVIOUS)
             con.executemany("insert into previous_lgas values (?, ?, ?, ?, ?)", previous_rows)
-            tiers, matches, moves = con.execute(_COUNTS).fetchone()
-            con.execute(_INSERT_SUMMARY, [previous_fingerprint, current_fingerprint,
-                                          _summary(tiers, matches, moves)])
+            counts = con.execute(_COUNTS).fetchone()
+            con.execute(_INSERT_SUMMARY, [previous_fingerprint, current_fingerprint, _summary(*counts)])
             con.execute(_INSERT_CHANGES, [FACILITY_CHANGES_LISTED])
         con.execute("commit")
     finally:
@@ -155,7 +163,32 @@ def _previous_lgas(live_db: Path) -> tuple[list[tuple] | None, str]:
     return rows, ""
 
 
-def _summary(tiers: int, matches: int, moves: int) -> str:
+def ensure_record(db: Path, note: str) -> bool:
+    """Give a register without `register_changes` a summary-only record; return whether one was added.
+
+    Used on a restored copy before it goes live, so a register archived before
+    this table existed still has one. A register that has the table is left as
+    it is, so its own record is kept.
+    """
+    fingerprint = publish.read_published_fingerprint(str(db))
+    con = duckdb.connect(str(db))
+    try:
+        if con.execute(_TABLE_EXISTS, [TABLE]).fetchone():
+            return False
+        con.execute("begin")
+        con.execute(_CREATE)
+        con.execute(_INSERT_SUMMARY, [None, fingerprint or "unknown", note])
+        con.execute("commit")
+    finally:
+        con.close()
+    return True
+
+
+def _summary(tiers: int, matches: int, moves: int, only_current: int, only_previous: int) -> str:
     listed = min(moves, FACILITY_CHANGES_LISTED)
-    return (f"{tiers} LGA(s) changed priority tier; {matches} changed whether any facility matches; "
+    text = (f"{tiers} LGA(s) changed priority tier; {matches} changed whether any facility matches; "
             f"{moves} changed facility count ({listed} largest listed).")
+    if only_current or only_previous:
+        text += (f" {only_current} LGA(s) are only in this register and {only_previous} only in the previous one, "
+                 "so they are not compared.")
+    return text
