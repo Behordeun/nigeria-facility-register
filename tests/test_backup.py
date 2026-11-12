@@ -202,4 +202,5 @@ def test_backup_refuses_to_run_beside_another_backup(tmp_path, bucket):
         holder.wait()
     assert result.returncode != 0, "a second backup must not run while one holds the lock"
     assert "another backup is already running" in result.stderr
-    assert calls == [] and bucket.uploads == {}, "the refused run reads and uploads nothing"
+    assert calls == [], "the refused run reads nothing from the stack"
+    assert bucket.uploads == {}, "the refused run uploads nothing"
