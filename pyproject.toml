@@ -1,6 +1,6 @@
 [project]
 name = "nigeria-facility-register"
-version = "0.11.0"
+version = "0.12.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"
@@ -12,7 +12,7 @@ authors = [
 ]
 dependencies = [
     "duckdb==1.5.6",
-    "geopandas==1.1.2",
+    "geopandas==1.2.0",
     "pandas==3.1.1",
     "scipy==1.17.1",
     "pyyaml==6.0.3",
@@ -31,7 +31,7 @@ dependencies = [
 dev = [
     "pytest==9.2.0",
     "pytest-cov==7.1.0",
-    "ruff==0.8.4",
+    "ruff==0.17.4",
     # Topology-aware polygon simplification for scripts/build_lga_geometry.py (a
     # one-off build tool, not a runtime dependency).
     "topojson==2.2",
@@ -52,6 +52,12 @@ orchestration = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# Named explicitly so a ruff upgrade never changes what CI checks: these are the
+# rules enforced so far (pyflakes and the pycodestyle errors). Newer ruff
+# releases enable more by default; adopting any of them is its own change.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

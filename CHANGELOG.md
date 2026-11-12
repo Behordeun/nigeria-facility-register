@@ -4,6 +4,25 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-12
+
+### Added
+
+- Every publish records what changed. Just before a new register goes live, the publish step compares it with the register it replaces and writes `register_changes` into it: a summary row with both input fingerprints and how many LGAs changed priority tier, match status and facility count, then every tier move, every LGA that gained or lost all matched facilities, and the 25 largest facility-count changes. A first publish, or a replaced register without the compared columns, gets the summary only, and LGAs present in only one of the two registers are counted rather than compared. A register restored from an archive made before this table existed is given a summary-only record, so the dashboard always finds it. The live register is only read, and if the table cannot be written the publish fails before anything goes live. The Data status tab shows it as "Changes in this release", and DATA_CONTRACT.md documents the table.
+
+### Changed
+
+- The linter is ruff 0.17.4 (from 0.8.4). `pyproject.toml` now names the lint rules CI enforces (pyflakes and the pycodestyle errors, as before), so a ruff upgrade never changes what is checked; newer ruff enables more rules by default, and adopting any of them is a change of its own.
+- geopandas is 1.2.0 (from 1.1.2). The refresh uses it to read the GRID3 geopackages (`nfr.load_sources`), and the scripts that build the derived inputs use it too. CI loads the sample geopackages with it on every build. The code calls none of the options 1.2 deprecates or removes, and the locked pandas, numpy, pyproj and shapely already meet its new minimums.
+- CI installs uv with setup-uv 10.3.3 (from 7.6.0), still pinned by commit. CI passes only the Python version, so the action's breaking changes since v7 (the manifest format, cache pruning, and caching on `pull_request_target` and `workflow_run`) do not apply.
+- DEPLOYMENT.md's heartbeat section names an uptime service such as UptimeRobot for the check on the public `/health` page, since healthchecks.io only receives check-ins.
+
+### Notes
+
+- Every published table and column is unchanged. The register gains one table, `register_changes`, written at publish time (DATA_CONTRACT.md).
+- DuckDB stays at 1.5.6: DuckDB 2.0 needs Python 3.11, and the Superset images (4.1 to 6.0) run Python 3.10, so the dashboard could not read a 2.0 register.
+- After deploying, launch one refresh. Until the first publish under this release, the live register has no `register_changes` table and the new "Changes in this release" chart shows a missing-table error. The first record compares the new register with the one live today.
+
 ## [0.11.0] - 2026-11-12
 
 ### Added
@@ -249,7 +268,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.11.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.12.0...development
+[0.12.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...v0.9.0
