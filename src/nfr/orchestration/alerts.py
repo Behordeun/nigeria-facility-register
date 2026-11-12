@@ -61,7 +61,12 @@ def _check_url(url: str) -> None:
     # with an error that quotes the URL, so it is refused here first.
     if any(ord(char) <= 32 or ord(char) == 127 for char in url):
         raise ValueError("the URL contains spaces or control characters")
-    parts = urlsplit(url)
+    # urlsplit's own errors can quote part of the URL (an invalid character in
+    # the host part, for one), so only a generic reason is passed on.
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        raise ValueError("the URL is malformed") from None
     if not parts.hostname:
         raise ValueError("the URL has no host")
     if parts.scheme == "https":

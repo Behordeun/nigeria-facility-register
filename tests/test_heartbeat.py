@@ -128,6 +128,14 @@ def test_a_url_with_a_pasted_newline_is_refused_without_echoing_it():
     assert status == "not sent: the URL contains spaces or control characters"
 
 
+def test_a_url_that_cannot_be_parsed_is_refused_without_quoting_it():
+    # A fullwidth '#' in the host part makes urlsplit raise an error that
+    # quotes the host part, credential included.
+    status = alerts.ping(f"https://user:{TOKEN}＃@hc-ping.example.com/abc")
+    assert status == "not sent: the URL is malformed"
+    assert TOKEN not in status
+
+
 def test_a_redirect_is_reported_not_followed():
     with _check_in() as (elsewhere, followed), _check_in(status=302, location=elsewhere) as (url, _):
         status = alerts.ping(url)
