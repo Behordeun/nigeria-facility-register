@@ -275,11 +275,12 @@ When the PAR expires, or is deleted, the nightly run fails with a message naming
 
 ### Restoring
 
-Download a backup with the OCI CLI (the PAR cannot read):
+Download a backup pair with the OCI CLI (the PAR cannot read). A register named `<time>-<fingerprint>.duckdb.gz` pairs with the dump named `<time>-superset.dump`:
 
 ```bash
 oci os object list --bucket-name nfr-backups --prefix register/ --query 'data[].name' --output table
 oci os object get --bucket-name nfr-backups --name register/<name>.duckdb.gz --file <name>.duckdb.gz
+oci os object get --bucket-name nfr-backups --name superset/<time>-superset.dump --file <time>-superset.dump
 gunzip <name>.duckdb.gz
 ```
 
@@ -289,6 +290,7 @@ gunzip <name>.duckdb.gz
 scp <name>.duckdb ubuntu@<public-ip>:~/
 ssh ubuntu@<public-ip>
 cd ~/nigeria-facility-register
+docker compose exec daemon mkdir -p /app/build/published
 docker compose cp ~/<name>.duckdb daemon:/app/build/published/<name>.duckdb
 docker compose exec daemon uv run python scripts/restore_register.py --restore <name>.duckdb
 ```
@@ -308,18 +310,21 @@ Restore into a stack whose `.env` has the same `SUPERSET_SECRET_KEY`, or anyone 
 
 ### Checking a backup restores
 
-Every few months, download the newest pair as above, copy both files to the host, and check them there. This leaves the running stack alone:
+Every few months, download the newest pair as above, copy both files to the host, and check them there. This leaves the live register and Superset's database alone. The register is opened from a scratch copy in the daemon container, and the dump is restored into a throwaway Postgres; its first `pg_isready` over TCP waits for the server it keeps, not the one it runs only while initialising:
 
 ```bash
-gunzip -t <name>.duckdb.gz
+gunzip -k <name>.duckdb.gz
+docker compose cp <name>.duckdb daemon:/tmp/restore-check.duckdb
+docker compose exec -T daemon uv run python -c 'import sys; from nfr.orchestration import publish; print(publish.read_published_fingerprint(sys.argv[1]))' /tmp/restore-check.duckdb
+docker compose exec -T daemon rm /tmp/restore-check.duckdb
 docker run --rm -d --name nfr-restore-check -e POSTGRES_PASSWORD=check postgres:16.10-alpine
-sleep 5
+until docker exec nfr-restore-check pg_isready -h 127.0.0.1 -U postgres -q; do sleep 1; done
 docker exec -i nfr-restore-check pg_restore -U postgres -d postgres --no-owner --no-privileges < <time>-superset.dump
 docker exec nfr-restore-check psql -U postgres -tAc 'select count(*) from ab_user'
 docker rm -f nfr-restore-check
 ```
 
-The last query prints the number of Superset accounts in the backup.
+The fingerprint printed matches the one in the register's name, which shows the file opens as the published register. The last query prints the number of Superset accounts in the backup.
 
 ## Keeping it free
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 import gzip
 import os
 import re
+import shutil
 import subprocess
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -177,3 +178,23 @@ def test_backup_needs_the_env_file(tmp_path, bucket):
     result, _ = _run(tmp_path, None)
     assert result.returncode != 0
     assert ".env is missing" in result.stderr
+
+
+def test_backup_bounds_the_database_dumps_lock_wait(tmp_path, bucket):
+    _, calls = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}")
+    dump = next(c for c in calls if " pg_dump " in f" {c} ")
+    assert "--lock-wait-timeout=" in dump, "a dump blocked on a lock must fail, not hang the nightly service"
+
+
+@pytest.mark.skipif(shutil.which("flock") is None, reason="flock is part of util-linux on the Linux host")
+def test_backup_refuses_to_run_beside_another_backup(tmp_path, bucket):
+    holder = subprocess.Popen(["flock", str(BACKUP_SCRIPT), "sleep", "30"])
+    try:
+        subprocess.run(["sleep", "0.5"], check=True)
+        result, calls = _run(tmp_path, f"NFR_BACKUP_PAR_URL={_par_url(bucket)}")
+    finally:
+        holder.kill()
+        holder.wait()
+    assert result.returncode != 0, "a second backup must not run while one holds the lock"
+    assert "another backup is already running" in result.stderr
+    assert calls == [] and bucket.uploads == {}, "the refused run reads and uploads nothing"
