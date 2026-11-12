@@ -119,6 +119,8 @@ docker compose ps
 
 The first build compiles both images on the instance and takes a while on one OCPU; later builds reuse the cache.
 
+Every service has `restart: unless-stopped`, and the bootstrap enables Docker at boot, so after a host reboot (a kernel security update, or Oracle's maintenance) the stack and the public dashboard come back on their own. A service you stop with `docker compose stop` stays stopped until you start it again.
+
 ## 6. Place the raw inputs
 
 The two GRID3 geopackages are downloaded by hand (README, "Run it"), so copy them from the machine that has them. Copy into a staging folder first and then move both into place, so the refresh sensor never sees a half-copied file or one new file beside an old one:
@@ -225,9 +227,108 @@ The job log shows each step. It does not wait for a refresh: when a release chan
 
 The default security list already admits SSH from anywhere, which is what GitHub's hosted runners need. Keep password login disabled on the host (the Ubuntu image's default). To take the deploy key out of service, delete its line from `authorized_keys`.
 
+## Backups
+
+The archived registers in `build/published/` and Superset's database share the instance's boot volume, so losing the instance loses them too. A nightly job, `scripts/backup_host.sh`, copies both to an OCI Object Storage bucket:
+
+- `register/<time>-<fingerprint>.duckdb.gz`: the live register, named like the archives in `build/published/`.
+- `superset/<time>-superset.dump`: a `pg_dump` of Superset's records (users and roles, the public-viewer account, saved filters and permalinks).
+
+The host uploads through a write-only pre-authenticated request (PAR): a URL that lets it add objects to that one bucket and nothing else, with no OCI login on the host. The URL is a credential. It lives in `.env` as `NFR_BACKUP_PAR_URL` and the script never prints it. A lifecycle rule on the bucket deletes copies after 30 days. Each night adds about 12 MB, well inside the free 20 GB of Object Storage. `.env` itself is not backed up, because it holds the other secrets. Keep a copy in your password manager.
+
+### One-time setup
+
+From your own machine with the OCI CLI (or the same steps in the console, under Storage, Buckets):
+
+1. Create a private bucket, and a rule that deletes objects after 30 days. Lifecycle rules need a one-time IAM policy that lets the Object Storage service delete objects for you. In the console under Identity, Policies, add one in the root compartment with the statement `Allow service objectstorage-<region> to manage object-family in tenancy`, replacing `<region>` with your region, for example `uk-london-1`. Without it, the second command below is refused.
+
+   ```bash
+   oci os bucket create --name nfr-backups --compartment-id <tenancy-or-compartment-ocid>
+   ```
+
+   ```bash
+   oci os object-lifecycle-policy put --bucket-name nfr-backups --force --items '[{"name":"expire-after-30-days","action":"DELETE","timeAmount":30,"timeUnit":"DAYS","isEnabled":true}]'
+   ```
+
+2. Create a write-only PAR for the bucket. PARs must expire, so pick a date and set a reminder to renew it. Then write its URL straight into the host's `.env` without displaying it (replace `<region>` with your region, for example `uk-london-1`):
+
+   ```bash
+   path=$(oci os preauth-request create --bucket-name nfr-backups --name nfr-host-backups --access-type AnyObjectWrite --time-expires 2027-11-01T00:00:00Z --query 'data."access-uri"' --raw-output)
+   ```
+
+   ```bash
+   printf 'NFR_BACKUP_PAR_URL=https://objectstorage.<region>.oraclecloud.com%s\n' "$path" | ssh ubuntu@<public-ip> 'cat >> ~/nigeria-facility-register/.env'
+   ```
+
+3. On the host, re-run the bootstrap script once, which installs the `nfr-backup` timer (02:30 UTC each night). Then take the first backup now:
+
+   ```bash
+   cd ~/nigeria-facility-register
+   sudo bash scripts/bootstrap_host.sh
+   sudo systemctl start nfr-backup
+   journalctl -u nfr-backup -n 20 --no-pager
+   ```
+
+   The log ends with `backup <time> complete`. `systemctl list-timers nfr-backup.timer` shows the next run.
+
+When the PAR expires, or is deleted, the nightly run fails with a message naming `NFR_BACKUP_PAR_URL`. Create a new PAR and replace that line in `.env`.
+
+### Restoring
+
+Download a backup pair with the OCI CLI (the PAR cannot read). A register named `<time>-<fingerprint>.duckdb.gz` pairs with the dump named `<time>-superset.dump`:
+
+```bash
+oci os object list --bucket-name nfr-backups --prefix register/ --query 'data[].name' --output table
+oci os object get --bucket-name nfr-backups --name register/<name>.duckdb.gz --file <name>.duckdb.gz
+oci os object get --bucket-name nfr-backups --name superset/<time>-superset.dump --file <time>-superset.dump
+gunzip <name>.duckdb.gz
+```
+
+**The register.** Copy it into the archive folder on the host, then restore it like any archived register (DEPLOYMENT.md, "Rolling back a register"). That swaps it in atomically, clears the chart cache and holds the vintage it replaces:
+
+```bash
+scp <name>.duckdb ubuntu@<public-ip>:~/
+ssh ubuntu@<public-ip>
+cd ~/nigeria-facility-register
+docker compose exec daemon mkdir -p /app/build/published
+docker compose cp ~/<name>.duckdb daemon:/app/build/published/<name>.duckdb
+docker compose exec daemon uv run python scripts/restore_register.py --restore <name>.duckdb
+```
+
+On a fresh instance, a refresh rebuilds the register from the geopackages anyway; the backup matters when you need an earlier vintage back.
+
+**Superset's records.** Stop the two Superset services, restore the dump over the database, and start them again. The `&&` starts Superset only if the restore succeeds; `--exit-on-error` stops the restore at its first error instead of carrying on:
+
+```bash
+docker compose stop superset superset-worker
+docker compose exec -T superset-db pg_restore -U superset -d superset --clean --if-exists --exit-on-error < <time>-superset.dump && docker compose start superset superset-worker
+```
+
+If it stops with an error, Superset stays stopped. Fix the cause and run the restore again, or restore the previous night's dump.
+
+Restore into a stack whose `.env` has the same `SUPERSET_SECRET_KEY`, or anyone signed in has to sign in again.
+
+### Checking a backup restores
+
+Every few months, download the newest pair as above, copy both files to the host, and check them there. This leaves the live register and Superset's database alone. The register is opened from a scratch copy in the daemon container, and the dump is restored into a throwaway Postgres; its first `pg_isready` over TCP waits for the server it keeps, not the one it runs only while initialising:
+
+```bash
+gunzip -k <name>.duckdb.gz
+docker compose cp <name>.duckdb daemon:/tmp/restore-check.duckdb
+docker compose exec -T daemon uv run python -c 'import sys; from nfr.orchestration import publish; print(publish.read_published_fingerprint(sys.argv[1]))' /tmp/restore-check.duckdb
+docker compose exec -T daemon rm /tmp/restore-check.duckdb
+docker run --rm -d --name nfr-restore-check -e POSTGRES_PASSWORD=check postgres:16.10-alpine
+timeout 60 sh -c 'until docker exec nfr-restore-check pg_isready -h 127.0.0.1 -U postgres -q; do sleep 1; done'
+docker exec -i nfr-restore-check pg_restore -U postgres -d postgres --no-owner --no-privileges < <time>-superset.dump
+docker exec nfr-restore-check psql -U postgres -tAc 'select count(*) from ab_user'
+docker rm -f nfr-restore-check
+```
+
+The wait gives up after a minute if Postgres does not start; then run the last line to remove the container. The fingerprint printed matches the one in the register's name, which shows the file opens as the published register. The last query prints the number of Superset accounts in the backup.
+
 ## Keeping it free
 
-- After the first week, check the instance's metrics page: memory utilisation should sit above 20%. If OCI ever reclaims the instance, recreate it with these steps; the dashboard comes back from the bundle with `make dashboard`, and the first refresh rebuilds the register.
+- After the first week, check the instance's metrics page: memory utilisation should sit above 20%. If OCI ever reclaims the instance, recreate it with these steps; the dashboard comes back from the bundle with `make dashboard`, the first refresh rebuilds the register, and Superset's accounts come back from the latest backup ("Backups", above).
 - Keep the instance at 1 OCPU and 6 GB, and do not attach block volumes beyond the free 200 GB in total.
 - Remove old images and build cache now and then with `docker image prune` and `docker builder prune`.
 

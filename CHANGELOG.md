@@ -4,6 +4,21 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-12
+
+### Added
+
+- Nightly off-host backups. `scripts/backup_host.sh` copies the live register (gzipped, named `<time>-<fingerprint>` like the archives in `build/published/`) and a `pg_dump` of Superset's records to an OCI Object Storage bucket. It uploads through a write-only pre-authenticated request URL read from `NFR_BACKUP_PAR_URL` in `.env`, so the host holds no OCI login and can only add objects to that bucket. The URL is passed to curl on stdin and never appears in arguments, logs or errors. The register is copied once inside the container and its fingerprint read from that copy, so the name always matches the contents, even if a publish happens mid-backup. `bootstrap_host.sh` installs an `nfr-backup` systemd timer that runs it at 02:30 UTC; with the setting empty the script does nothing. One backup runs at a time, the database dump gives up on a lock after five minutes, and the service stops a run after an hour and retries a failed one every 15 minutes (up to four tries), so a run that starts while the stack is still coming up after a reboot is taken later the same night. Retention is a 30-day lifecycle rule on the bucket. DEPLOY_ORACLE.md covers setup, downloading a backup pair, restoring the register through `restore_register.py`, restoring Superset with `pg_restore`, and a restore check that opens the register and restores the dump into a throwaway Postgres, leaving the live register and Superset's database alone.
+
+### Changed
+
+- Every service in the compose stack restarts with Docker (`restart: unless-stopped`), so the register, Superset and the public dashboard come back on their own after a host reboot or a crash. A service stopped by hand stays stopped. `bootstrap_host.sh` enables Docker at boot on a host where Docker was already installed, and Superset's startup stops if its database upgrade, admin creation or init fails, so the restart policy retries it until Postgres is ready instead of Gunicorn starting without them.
+
+### Notes
+
+- No published table or column changes; the register already published serves this release as it is.
+- The deploy rebuilds and restarts the stack with the new restart policies. Backups stay off until `NFR_BACKUP_PAR_URL` is set in the host's `.env`; then re-run `sudo bash scripts/bootstrap_host.sh` to install the `nfr-backup` timer and enable Docker at boot (the deploy does not run the bootstrap). DEPLOY_ORACLE.md, "Backups", has the bucket and PAR setup.
+
 ## [0.9.0] - 2026-11-10
 
 ### Added
@@ -219,7 +234,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...development
+[0.10.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.6.0...v0.7.0

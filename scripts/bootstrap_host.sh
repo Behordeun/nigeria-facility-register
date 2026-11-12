@@ -8,6 +8,10 @@
 # unattended security upgrades, and lets the invoking user run docker without
 # sudo. Safe to run again: each step checks whether it is already done.
 #
+# It also installs the nfr-backup systemd timer, which runs
+# scripts/backup_host.sh nightly as the invoking user; the script does nothing
+# until NFR_BACKUP_PAR_URL is set in .env (docs/DEPLOY_ORACLE.md, "Backups").
+#
 # Usage (on the host, from the repository root):
 #     sudo bash scripts/bootstrap_host.sh
 # Then log out and back in so the docker group membership applies.
@@ -26,6 +30,9 @@ readonly DOCKER_SOURCES=/etc/apt/sources.list.d/docker.list
 # can never sign the packages apt then installs as root.
 readonly DOCKER_KEY_FINGERPRINT=9DC858229FC7DD38854AE2D88D81803C0EBFCD88
 readonly AUTO_UPGRADES=/etc/apt/apt.conf.d/20auto-upgrades
+readonly SYSTEMD_DIR=/etc/systemd/system
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly REPO_DIR
 
 log() { printf '[bootstrap] %s\n' "$*"; }
 die() { printf '[bootstrap] error: %s\n' "$*" >&2; exit 1; }
@@ -66,6 +73,9 @@ install_docker_key() {
 install_docker() {
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
         log "docker and the compose plugin are already installed"
+        # Started at boot either way: the stack's restart policies only bring
+        # it back after a reboot once Docker itself is running.
+        systemctl enable --now docker
         return
     fi
     log "installing docker engine and the compose plugin from download.docker.com"
@@ -123,6 +133,53 @@ enable_security_upgrades() {
     printf 'APT::Periodic::Update-Package-Lists "1";\nAPT::Periodic::Unattended-Upgrade "1";\n' > "$AUTO_UPGRADES"
 }
 
+# The service runs as the sudo user, who is in the docker group and owns the
+# checkout and its .env. The timer is Persistent, so a backup missed while the
+# host was off runs at the next boot.
+install_backup_timer() {
+    local user="${SUDO_USER:-}"
+    if [ -z "$user" ] || [ "$user" = "root" ]; then
+        log "no sudo user to run backups as; skipping the backup timer"
+        return
+    fi
+    cat > "$SYSTEMD_DIR/nfr-backup.service" <<EOF
+[Unit]
+Description=Back up the facility register and Superset records off the host
+Wants=network-online.target
+After=network-online.target docker.service
+# A run that fails (the stack still starting after a reboot, say) is retried
+# 15 minutes later, up to four tries. The window spans four runs that each hit
+# the one-hour timeout (4 x 75 minutes), so the cap holds even then.
+StartLimitIntervalSec=6h
+StartLimitBurst=4
+
+[Service]
+Type=oneshot
+User=$user
+WorkingDirectory=$REPO_DIR
+ExecStart=$REPO_DIR/scripts/backup_host.sh
+Restart=on-failure
+RestartSec=15min
+# A stuck run is stopped, so the next night's run can start.
+TimeoutStartSec=1h
+EOF
+    cat > "$SYSTEMD_DIR/nfr-backup.timer" <<'EOF'
+[Unit]
+Description=Nightly off-host backup of the facility register
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 UTC
+RandomizedDelaySec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOF
+    systemctl daemon-reload
+    systemctl enable --now nfr-backup.timer >/dev/null
+    log "nightly backup timer installed (runs as $user from $REPO_DIR)"
+}
+
 main() {
     require_root_on_ubuntu
     install_base_packages
@@ -130,6 +187,7 @@ main() {
     add_user_to_docker_group
     ensure_swap
     enable_security_upgrades
+    install_backup_timer
     log "done: $(docker --version); $(docker compose version)"
 }
 
