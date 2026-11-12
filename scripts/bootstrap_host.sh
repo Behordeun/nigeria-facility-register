@@ -73,6 +73,9 @@ install_docker_key() {
 install_docker() {
     if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
         log "docker and the compose plugin are already installed"
+        # Started at boot either way: the stack's restart policies only bring
+        # it back after a reboot once Docker itself is running.
+        systemctl enable --now docker
         return
     fi
     log "installing docker engine and the compose plugin from download.docker.com"

@@ -116,6 +116,13 @@ def test_every_service_comes_back_after_a_host_reboot():
         )
 
 
+def test_superset_stops_rather_than_serving_when_its_bootstrap_fails():
+    script = COMPOSE["services"]["superset"]["command"][-1]
+    assert script.lstrip().startswith("set -e\n"), (
+        "a failed db upgrade or init must exit so the restart policy retries it"
+    )
+
+
 def test_superset_and_dagster_ports_stay_on_loopback():
     for name in ("superset", "webserver"):
         for port in COMPOSE["services"][name].get("ports", []):
