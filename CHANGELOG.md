@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- Every publish records what changed. Just before a new register goes live, the publish step compares it with the register it replaces and writes `register_changes` into it: a summary row with both input fingerprints and how many LGAs changed priority tier, match status and facility count, then every tier move, every LGA that gained or lost all matched facilities, and the 25 largest facility-count changes. A first publish, or a replaced register without the compared columns, gets the summary only. The live register is only read, and if the table cannot be written the publish fails before anything goes live. The Data status tab shows it as "Changes in this release", and DATA_CONTRACT.md documents the table.
+
 ### Changed
 
 - The linter is ruff 0.17.4 (from 0.8.4). `pyproject.toml` now names the lint rules CI enforces (pyflakes and the pycodestyle errors, as before), so a ruff upgrade never changes what is checked; newer ruff enables more rules by default, and adopting any of them is a change of its own.

@@ -1,6 +1,6 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the six serving marts (`lga_coverage_burden`, `lga_coverage_outlook`, `lga_profile_facts`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`) and the staging layers they are built on. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the six serving marts (`lga_coverage_burden`, `lga_coverage_outlook`, `lga_profile_facts`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`), the staging layers they are built on, and `register_changes`, which the publish step writes. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
@@ -15,6 +15,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `lga_coverage_outlook` | mart | one (LGA, population year) | exactly 774 x the WorldPop years carried (2025-2030: 4,644) |
 | `lga_profile_facts` | mart | one (LGA, fact) | exactly 774 x 20 = 15,480 |
 | `register_summary` | mart | the published register | exactly 1 |
+| `register_changes` | publish | one change against the register this one replaced | 1 summary row, plus one per change listed |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
 ## `stg_facilities_authority`
@@ -308,6 +309,29 @@ Guarantees:
 - Exactly one row.
 - It agrees with the tables it summarises: `states_on_v3 + states_on_v2 + states_without_facilities = states`, `facilities_v3 + facilities_v2 = facilities`, and `facilities_in_lgas` equals the coverage mart's facility total and never exceeds `facilities`. The gap between `facilities` and `facilities_in_lgas` is the facilities whose LGA label the crosswalk could not place, shown rather than hidden.
 - Unknown is not zero here either: a known-status count is the LGAs with a rank, never the LGAs without a positive one.
+
+## `register_changes`
+
+What changed against the register this one replaced. It is not a dbt model: dbt builds each register from scratch with no access to the previous one, so the publish step writes this table into the new register just before it goes live, comparing it with the live register on `(state, canonical_lga)`. It is promoted with the register it describes, so a restored register keeps its own record.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `change_order` | integer | no | display order: 0 for the summary, then 1, 2, … with no gaps |
+| `change` | varchar | no | one of `summary`, `priority tier`, `facility match`, `facilities` |
+| `lga_label` | varchar | yes | `'<canonical_lga>, <state>'`; null on the summary row |
+| `state`, `canonical_lga` | varchar | yes | the LGA's key in `lga_coverage_burden`; null on the summary row |
+| `previous` | varchar | yes | the value in the replaced register: its input fingerprint on the summary row (null on a first publish), the tier, `no facility` / `facilities matched`, or the facility count |
+| `current` | varchar | no | the same value in this register |
+| `facilities_change` | bigint | yes | this register's facility count minus the previous one, on `facility match` and `facilities` rows |
+| `detail` | varchar | yes | on the summary row: how many LGAs changed tier, match status and facility count, or why nothing was compared; null elsewhere |
+
+Guarantees:
+
+- Exactly one summary row, with `change_order` 0.
+- Every LGA whose `priority_tier` changed is listed (moves to `high` first), and every LGA whose match status changed (to or from `facility_status = 'unmatched'`).
+- The 25 LGAs whose facility count changed most are listed, largest first; the summary row gives the full count.
+- On a first publish, or when the replaced register lacks the compared columns, only the summary row is written and its `detail` says why.
+- The live register is only read. If this table cannot be written, the publish fails and the live register stays as it was.
 
 ## The rule that spans every table
 
