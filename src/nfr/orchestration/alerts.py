@@ -12,7 +12,8 @@ accept, so any of them works without an adapter.
 Alerting never changes the outcome of a run: an unset URL does nothing, and a
 failed post is reported back as a status string, never raised. The URL is a
 credential (whoever holds it can post to the channel), so it is never logged or
-echoed, and only https is accepted except for a relay on this machine.
+echoed, only https is accepted (plain http only to localhost, for tests), and a
+redirect is never followed, so the URL only goes where it points.
 
 The sensor re-requests a failing vintage every half hour, so a failure is sent
 once and then deduplicated by a key recorded in a small state file; the record
@@ -26,6 +27,7 @@ apply: unset does nothing, failures are returned, the URL is never shown.
 from __future__ import annotations
 
 import contextlib
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -37,8 +39,27 @@ MAX_TEXT_CHARS = 1500
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Treat a redirect as the answer instead of following it.
+
+    Following one would send the URL, token and all, to a destination that
+    _check_url never saw, possibly over plain http. Refused, the 3xx is
+    reported like any other non-2xx answer.
+    """
+
+    def redirect_request(self, *_args, **_kwargs):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_RefuseRedirects)
+
+
 def _check_url(url: str) -> None:
     """Accept https, or http only to this machine (a local relay or a test)."""
+    # A pasted URL can carry a trailing newline; http.client would reject it
+    # with an error that quotes the URL, so it is refused here first.
+    if any(ord(char) <= 32 or ord(char) == 127 for char in url):
+        raise ValueError("the URL contains spaces or control characters")
     parts = urlsplit(url)
     if not parts.hostname:
         raise ValueError("the URL has no host")
@@ -49,16 +70,31 @@ def _check_url(url: str) -> None:
     raise ValueError("the URL must use https")
 
 
-def _deliver(request: urllib.request.Request, timeout: float, receiver: str) -> str:
-    """Send one request; return "sent" or why not, never the URL, never raising."""
+def _deliver(url: str | None, receiver: str, timeout: float, data: bytes | None = None,
+             headers: dict[str, str] | None = None) -> str:
+    """Send one request (a POST with `data`, else a GET); return what happened.
+
+    Never raises and never includes the URL: the result is "not configured",
+    "sent", or "not sent: <reason>", safe to log and to record in metadata.
+    """
+    if not url:
+        return "not configured"
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (scheme checked by callers)
+        _check_url(url)
+    except ValueError as exc:
+        return f"not sent: {exc}"
+    try:
+        request = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET",
+                                         headers={"User-Agent": "nfr-alerts", **(headers or {})})
+        with _OPENER.open(request, timeout=timeout) as response:
             status = response.status
     except urllib.error.HTTPError as exc:
         return f"not sent: the {receiver} answered HTTP {exc.code}"
     except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
         reason = getattr(exc, "reason", exc)
         return f"not sent: {type(reason).__name__}"
+    except (ValueError, http.client.HTTPException) as exc:  # a malformed URL or a malformed answer
+        return f"not sent: {type(exc).__name__}"
     return "sent" if 200 <= status < 300 else f"not sent: the {receiver} answered HTTP {status}"
 
 
@@ -78,27 +114,13 @@ def send(url: str | None, title: str, body: str, timeout: float = TIMEOUT_SECOND
     """
     if not url:
         return "not configured"
-    try:
-        _check_url(url)
-    except ValueError as exc:
-        return f"not sent: {exc}"
-    request = urllib.request.Request(
-        url, data=payload(title, body), method="POST",
-        headers={"Content-Type": "application/json", "User-Agent": "nfr-alerts"},
-    )
-    return _deliver(request, timeout, "webhook")
+    return _deliver(url, "webhook", timeout, data=payload(title, body),
+                    headers={"Content-Type": "application/json"})
 
 
 def ping(url: str | None, timeout: float = TIMEOUT_SECONDS) -> str:
     """Check in with a heartbeat URL (one GET); return what happened, never raise."""
-    if not url:
-        return "not configured"
-    try:
-        _check_url(url)
-    except ValueError as exc:
-        return f"not sent: {exc}"
-    request = urllib.request.Request(url, method="GET", headers={"User-Agent": "nfr-alerts"})
-    return _deliver(request, timeout, "heartbeat")
+    return _deliver(url, "heartbeat", timeout)
 
 
 def already_sent(state_file: Path, key: str) -> bool:

@@ -161,9 +161,13 @@ def refresh_heartbeat_sensor(context) -> None:
     """Check in with NFR_HEARTBEAT_URL after a successful refresh.
 
     The weekly schedule refreshes every Monday even when no input changed, so a
-    check-in arrives at least once a week while the daemon, the schedule and
-    the host are working. The service behind the URL alerts when one is missed,
-    which a failure alert cannot do when nothing runs at all.
+    check-in arrives at least once a week while the daemon, the schedule, the
+    refresh and the host are working. The service behind the URL alerts when one
+    is missed, which a failure alert cannot do when nothing runs at all. It does
+    not watch new_vintage_sensor: the weekly run checks in whether or not that
+    sensor is evaluating. Should Dagster deliver the same success twice, the
+    repeat check-in still reports a real successful refresh, so it is not
+    deduplicated.
     """
     # Dagster only calls this sensor for successful runs; the check keeps a
     # failed run from ever counting as a sign of life.
