@@ -119,6 +119,8 @@ docker compose ps
 
 The first build compiles both images on the instance and takes a while on one OCPU; later builds reuse the cache.
 
+Every service has `restart: unless-stopped`, and the bootstrap enables Docker at boot, so after a host reboot (a kernel security update, or Oracle's maintenance) the stack and the public dashboard come back on their own. A service you stop with `docker compose stop` stays stopped until you start it again.
+
 ## 6. Place the raw inputs
 
 The two GRID3 geopackages are downloaded by hand (README, "Run it"), so copy them from the machine that has them. Copy into a staging folder first and then move both into place, so the refresh sensor never sees a half-copied file or one new file beside an old one:

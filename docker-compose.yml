@@ -18,6 +18,9 @@ x-dagster-common: &dagster-common
     context: .
     dockerfile: Dockerfile
   image: nfr-dagster:local
+  # Every long-running service comes back after a host reboot or a crash, once
+  # Docker starts. A service stopped by hand stays stopped.
+  restart: unless-stopped
   environment:
     DAGSTER_HOME: /opt/dagster/home
     # Superset's chart-result cache. The refresh empties it right after it
@@ -96,6 +99,7 @@ services:
     build:
       context: ./superset
     image: nfr-superset:local
+    restart: unless-stopped
     environment: &superset-environment
       # The secret key and the admin password are required, not defaulted: the
       # :? syntax aborts the up with the given message if the value is unset or
@@ -163,6 +167,7 @@ services:
   # does not mount the register: the web server runs every query.
   superset-worker:
     image: nfr-superset:local
+    restart: unless-stopped
     environment: *superset-environment
     command:
       - celery
@@ -222,6 +227,7 @@ services:
   # published on any host port.
   redis:
     image: redis:7.4.1-alpine@sha256:c1e88455c85225310bbea54816e9c3f4b5295815e6dbf80c34d40afc6df28275
+    restart: unless-stopped
     networks:
       - internal
 
@@ -231,6 +237,7 @@ services:
   # port.
   superset-db:
     image: postgres:16.10-alpine@sha256:029660641a0cfc575b14f336ba448fb8a75fd595d42e1fa316b9fb4378742297
+    restart: unless-stopped
     environment:
       POSTGRES_USER: superset
       POSTGRES_DB: superset

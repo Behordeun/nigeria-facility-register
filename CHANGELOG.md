@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- Every service in the compose stack restarts with Docker (`restart: unless-stopped`), so the register, Superset and the public dashboard come back on their own after a host reboot or a crash. A service stopped by hand stays stopped.
+
 ## [0.9.0] - 2026-11-10
 
 ### Added

@@ -109,6 +109,13 @@ def test_cloudflared_is_opt_in_and_shares_a_network_with_superset_only():
     assert "ports" not in tunnel, "the tunnel dials out; it must publish no host port"
 
 
+def test_every_service_comes_back_after_a_host_reboot():
+    for name, service in COMPOSE["services"].items():
+        assert service.get("restart") == "unless-stopped", (
+            f"{name} must restart with Docker after a reboot, or the dashboard stays down"
+        )
+
+
 def test_superset_and_dagster_ports_stay_on_loopback():
     for name in ("superset", "webserver"):
         for port in COMPOSE["services"][name].get("ports", []):
