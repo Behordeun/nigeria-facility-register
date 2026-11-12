@@ -50,8 +50,15 @@ _CREATE = (
     "facilities_per_10k_population double, priority_score integer, priority_tier varchar)"
 )
 # A register's own vintage: its coverage mart, stamped with its build time and
-# input fingerprint.
+# input fingerprint. Every statement is a literal constant, as in publish.py: no
+# string is formatted into SQL, and the fingerprint is a bind parameter.
 _OWN_VINTAGE = (
+    "select (select built_at from register_summary) as built_at, ?::varchar as fingerprint, "
+    "state, canonical_lga, lga_label, facilities, facilities_per_10k_population, "
+    "priority_score::integer as priority_score, priority_tier from lga_coverage_burden"
+)
+_INSERT_OWN_VINTAGE = (
+    'insert into "lga_history" '
     "select (select built_at from register_summary) as built_at, ?::varchar as fingerprint, "
     "state, canonical_lga, lga_label, facilities, facilities_per_10k_population, "
     "priority_score::integer as priority_score, priority_tier from lga_coverage_burden"
@@ -84,7 +91,7 @@ def write_lga_history(staging_db: Path, live_db: Path, current_fingerprint: str)
         already = con.execute('select count(*) from "lga_history" where fingerprint = ?',
                               [current_fingerprint]).fetchone()[0]
         if not already:
-            con.execute(f'insert into "lga_history" {_OWN_VINTAGE}', [current_fingerprint])
+            con.execute(_INSERT_OWN_VINTAGE, [current_fingerprint])
         con.execute("commit")
     finally:
         con.close()
@@ -108,7 +115,7 @@ def ensure_history(db: Path) -> bool:
         con.execute("begin")
         con.execute(_CREATE)
         if describable:
-            con.execute(f'insert into "lga_history" {_OWN_VINTAGE}', [fingerprint])
+            con.execute(_INSERT_OWN_VINTAGE, [fingerprint])
         con.execute("commit")
     finally:
         con.close()
