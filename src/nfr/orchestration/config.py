@@ -42,6 +42,9 @@ HOLD_FILE = BUILD_DIR / "publish_hold.json"
 # the last alert sent, so a failure retried every half hour alerts once.
 ALERT_WEBHOOK_URL_ENV = "NFR_ALERT_WEBHOOK_URL"
 ALERT_STATE_FILE = BUILD_DIR / "alert_state.json"
+# A check-in URL called after each successful refresh (unset: no heartbeat).
+# The service behind it alerts when the weekly check-in stops arriving.
+HEARTBEAT_URL_ENV = "NFR_HEARTBEAT_URL"
 # The env var the dbt profile reads for its DuckDB path. The orchestrated run
 # sets it to the run-scoped side file; unset (a plain make build) it defaults to
 # the live DB inside profiles.yml.

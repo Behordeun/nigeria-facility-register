@@ -108,7 +108,7 @@ sed -i "s|^SUPERSET_ADMIN_PASSWORD=.*|SUPERSET_ADMIN_PASSWORD=$(openssl rand -ba
 sed -i "s|^SUPERSET_DB_PASSWORD=.*|SUPERSET_DB_PASSWORD=$(openssl rand -hex 24)|" .env
 ```
 
-`SUPERSET_ADMIN_USERNAME` defaults to `admin`. The admin password is the one you sign in with; open `.env` in an editor on the host to read it, and keep it in your password manager. `MAPBOX_API_KEY` (basemap tiles) and `NFR_ALERT_WEBHOOK_URL` (failure alerts, see DEPLOYMENT.md) are optional. `.env` is gitignored and never enters the images.
+`SUPERSET_ADMIN_USERNAME` defaults to `admin`. The admin password is the one you sign in with; open `.env` in an editor on the host to read it, and keep it in your password manager. `MAPBOX_API_KEY` (basemap tiles), `NFR_ALERT_WEBHOOK_URL` (failure alerts) and `NFR_HEARTBEAT_URL` (a weekly check-in that alerts when refreshes stop; see DEPLOYMENT.md, "Heartbeat") are optional. `.env` is gitignored and never enters the images.
 
 ## 5. Build and start
 

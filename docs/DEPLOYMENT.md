@@ -91,6 +91,18 @@ Two things alert:
 
 Sending never affects a run: with no URL nothing is sent, and a webhook that is down or rejects the post is recorded as the alert's status in the run log and metadata, after a ten-second timeout at most. Only `https` URLs are accepted, except a relay on the same machine.
 
+### Heartbeat
+
+Alerts report a refresh that fails, but not one that never runs: a stopped daemon, a wedged sensor or a host that is down sends nothing. The heartbeat covers that. After each successful refresh the daemon makes one `GET` to `NFR_HEARTBEAT_URL`, a check-in URL from a service such as [healthchecks.io](https://healthchecks.io) that alerts you when check-ins stop arriving. The weekly schedule refreshes every Monday at 06:00 UTC even when no input changed, so a working stack checks in at least once a week.
+
+1. Create a check with a period of 7 days and a grace time of 1 day, and copy its ping URL.
+2. Add it as `NFR_HEARTBEAT_URL=<url>` to `.env` and run `docker compose up -d`.
+3. Check the setup straight away by launching a refresh from the Dagster UI; when it succeeds, the check shows a ping.
+
+The same rules as the alerts apply: unset does nothing, a failed check-in is logged in the run's sensor log and never affects the run, only `https` (or this machine) is accepted, and the URL is never logged. A failed refresh never checks in.
+
+The heartbeat watches the pipeline, not the public site. To be told when the dashboard itself is unreachable, add an HTTP check on `https://<your-host>/health` in the same service (or any uptime monitor); that needs no change here.
+
 ## Rolling back a register
 
 The archive lives on the same volume as the live register. On the Oracle deployment, a nightly backup also copies the register and Superset's database off the host (DEPLOY_ORACLE.md, "Backups").

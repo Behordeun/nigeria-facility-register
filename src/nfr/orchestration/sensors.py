@@ -1,6 +1,7 @@
 """
-The new-vintage sensor that launches a refresh when the inputs change, and the
-sensor that records a failed refresh.
+The new-vintage sensor that launches a refresh when the inputs change, the
+sensor that records a failed refresh, and the heartbeat sent after a successful
+one.
 """
 from __future__ import annotations
 
@@ -17,6 +18,7 @@ from dagster import (
     SensorEvaluationContext,
     SensorResult,
     run_failure_sensor,
+    run_status_sensor,
     sensor,
 )
 
@@ -151,3 +153,21 @@ def refresh_failure_sensor(context) -> None:
         body=f"Vintage: {vintage}\nCause: {cause}\nRun: {run.run_id}",
     )
     context.log.info(f"failure alert: {status}")
+
+
+@run_status_sensor(run_status=DagsterRunStatus.SUCCESS, monitored_jobs=[refresh_job],
+                   default_status=DefaultSensorStatus.RUNNING)
+def refresh_heartbeat_sensor(context) -> None:
+    """Check in with NFR_HEARTBEAT_URL after a successful refresh.
+
+    The weekly schedule refreshes every Monday even when no input changed, so a
+    check-in arrives at least once a week while the daemon, the schedule and
+    the host are working. The service behind the URL alerts when one is missed,
+    which a failure alert cannot do when nothing runs at all.
+    """
+    # Dagster only calls this sensor for successful runs; the check keeps a
+    # failed run from ever counting as a sign of life.
+    if context.dagster_run.status != DagsterRunStatus.SUCCESS:
+        return
+    status = alerts.ping(os.environ.get(config.HEARTBEAT_URL_ENV))
+    context.log.info(f"heartbeat after refresh {context.dagster_run.run_id}: {status}")

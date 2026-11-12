@@ -17,6 +17,11 @@ echoed, and only https is accepted except for a relay on this machine.
 The sensor re-requests a failing vintage every half hour, so a failure is sent
 once and then deduplicated by a key recorded in a small state file; the record
 is cleared when a refresh publishes, so the next failure alerts again.
+
+A heartbeat covers the opposite case, when nothing runs at all: each successful
+refresh calls NFR_HEARTBEAT_URL (a check-in URL such as healthchecks.io), and
+that service alerts when the weekly check-in stops arriving. The same rules
+apply: unset does nothing, failures are returned, the URL is never shown.
 """
 from __future__ import annotations
 
@@ -36,12 +41,25 @@ def _check_url(url: str) -> None:
     """Accept https, or http only to this machine (a local relay or a test)."""
     parts = urlsplit(url)
     if not parts.hostname:
-        raise ValueError("the alert webhook URL has no host")
+        raise ValueError("the URL has no host")
     if parts.scheme == "https":
         return
     if parts.scheme == "http" and parts.hostname in _LOCAL_HOSTS:
         return
-    raise ValueError("the alert webhook URL must use https")
+    raise ValueError("the URL must use https")
+
+
+def _deliver(request: urllib.request.Request, timeout: float, receiver: str) -> str:
+    """Send one request; return "sent" or why not, never the URL, never raising."""
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (scheme checked by callers)
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        return f"not sent: the {receiver} answered HTTP {exc.code}"
+    except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
+        reason = getattr(exc, "reason", exc)
+        return f"not sent: {type(reason).__name__}"
+    return "sent" if 200 <= status < 300 else f"not sent: the {receiver} answered HTTP {status}"
 
 
 def payload(title: str, body: str) -> bytes:
@@ -68,15 +86,19 @@ def send(url: str | None, title: str, body: str, timeout: float = TIMEOUT_SECOND
         url, data=payload(title, body), method="POST",
         headers={"Content-Type": "application/json", "User-Agent": "nfr-alerts"},
     )
+    return _deliver(request, timeout, "webhook")
+
+
+def ping(url: str | None, timeout: float = TIMEOUT_SECONDS) -> str:
+    """Check in with a heartbeat URL (one GET); return what happened, never raise."""
+    if not url:
+        return "not configured"
     try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (scheme checked above)
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        return f"not sent: the webhook answered HTTP {exc.code}"
-    except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
-        reason = getattr(exc, "reason", exc)
-        return f"not sent: {type(reason).__name__}"
-    return "sent" if 200 <= status < 300 else f"not sent: the webhook answered HTTP {status}"
+        _check_url(url)
+    except ValueError as exc:
+        return f"not sent: {exc}"
+    request = urllib.request.Request(url, method="GET", headers={"User-Agent": "nfr-alerts"})
+    return _deliver(request, timeout, "heartbeat")
 
 
 def already_sent(state_file: Path, key: str) -> bool:
