@@ -108,7 +108,7 @@ sed -i "s|^SUPERSET_ADMIN_PASSWORD=.*|SUPERSET_ADMIN_PASSWORD=$(openssl rand -ba
 sed -i "s|^SUPERSET_DB_PASSWORD=.*|SUPERSET_DB_PASSWORD=$(openssl rand -hex 24)|" .env
 ```
 
-`SUPERSET_ADMIN_USERNAME` defaults to `admin`. The admin password is the one you sign in with; open `.env` in an editor on the host to read it, and keep it in your password manager. `MAPBOX_API_KEY` (basemap tiles) and `NFR_ALERT_WEBHOOK_URL` (failure alerts, see DEPLOYMENT.md) are optional. `.env` is gitignored and never enters the images.
+`SUPERSET_ADMIN_USERNAME` defaults to `admin`. The admin password is the one you sign in with; open `.env` in an editor on the host to read it, and keep it in your password manager. `MAPBOX_API_KEY` (basemap tiles), `NFR_ALERT_WEBHOOK_URL` (failure alerts) and `NFR_HEARTBEAT_URL` (a weekly check-in that alerts when refreshes stop; see DEPLOYMENT.md, "Heartbeat") are optional. `.env` is gitignored and never enters the images.
 
 ## 5. Build and start
 
@@ -253,11 +253,18 @@ From your own machine with the OCI CLI (or the same steps in the console, under 
 2. Create a write-only PAR for the bucket. PARs must expire, so pick a date and set a reminder to renew it. Then write its URL straight into the host's `.env` without displaying it (replace `<region>` with your region, for example `uk-london-1`):
 
    ```bash
-   path=$(oci os preauth-request create --bucket-name nfr-backups --name nfr-host-backups --access-type AnyObjectWrite --time-expires 2027-11-01T00:00:00Z --query 'data."access-uri"' --raw-output)
+   par_path=$(oci os preauth-request create --bucket-name nfr-backups --name nfr-host-backups --access-type AnyObjectWrite --time-expires 2027-11-01T00:00:00Z --query 'data."access-uri"' --raw-output)
    ```
 
    ```bash
-   printf 'NFR_BACKUP_PAR_URL=https://objectstorage.<region>.oraclecloud.com%s\n' "$path" | ssh ubuntu@<public-ip> 'cat >> ~/nigeria-facility-register/.env'
+   printf 'NFR_BACKUP_PAR_URL=https://objectstorage.<region>.oraclecloud.com%s\n' "$par_path" | ssh ubuntu@<public-ip> 'cat >> ~/nigeria-facility-register/.env'
+   ```
+
+   Keep the variable name `par_path`: in zsh, `path` is tied to `PATH`, so assigning to it replaces the shell's command search path. Then check the line landed once (this prints a count, not the URL) and clear the variable:
+
+   ```bash
+   ssh ubuntu@<public-ip> 'grep -c "^NFR_BACKUP_PAR_URL=" ~/nigeria-facility-register/.env'
+   unset par_path
    ```
 
 3. On the host, re-run the bootstrap script once, which installs the `nfr-backup` timer (02:30 UTC each night). Then take the first backup now:

@@ -12,15 +12,22 @@ accept, so any of them works without an adapter.
 Alerting never changes the outcome of a run: an unset URL does nothing, and a
 failed post is reported back as a status string, never raised. The URL is a
 credential (whoever holds it can post to the channel), so it is never logged or
-echoed, and only https is accepted except for a relay on this machine.
+echoed, only https is accepted (plain http only to localhost, for tests), and a
+redirect is never followed, so the URL only goes where it points.
 
 The sensor re-requests a failing vintage every half hour, so a failure is sent
 once and then deduplicated by a key recorded in a small state file; the record
 is cleared when a refresh publishes, so the next failure alerts again.
+
+A heartbeat covers the opposite case, when nothing runs at all: each successful
+refresh calls NFR_HEARTBEAT_URL (a check-in URL such as healthchecks.io), and
+that service alerts when the weekly check-in stops arriving. The same rules
+apply: unset does nothing, failures are returned, the URL is never shown.
 """
 from __future__ import annotations
 
 import contextlib
+import http.client
 import json
 import urllib.error
 import urllib.request
@@ -29,19 +36,72 @@ from urllib.parse import urlsplit
 
 TIMEOUT_SECONDS = 10
 MAX_TEXT_CHARS = 1500
+NOT_CONFIGURED = "not configured"
 _LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+class _RefuseRedirects(urllib.request.HTTPRedirectHandler):
+    """Treat a redirect as the answer instead of following it.
+
+    Following one would send the URL, token and all, to a destination that
+    _check_url never saw, possibly over plain http. Refused, the 3xx is
+    reported like any other non-2xx answer.
+    """
+
+    def redirect_request(self, *_args, **_kwargs):
+        return None
+
+
+_OPENER = urllib.request.build_opener(_RefuseRedirects)
 
 
 def _check_url(url: str) -> None:
     """Accept https, or http only to this machine (a local relay or a test)."""
-    parts = urlsplit(url)
+    # A pasted URL can carry a trailing newline; http.client would reject it
+    # with an error that quotes the URL, so it is refused here first.
+    if any(ord(char) <= 32 or ord(char) == 127 for char in url):
+        raise ValueError("the URL contains spaces or control characters")
+    # urlsplit's own errors can quote part of the URL (an invalid character in
+    # the host part, for one), so only a generic reason is passed on.
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        raise ValueError("the URL is malformed") from None
     if not parts.hostname:
-        raise ValueError("the alert webhook URL has no host")
+        raise ValueError("the URL has no host")
     if parts.scheme == "https":
         return
     if parts.scheme == "http" and parts.hostname in _LOCAL_HOSTS:
         return
-    raise ValueError("the alert webhook URL must use https")
+    raise ValueError("the URL must use https")
+
+
+def _deliver(url: str | None, receiver: str, timeout: float, data: bytes | None = None,
+             headers: dict[str, str] | None = None) -> str:
+    """Send one request (a POST with `data`, else a GET); return what happened.
+
+    Never raises and never includes the URL: the result is "not configured",
+    "sent", or "not sent: <reason>", safe to log and to record in metadata.
+    """
+    if not url:
+        return NOT_CONFIGURED
+    try:
+        _check_url(url)
+    except ValueError as exc:
+        return f"not sent: {exc}"
+    try:
+        request = urllib.request.Request(url, data=data, method="POST" if data is not None else "GET",
+                                         headers={"User-Agent": "nfr-alerts", **(headers or {})})
+        with _OPENER.open(request, timeout=timeout) as response:
+            status = response.status
+    except urllib.error.HTTPError as exc:
+        return f"not sent: the {receiver} answered HTTP {exc.code}"
+    except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
+        reason = getattr(exc, "reason", exc)
+        return f"not sent: {type(reason).__name__}"
+    except (ValueError, http.client.HTTPException) as exc:  # a malformed URL or a malformed answer
+        return f"not sent: {type(exc).__name__}"
+    return "sent" if 200 <= status < 300 else f"not sent: the {receiver} answered HTTP {status}"
 
 
 def payload(title: str, body: str) -> bytes:
@@ -58,25 +118,13 @@ def send(url: str | None, title: str, body: str, timeout: float = TIMEOUT_SECOND
     The returned status never contains the URL, so it is safe to log and to
     record in run metadata.
     """
-    if not url:
-        return "not configured"
-    try:
-        _check_url(url)
-    except ValueError as exc:
-        return f"not sent: {exc}"
-    request = urllib.request.Request(
-        url, data=payload(title, body), method="POST",
-        headers={"Content-Type": "application/json", "User-Agent": "nfr-alerts"},
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310 (scheme checked above)
-            status = response.status
-    except urllib.error.HTTPError as exc:
-        return f"not sent: the webhook answered HTTP {exc.code}"
-    except OSError as exc:  # URLError (refused, DNS, timeout) is an OSError
-        reason = getattr(exc, "reason", exc)
-        return f"not sent: {type(reason).__name__}"
-    return "sent" if 200 <= status < 300 else f"not sent: the webhook answered HTTP {status}"
+    return _deliver(url, "webhook", timeout, data=payload(title, body),
+                    headers={"Content-Type": "application/json"})
+
+
+def ping(url: str | None, timeout: float = TIMEOUT_SECONDS) -> str:
+    """Check in with a heartbeat URL (one GET); return what happened, never raise."""
+    return _deliver(url, "heartbeat", timeout)
 
 
 def already_sent(state_file: Path, key: str) -> bool:
@@ -101,7 +149,7 @@ def reset(state_file: Path) -> None:
 def send_once(url: str | None, state_file: Path, key: str, title: str, body: str) -> str:
     """Send unless this alert was the last one sent; record it when it goes out."""
     if not url:
-        return "not configured"
+        return NOT_CONFIGURED
     if already_sent(state_file, key):
         return "already sent"
     status = send(url, title, body)

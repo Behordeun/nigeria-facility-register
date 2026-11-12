@@ -4,6 +4,21 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-12
+
+### Added
+
+- A heartbeat for the refresh pipeline. After each successful refresh the Dagster daemon makes one `GET` to `NFR_HEARTBEAT_URL`, a check-in URL from a service such as healthchecks.io, which alerts when check-ins stop. The weekly schedule refreshes every Monday even when no input changed, so a stopped daemon, a broken schedule or a host that is down is noticed within a week and a day, which a failure alert cannot do when nothing runs. A failed refresh never checks in; unset does nothing; the URL is https-only and never logged. Alerts and check-ins no longer follow redirects, and a URL with spaces or control characters or that cannot be parsed, or an endpoint that answers with a malformed response, is reported as not sent without the URL. Compose passes the setting to the Dagster services, and DEPLOYMENT.md, "Heartbeat", covers the setup and an uptime check on the public site.
+
+### Changed
+
+- The backup setup in DEPLOY_ORACLE.md keeps the pre-authenticated request path in `par_path` rather than `path`, which zsh ties to `PATH`, and checks that the setting landed once in the host's `.env` before clearing the variable.
+
+### Notes
+
+- No published table or column changes; the register already published serves this release as it is.
+- The heartbeat stays off until `NFR_HEARTBEAT_URL` is set in the host's `.env`; then run `docker compose up -d` so the Dagster services pick it up. DEPLOYMENT.md, "Heartbeat", has the check settings (7-day period, 1-day grace).
+
 ## [0.10.0] - 2026-11-12
 
 ### Added
@@ -234,7 +249,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.11.0...development
+[0.11.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.7.0...v0.8.0

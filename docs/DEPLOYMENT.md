@@ -89,7 +89,19 @@ Two things alert:
 - **A failed refresh**, with the vintage and the root cause: the carry-over gate rejecting a build, a failed dbt test, a vintage held after a rollback, a missing input. The published register is unchanged in every case. The sensor retries a failing vintage every half hour, so each distinct failure is sent once (recorded in `build/alert_state.json`) until a refresh publishes again.
 - **The monthly upstream check**, when a publisher has a newer release to review or could not be read.
 
-Sending never affects a run: with no URL nothing is sent, and a webhook that is down or rejects the post is recorded as the alert's status in the run log and metadata, after a ten-second timeout at most. Only `https` URLs are accepted, except a relay on the same machine.
+Sending never affects a run: with no URL nothing is sent, and a webhook that is down or rejects the post is recorded as the alert's status in the run log and metadata, after a ten-second timeout at most. Only `https` URLs are accepted, except `http` to `localhost`, which inside the Dagster containers means the container itself, not the host; it exists for tests. A redirect is not followed, so the URL is only ever sent where it points.
+
+### Heartbeat
+
+Alerts report a refresh that fails, but not one that never runs: a stopped daemon, a broken schedule or a host that is down sends nothing. The heartbeat covers that. After each successful refresh the daemon makes one `GET` to `NFR_HEARTBEAT_URL`, a check-in URL from a service such as [healthchecks.io](https://healthchecks.io) that alerts you when check-ins stop arriving. The weekly schedule refreshes every Monday at 06:00 UTC even when no input changed, so a working stack checks in at least once a week. It watches the daemon, the schedule, the refresh and the host. It does not watch the new-input sensor, because the weekly run checks in whether or not that sensor is evaluating.
+
+1. Create a check with a period of 7 days and a grace time of 1 day, and copy its ping URL.
+2. Add it as `NFR_HEARTBEAT_URL=<url>` to `.env` and run `docker compose up -d`.
+3. Check the setup straight away by launching a refresh from the Dagster UI; when it succeeds, the check shows a ping.
+
+The same rules as the alerts apply: unset does nothing, a failed check-in is logged in the run's sensor log and never affects the run, only `https` is accepted (see above), redirects are not followed, and the URL is never logged. A failed refresh never checks in.
+
+The heartbeat watches the pipeline, not the public site. To be told when the dashboard itself is unreachable, add an HTTP check on `https://<your-host>/health` in the same service (or any uptime monitor); that needs no change here.
 
 ## Rolling back a register
 
