@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- History across releases. The publish step now carries each LGA's key figures forward in `lga_history`: facilities, facilities per 10,000 people, and the priority score and tier, one row per input vintage, stamped with the build time and input fingerprint. The live register's history is copied into each new build and the build's figures are appended; a republish of unchanged inputs adds nothing. The first publish under this release seeds the history with the replaced register's own figures. A restore brings back the history the restored register had, and gives a register archived before this table its own figures. The LGA profile tab gains "This LGA across releases", newest first, so a change since the last release reads off its top two rows. DATA_CONTRACT.md documents the table.
+
 ## [0.12.0] - 2026-11-12
 
 ### Added

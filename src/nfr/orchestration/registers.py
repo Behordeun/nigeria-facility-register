@@ -27,7 +27,7 @@ from pathlib import Path
 
 import duckdb
 
-from nfr.orchestration import changes, publish
+from nfr.orchestration import changes, history, publish
 
 ARCHIVE_SUFFIX = ".duckdb"
 
@@ -161,9 +161,10 @@ def restore(
         os.close(fd)
         tmp = Path(tmp_name)
         shutil.copy2(source, tmp)
-        # The copy, not the archive, gets a change record if it predates them,
-        # so the dashboard's change table never goes missing after a rollback.
+        # The copy, not the archive, gets a change record and a history if it
+        # predates them, so the dashboard's tables never go missing after a rollback.
         changes.ensure_record(tmp, "restored from an archive made before change records existed")
+        history.ensure_history(tmp)
         os.replace(tmp, db)
     except BaseException:
         # The live register is unchanged, so the copy of it kept a moment ago

@@ -1,6 +1,6 @@
 # Data contract
 
-This is the promise the published tables make to anyone who reads them. It covers the six serving marts (`lga_coverage_burden`, `lga_coverage_outlook`, `lga_profile_facts`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`), the staging layers they are built on, and `register_changes`, which the publish step writes. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
+This is the promise the published tables make to anyone who reads them. It covers the six serving marts (`lga_coverage_burden`, `lga_coverage_outlook`, `lga_profile_facts`, `lga_version_drift`, `lga_coverage_choropleth` and `register_summary`), the staging layers they are built on, and `register_changes` and `lga_history`, which the publish step writes. Column types are enforced by dbt model contracts (`contract: enforced` in the schema files); the guarantees below that a type cannot express are enforced by dbt tests. A change that breaks any guarantee here is a breaking change and follows the versioning rule at the end.
 
 ## Scope and grain
 
@@ -16,6 +16,7 @@ This is the promise the published tables make to anyone who reads them. It cover
 | `lga_profile_facts` | mart | one (LGA, fact) | exactly 774 x 20 = 15,480 |
 | `register_summary` | mart | the published register | exactly 1 |
 | `register_changes` | publish | one change against the register this one replaced | 1 summary row, plus one per change listed |
+| `lga_history` | publish | one (input vintage, LGA) | 774 per vintage the register carries |
 | `lga_coverage_choropleth` | mart | one LGA boundary polygon part | one per polygon part (800 on the vendored set) covering exactly 774 LGAs, each with a boundary polygon |
 
 ## `stg_facilities_authority`
@@ -333,6 +334,28 @@ Guarantees:
 - On a first publish, or when the replaced register lacks the compared columns, only the summary row is written and its `detail` says why.
 - An LGA whose key is in only one of the two registers cannot be compared; the summary's `detail` counts them.
 - A register restored from an archive made before this table existed is given a summary-only record whose `detail` says so, and `previous` is null.
+- The live register is only read. If this table cannot be written, the publish fails and the live register stays as it was.
+
+## `lga_history`
+
+Each LGA's key figures in every published register this one descends from, so trends survive the from-scratch rebuild. Like `register_changes`, it is written by the publish step, not by dbt: the live register's history is copied into the new build and the build's own figures are appended, keyed by the input fingerprint. It travels inside the register, so a restored register brings back the history it had.
+
+| Column | Type | Nullable | Domain / rule |
+| --- | --- | --- | --- |
+| `built_at` | timestamp | no | when that vintage's register was built (`register_summary.built_at`) |
+| `fingerprint` | varchar | no | the input fingerprint of that vintage |
+| `state`, `canonical_lga`, `lga_label` | varchar | no | the LGA, as in `lga_coverage_burden` |
+| `facilities` | bigint | yes | `lga_coverage_burden.facilities` in that vintage |
+| `facilities_per_10k_population` | double | yes | `lga_coverage_burden.facilities_per_10k_population` in that vintage; null when it was null there |
+| `priority_score` | integer | yes | 0-11 in that vintage |
+| `priority_tier` | varchar | yes | `high`, `medium` or `low` in that vintage |
+
+Guarantees:
+
+- One row per (`fingerprint`, `state`, `canonical_lga`): publishing the same inputs again (the weekly refresh when nothing changed) adds no rows, so the table grows by 774 rows only when the inputs change.
+- The current register's own figures are always the vintage with its fingerprint.
+- When the replaced register predates this table, its own figures become the first vintage, if it has the columns to describe itself. A register restored from an archive made before this table existed is given its own figures in the same way, or an empty table if it cannot describe itself; a restored `lga_history` that lacks any of the columns above is replaced the same way, since neither the dashboard nor the next publish could read it.
+- After a rollback, the restored register's history is the one it had; the next publish carries that history forward, so a rolled-back vintage does not reappear.
 - The live register is only read. If this table cannot be written, the publish fails and the live register stays as it was.
 
 ## The rule that spans every table

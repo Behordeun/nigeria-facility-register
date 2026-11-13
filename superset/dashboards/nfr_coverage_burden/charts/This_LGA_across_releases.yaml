@@ -1,0 +1,37 @@
+slice_name: This LGA across releases
+description: The chosen LGA's facilities, coverage and priority in every published register,
+  newest first, read from lga_history.
+certified_by: null
+certification_details: null
+viz_type: table
+params:
+  datasource: 10__table
+  viz_type: table
+  extra_form_data: {}
+  query_mode: raw
+  groupby: []
+  all_columns:
+  - built_at
+  - facilities
+  - facilities_per_10k_population
+  - priority_score
+  - priority_tier
+  order_by_cols:
+  - '["built_at", false]'
+  adhoc_filters: []
+  row_limit: 1000
+  server_pagination: false
+  server_page_length: 10
+  page_length: 10
+  include_search: false
+  show_cell_bars: false
+  table_timestamp_format: '%-d %B %Y'
+  percent_metrics: []
+  order_desc: true
+  allow_render_html: false
+  annotation_layers: []
+query_context: null
+cache_timeout: null
+uuid: c5fdaa89-dbe3-5614-afd4-08b56745e2ba
+version: 1.0.0
+dataset_uuid: d9701c7a-2d13-5efb-bb78-260e1a377472

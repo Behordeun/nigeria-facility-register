@@ -115,7 +115,7 @@ select count(*) filter (where p.priority_tier is distinct from c.priority_tier),
        (select count(*) from previous_lgas p anti join lga_coverage_burden c using (state, canonical_lga))
 from lga_coverage_burden c join previous_lgas p using (state, canonical_lga)
 """
-_TABLE_EXISTS = "select 1 from information_schema.tables where table_name = ?"
+_TABLE_EXISTS = "select 1 from information_schema.tables where table_schema = 'main' and table_name = ?"
 
 
 def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint: str,
@@ -151,7 +151,8 @@ def _previous_lgas(live_db: Path) -> tuple[list[tuple] | None, str]:
     con = duckdb.connect(str(live_db), read_only=True)
     try:
         present = {row[0] for row in con.execute(
-            "select column_name from information_schema.columns where table_name = 'lga_coverage_burden'"
+            "select column_name from information_schema.columns "
+            "where table_schema = 'main' and table_name = 'lga_coverage_burden'"
         ).fetchall()}
         if not set(COMPARED_COLUMNS) <= present:
             return None, "the previous register predates these comparisons, so only this summary is recorded"
