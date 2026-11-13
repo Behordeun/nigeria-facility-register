@@ -4,6 +4,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-13
+
 ### Added
 
 - An open data export. `scripts/export_open_data.py` writes the published register as two archives for a GitHub release. The CC BY 4.0 archive holds five tables as Parquet and CSV, plus the LGA boundaries as a GeoPackage. The non-commercial archive (CC BY-NC-SA 3.0 IGO) holds the ESPEN-derived columns, including the priority score. Each archive carries its terms, the data contract and a manifest of row counts and checksums. The export refuses a register with a column it has not classified by licence. See DATA_CONTRACT.md, "Open data release", and DEPLOY_ORACLE.md, "Publishing the open data".
@@ -11,6 +13,12 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Changed
 
 - An automatic deploy now starts a refresh once both UIs answer, so the release's own code rebuilds the register without a manual launch. It skips this while a register is held after a rollback (DEPLOY_ORACLE.md, "Automatic deploys").
+
+### Notes
+
+- Every published table and column is unchanged.
+- This release's own deploy runs its new steps, so it starts a refresh itself once both UIs answer. No manual launch is needed.
+- The open data archives are not attached automatically. After the deploy's refresh finishes, export them on the host and attach them to this release (DEPLOY_ORACLE.md, "Publishing the open data"). The daemon image now includes LICENSE-DATA and DATA_CONTRACT.md, which the archives bundle.
 
 ## [0.13.0] - 2026-11-13
 
@@ -292,7 +300,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.13.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.14.0...development
+[0.14.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.13.0...v0.14.0
 [0.13.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...v0.11.0
