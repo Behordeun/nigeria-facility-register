@@ -13,6 +13,7 @@ All notable changes to this project are recorded here. The format follows [Keep 
 ### Changed
 
 - The publish-time table lookups (`register_changes` and `lga_history`) look only in the register's main schema, and a restored register's `lga_history` is kept only when it has every published column; otherwise the register's own figures replace it.
+- A refresh that republishes the same inputs (the weekly refresh when nothing changed) keeps the live register's `register_changes` instead of rewriting it as "0 changes", so the record of what a vintage changed lasts until the inputs change again.
 
 ### Notes
 
