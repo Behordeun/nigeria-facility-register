@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- An automatic deploy now starts a refresh once both UIs answer, so the release's own code rebuilds the register without a manual launch. It skips this while a register is held after a rollback (DEPLOY_ORACLE.md, "Automatic deploys").
+
 ## [0.13.0] - 2026-11-13
 
 ### Added
