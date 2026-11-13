@@ -331,6 +331,7 @@ Guarantees:
 - Exactly one summary row, with `change_order` 0.
 - Every LGA whose `priority_tier` changed is listed (moves to `high` first), and every LGA whose match status changed (to or from `facility_status = 'unmatched'`).
 - The 25 LGAs whose facility count changed most are listed, largest first; the summary row gives the full count.
+- A publish of the same input fingerprint as the register it replaces (the weekly refresh when nothing changed) keeps that register's record unchanged, so the record always describes what this vintage changed, not a comparison of the vintage with itself.
 - On a first publish, or when the replaced register lacks the compared columns, only the summary row is written and its `detail` says why.
 - An LGA whose key is in only one of the two registers cannot be compared; the summary's `detail` counts them.
 - A register restored from an archive made before this table existed is given a summary-only record whose `detail` says so, and `previous` is null.
