@@ -99,3 +99,5 @@ The dev and CI loops need only `uv` and the lockfile. For an always-on deploymen
 ## Licensing
 
 Code is AGPL-3.0-or-later (`LICENSE`): you may use, modify and self-host it, and a modified version offered as a network service must publish its source under the same license. Derived data artifacts from CC BY sources are CC BY 4.0. The ESPEN NTD summaries carry the upstream CC BY-NC-SA 3.0 IGO non-commercial terms; the WorldPop births table is CC BY 4.0 and the flood-exposure table derives from open NASA data. Raw inputs are not redistributed. See `LICENSE-DATA` and `data/ATTRIBUTION.md`.
+
+Releases can carry the register as open data in two archives: a CC BY 4.0 set (the tables as Parquet and CSV, and the LGA boundaries as a GeoPackage) and a separate non-commercial set holding the ESPEN-derived columns, including the priority score. The two join on shared key columns. See "Open data release" in `docs/DATA_CONTRACT.md`.

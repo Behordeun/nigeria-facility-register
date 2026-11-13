@@ -363,6 +363,17 @@ Guarantees:
 
 Missing is not zero. A stale state, an unsurveyed ESPEN IU, an LGA that matched no facility, and a dropped-from-v2 facility are each an absence. The schema records them as null, an explicit status, or a flagged review item, never as a measured zero.
 
+## Open data release
+
+`scripts/export_open_data.py` exports a published register as two zip archives, attached to a GitHub release, so the tables can be used and cited without the dashboard.
+
+- `nfr-open-data-<tag>-cc-by.zip` (CC BY 4.0): `lga_coverage_burden`, `lga_coverage_outlook`, `lga_version_drift`, `register_summary` and `lga_history`, each as Parquet and CSV, without their ESPEN-derived columns; and `lga_boundaries.gpkg`, one MultiPolygon per LGA (EPSG:4326, keyed by `state` and `canonical_lga`), rejoined from the polygon parts in `lga_coverage_choropleth`.
+- `nfr-open-data-<tag>-non-commercial.zip` (CC BY-NC-SA 3.0 IGO): the ESPEN-derived columns of `lga_coverage_burden`, `register_summary` and `lga_history`. These are the IU ids, the STH state summary, the five endemicity ranks, `ntd_diseases_known`, and everything built from the ranks: the original priority flag, the burden points, and the priority score, tier and reasons.
+
+Each table keeps its key columns in both archives, so the two join: `(state, canonical_lga)` for the LGA tables, with `population_year` added for the outlook and `built_at, fingerprint` for the history; `facility_id` for the drift; `built_at` for the summary. Columns, types and meanings are exactly those defined above. Three things are left out: `lga_summary` (dashboard text that quotes the ranks and score), the drift table's `espen_iu_id` (it ships once, with the coverage table), and the dashboard-only tables (`lga_profile_facts`, `register_changes`, and the choropleth's per-part rows).
+
+Each archive carries a README with its terms, `manifest.json` (the input fingerprint, and each file's row count, licence and SHA-256), this contract, `ATTRIBUTION.md` and `LICENSE-DATA`. Every row count is checked against the register when the files are written. The export refuses a register with any column it does not classify, so a new column reaches the release only once someone has decided its licence.
+
 ## Freshness and versioning
 
 - Freshness follows the source releases, not a clock. `source_date` on each facility says which GRID3 vintage it came from; a state marked `stale-awaiting-v3` is waiting for GRID3 to extend v3.0 coverage, not for a pipeline run.
