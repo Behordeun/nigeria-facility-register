@@ -194,8 +194,9 @@ Otherwise it:
 4. Waits for Superset to report healthy.
 5. Runs `make dashboard`, and also `make public-viewer` when `SUPERSET_PUBLIC_VIEWER_PASSWORD` is set.
 6. Checks that both UIs answer.
+7. Starts a refresh, so the register is rebuilt by the release's own code. It skips this while a register is held after a rollback (`scripts/restore_register.py`).
 
-The job log shows each step. It does not wait for a refresh: when a release changes the models or the inputs, the sensor starts that refresh on its own. Moving the code back to an older release is done by hand.
+The job log shows each step. It starts the refresh but does not wait for it; follow it in the Dagster UI. The sensor alone would miss a release that changes only the orchestration code, since it watches the inputs and the dbt models. A refresh that was already queued or running is not a problem: runs go one at a time, and rebuilding the same inputs republishes the same figures. Moving the code back to an older release is done by hand.
 
 ### One-time setup
 
@@ -226,6 +227,32 @@ The job log shows each step. It does not wait for a refresh: when a release chan
 5. To test the setup, run the workflow by hand with the tag that is already deployed. It rebuilds, restarts and checks the stack without moving the code.
 
 The default security list already admits SSH from anywhere, which is what GitHub's hosted runners need. Keep password login disabled on the host (the Ubuntu image's default). To take the deploy key out of service, delete its line from `authorized_keys`.
+
+## Publishing the open data
+
+The register is built on the host, not in CI, so its open data release is exported there and attached to the GitHub release by hand. Do it after the release's deploy and its refresh have finished (Dagster UI, Runs). DATA_CONTRACT.md, "Open data release", describes the two archives.
+
+1. Export the live register on the host. This reads the register and writes the two archives into `build/open_data/` in the build volume:
+
+   ```bash
+   ssh nfr-oracle 'cd ~/nigeria-facility-register && docker compose exec -T daemon uv run python scripts/export_open_data.py --label v0.14.0'
+   ```
+
+   It refuses, writing nothing, when the register has a column it does not classify. Classify that column in `src/nfr/open_data.py` (open, non-commercial or excluded) in a release, then export again.
+
+2. Copy the archives to your machine:
+
+   ```bash
+   mkdir -p open_data && for set in cc-by non-commercial; do ssh nfr-oracle "cd ~/nigeria-facility-register && docker compose exec -T daemon cat /app/build/open_data/nfr-open-data-v0.14.0-$set.zip" > "open_data/nfr-open-data-v0.14.0-$set.zip"; done
+   ```
+
+3. Check that each archive opens and its `manifest.json` names the input fingerprint the dashboard's Data status tab shows. Then attach both archives to the release:
+
+   ```bash
+   gh release upload v0.14.0 open_data/nfr-open-data-v0.14.0-*.zip --repo Behordeun/nigeria-facility-register
+   ```
+
+Attaching the files publishes them. The non-commercial archive is published under ESPEN's terms, which allow redistribution for non-commercial use with the same licence.
 
 ## Backups
 
