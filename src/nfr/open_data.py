@@ -19,6 +19,7 @@ import hashlib
 import json
 import re
 import shutil
+import tempfile
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -159,7 +160,10 @@ def export_release(db_path: Path, out_dir: Path, label: str, repo_root: Path) ->
 
     The register is opened read-only and every table is read through one
     connection, so the release describes a single published register even if a
-    refresh promotes a new one meanwhile.
+    refresh promotes a new one meanwhile. Both sets are built in a scratch
+    directory and moved into `out_dir` only once both succeed, so a failed
+    export never leaves one archive without the other, or a stale pair from an
+    earlier run looking current.
     """
     if not RELEASE_LABEL_PATTERN.match(label):
         raise OpenDataError(f"expected a release label such as v0.14.0, got {label!r}")
@@ -171,27 +175,52 @@ def export_release(db_path: Path, out_dir: Path, label: str, repo_root: Path) ->
     con = duckdb.connect(str(db_path), read_only=True)
     try:
         check_classification(con)
-        archives = []
-        for set_name, licence in ((OPEN_SET, OPEN_LICENCE), (NON_COMMERCIAL_SET, NON_COMMERCIAL_LICENCE)):
-            release_dir = out_dir / f"nfr-open-data-{label}-{set_name}"
-            if release_dir.exists():
-                shutil.rmtree(release_dir)
-            release_dir.mkdir(parents=True)
-            files = list(_write_tables(con, release_dir, set_name, licence))
-            if set_name == OPEN_SET:
-                files.append(_write_boundaries(con, release_dir))
-            for doc in BUNDLED_DOCS:
-                shutil.copy2(repo_root / doc, release_dir / Path(doc).name)
-            _write_manifest(release_dir, label, fingerprint, set_name, licence, files)
-            (release_dir / "README.md").write_text(_readme(label, fingerprint, set_name, licence, files))
-            archives.append(Path(shutil.make_archive(str(release_dir), "zip", out_dir, release_dir.name)))
-        return archives
+        out_dir.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=out_dir, prefix=".partial-") as scratch:
+            built = [_build_set(con, Path(scratch), label, fingerprint, set_name, licence, repo_root)
+                     for set_name, licence in ((OPEN_SET, OPEN_LICENCE),
+                                               (NON_COMMERCIAL_SET, NON_COMMERCIAL_LICENCE))]
+            archives = []
+            for release_dir, archive in built:
+                _move_into(out_dir, release_dir)
+                archives.append(_move_into(out_dir, archive))
+            return archives
     finally:
         con.close()
 
 
+def _move_into(out_dir: Path, path: Path) -> Path:
+    """Move `path` into `out_dir`, replacing an earlier export's copy."""
+    target = out_dir / path.name
+    if target.is_dir():
+        shutil.rmtree(target)
+    else:
+        target.unlink(missing_ok=True)
+    return Path(shutil.move(str(path), str(target)))
+
+
+def _build_set(con: duckdb.DuckDBPyConnection, scratch: Path, label: str, fingerprint: str, set_name: str,
+               licence: str, repo_root: Path) -> tuple[Path, Path]:
+    """Write one set's files and its zip under `scratch`; return the directory and the zip."""
+    release_dir = scratch / f"nfr-open-data-{label}-{set_name}"
+    release_dir.mkdir()
+    files = list(_write_tables(con, release_dir, set_name, licence))
+    if set_name == OPEN_SET:
+        files.append(_write_boundaries(con, release_dir))
+    for doc in BUNDLED_DOCS:
+        shutil.copy2(repo_root / doc, release_dir / Path(doc).name)
+    _write_manifest(release_dir, label, fingerprint, set_name, licence, files)
+    (release_dir / "README.md").write_text(_readme(label, fingerprint, set_name, licence, files))
+    archive = Path(shutil.make_archive(str(release_dir), "zip", scratch, release_dir.name))
+    return release_dir, archive
+
+
 def _columns_for(split: TableSplit, set_name: str) -> tuple[str, ...]:
-    return split.open if set_name == OPEN_SET else split.non_commercial
+    if set_name == OPEN_SET:
+        return split.open
+    if set_name == NON_COMMERCIAL_SET:
+        return split.non_commercial
+    raise OpenDataError(f"unknown set {set_name!r}; expected {OPEN_SET!r} or {NON_COMMERCIAL_SET!r}")
 
 
 def _write_tables(con: duckdb.DuckDBPyConnection, release_dir: Path, set_name: str,

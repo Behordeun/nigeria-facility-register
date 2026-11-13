@@ -142,6 +142,27 @@ def test_export_refuses_an_unclassified_column(tmp_path, two_lgas):
     assert not (tmp_path / "out").exists(), "nothing is written when a column is unclassified"
 
 
+def test_a_failed_export_keeps_the_previous_archives_and_leaves_no_partial_files(tmp_path, two_lgas, monkeypatch):
+    db, out = _register(tmp_path / "r.duckdb"), tmp_path / "out"
+    first = open_data.export_release(db, out, "v0.14.0", ROOT)
+    before = {p.name: p.read_bytes() for p in first}
+
+    write_manifest = open_data._write_manifest
+
+    def fail_in_second_set(release_dir, *args):
+        # The open set is built first, so this fails once its archive is written.
+        if release_dir.name.endswith(open_data.NON_COMMERCIAL_SET):
+            raise OSError("disk full")
+        write_manifest(release_dir, *args)
+
+    monkeypatch.setattr(open_data, "_write_manifest", fail_in_second_set)
+    with pytest.raises(OSError, match="disk full"):
+        open_data.export_release(db, out, "v0.14.0", ROOT)
+
+    assert {p.name: p.read_bytes() for p in first} == before, "the earlier pair of archives is left untouched"
+    assert not list(out.glob(".partial-*")), "the scratch directory is removed after a failure"
+
+
 def test_export_refuses_a_label_that_is_not_a_release_tag(tmp_path, two_lgas):
     with pytest.raises(open_data.OpenDataError, match="release label"):
         open_data.export_release(_register(tmp_path / "r.duckdb"), tmp_path / "out", "../v1", ROOT)
