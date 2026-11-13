@@ -171,7 +171,7 @@ def export_release(db_path: Path, out_dir: Path, label: str, repo_root: Path) ->
         raise OpenDataError(f"no register at {db_path}; run a refresh first")
     fingerprint = publish.read_published_fingerprint(str(db_path))
     if not fingerprint:
-        raise OpenDataError(f"{db_path} has no published fingerprint; export a register a refresh published")
+        raise OpenDataError(f"{db_path} has no published fingerprint; export a register that a refresh published")
     con = duckdb.connect(str(db_path), read_only=True)
     try:
         check_classification(con)
