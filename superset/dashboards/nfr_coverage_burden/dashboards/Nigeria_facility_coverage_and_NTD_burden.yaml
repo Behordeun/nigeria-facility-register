@@ -1316,6 +1316,32 @@ position:
       height: 100
       sliceName: LGA profile
       uuid: 1bba42bf-a0fa-563f-852b-f1703d38a05c
+  ROW-profile-history:
+    id: ROW-profile-history
+    type: ROW
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-profile
+    children:
+    - CHART-profile_history
+    meta:
+      background: BACKGROUND_TRANSPARENT
+  CHART-profile_history:
+    id: CHART-profile_history
+    type: CHART
+    parents:
+    - ROOT_ID
+    - TABS-main
+    - TAB-profile
+    - ROW-profile-history
+    children: []
+    meta:
+      chartId: 35
+      width: 12
+      height: 50
+      sliceName: This LGA across releases
+      uuid: c5fdaa89-dbe3-5614-afd4-08b56745e2ba
   ROW-profile-1:
     id: ROW-profile-1
     type: ROW
@@ -1352,6 +1378,7 @@ position:
     children:
     - ROW-profile-0
     - ROW-profile-1
+    - ROW-profile-history
     meta:
       text: LGA profile
       defaultText: Tab title
@@ -1443,6 +1470,7 @@ metadata:
       - 28
       - 27
       - 34
+      - 35
     chartsInScope:
     - 1
     - 2
@@ -1528,6 +1556,7 @@ metadata:
       excluded:
       - 27
       - 34
+      - 35
     tabsInScope:
     - TAB-overview
     - TAB-profile
@@ -1563,6 +1592,7 @@ metadata:
       excluded:
       - 27
       - 34
+      - 35
     tabsInScope:
     - TAB-overview
     - TAB-profile

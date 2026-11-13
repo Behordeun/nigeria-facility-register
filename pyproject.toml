@@ -1,6 +1,6 @@
 [project]
 name = "nigeria-facility-register"
-version = "0.12.0"
+version = "0.13.0"
 description = "Version-aware health-facility register for Nigeria, built from GRID3 releases"
 readme = "README.md"
 requires-python = ">=3.11,<3.13"

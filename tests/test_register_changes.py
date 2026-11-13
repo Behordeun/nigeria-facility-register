@@ -154,6 +154,8 @@ def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
+    # This minimal build has no register_summary; the history is tested in test_lga_history.
+    monkeypatch.setattr(gates.history, "write_lga_history", lambda *_args: None)
     assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
     rows = _changes(staging)
     assert [r["change"] for r in rows] == ["summary", "priority tier"]
@@ -199,3 +201,26 @@ def test_restoring_an_archive_from_before_change_records_gives_it_one(tmp_path):
     assert rows[0]["current"] == "old-fp"
     assert "restored from an archive made before change records" in rows[0]["detail"]
     assert kept.read_bytes() == archived_bytes, "the archive itself is left as it was"
+
+
+def test_a_republish_of_the_same_inputs_keeps_the_change_record(tmp_path):
+    # A real change is published (fp1 replaces fp0), then the weekly refresh
+    # rebuilds the same inputs (fp1 again): the record of what fp1 changed stays.
+    older = _register(tmp_path / "older.duckdb", [_lga("Ajingi", tier="medium", facilities=10)])
+    live = _register(tmp_path / "live.duckdb", [_lga("Ajingi", tier="high", facilities=14)])
+    changes.write_register_changes(live, older, "fp1", "fp0")
+    published = _changes(live)
+    assert [r["change"] for r in published] == ["summary", "priority tier", "facilities"]
+
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi", tier="high", facilities=14)])
+    changes.write_register_changes(staging, live, "fp1", "fp1")
+    assert _changes(staging) == published, "comparing a vintage with itself must not replace its record"
+
+
+def test_a_republish_without_a_record_to_keep_compares_as_usual(tmp_path):
+    live = _register(tmp_path / "live.duckdb", [_lga("Ajingi")])
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi")])
+    changes.write_register_changes(staging, live, "fp1", "fp1")
+    rows = _changes(staging)
+    assert [r["change"] for r in rows] == ["summary"]
+    assert rows[0]["detail"].startswith("0 LGA(s) changed priority tier")

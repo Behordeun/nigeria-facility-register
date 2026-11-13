@@ -4,9 +4,9 @@ The bundle is the dashboard's source of truth, so these check it stays loadable
 and consistent without a running Superset: every reference resolves by UUID, the
 database connection stays read-only, every physical dataset column exists in the
 dbt contract of the model it reads (so a renamed mart column fails here, not as
-a broken chart), and every column a chart names exists on its dataset. The one
-table not built by dbt, register_changes, is checked against the column list its
-writer publishes instead.
+a broken chart), and every column a chart names exists on its dataset. The two
+tables not built by dbt, register_changes and lga_history, are checked against the
+column lists their writers publish instead.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from nfr.orchestration import changes
+from nfr.orchestration import changes, history
 
 ROOT = Path(__file__).resolve().parents[1]
 _spec = importlib.util.spec_from_file_location(
@@ -47,8 +47,9 @@ def _contract_columns() -> dict[str, set[str]]:
     for path in CONTRACT_FILES:
         for model in _load(path)["models"]:
             columns[model["name"]] = {c["name"] for c in model.get("columns", [])}
-    # Written at publish time, not by dbt; its writer declares its columns.
+    # Written at publish time, not by dbt; their writers declare their columns.
     columns[changes.TABLE] = set(changes.COLUMNS)
+    columns[history.TABLE] = set(history.COLUMNS)
     return columns
 
 

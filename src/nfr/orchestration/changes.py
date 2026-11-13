@@ -16,6 +16,11 @@ One row per change, in display order:
   - every LGA that newly matched a facility or no longer matches any;
   - the LGAs whose facility count changed most (FACILITY_CHANGES_LISTED of them).
 
+A publish of the same input fingerprint as the live register (the weekly
+refresh when nothing changed) keeps the live register's record rather than
+writing a new one: the record describes what this vintage changed, and
+comparing a vintage with itself would replace that with "0 changes".
+
 On a first publish, or when the outgoing register predates the columns compared
 here, only the summary row is written and its detail says why. An LGA whose key
 is in only one of the two registers cannot be compared; the summary counts them.
@@ -115,7 +120,12 @@ select count(*) filter (where p.priority_tier is distinct from c.priority_tier),
        (select count(*) from previous_lgas p anti join lga_coverage_burden c using (state, canonical_lga))
 from lga_coverage_burden c join previous_lgas p using (state, canonical_lga)
 """
-_TABLE_EXISTS = "select 1 from information_schema.tables where table_name = ?"
+_TABLE_EXISTS = "select 1 from information_schema.tables where table_schema = 'main' and table_name = ?"
+_TABLE_COLUMNS = "select column_name from information_schema.columns where table_schema = 'main' and table_name = ?"
+_SELECT_RECORD = (
+    "select change_order, change, lga_label, state, canonical_lga, previous, current, facilities_change, detail "
+    'from "register_changes"'
+)
 
 
 def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint: str,
@@ -124,14 +134,20 @@ def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint:
 
     Raises if the staging database cannot be written, which fails the publish
     before the register is promoted. An outgoing register that is missing or
-    cannot be compared is not an error: the summary row records why.
+    cannot be compared is not an error: the summary row records why. When the
+    build has the live register's own fingerprint, the live record is kept.
     """
-    previous_rows, reason = _previous_lgas(live_db)
+    kept = _kept_record(live_db) if current_fingerprint == previous_fingerprint else None
+    previous_rows, reason = (None, "") if kept is not None else _previous_lgas(live_db)
     con = duckdb.connect(str(staging_db))
     try:
         con.execute("begin")
         con.execute(_CREATE)
-        if previous_rows is None:
+        if kept is not None:
+            con.register("kept_record", kept)
+            con.execute('insert into "register_changes" select * from kept_record')
+            con.unregister("kept_record")
+        elif previous_rows is None:
             con.execute(_INSERT_SUMMARY, [previous_fingerprint, current_fingerprint, reason])
         else:
             con.execute(_CREATE_PREVIOUS)
@@ -144,6 +160,18 @@ def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint:
         con.close()
 
 
+def _kept_record(live_db: Path):
+    """The live register's own change record as a data frame, or None if it has no usable one."""
+    if not live_db.is_file():
+        return None
+    con = duckdb.connect(str(live_db), read_only=True)
+    try:
+        present = {row[0] for row in con.execute(_TABLE_COLUMNS, [TABLE]).fetchall()}
+        return con.execute(_SELECT_RECORD).df() if set(COLUMNS) <= present else None
+    finally:
+        con.close()
+
+
 def _previous_lgas(live_db: Path) -> tuple[list[tuple] | None, str]:
     """The outgoing register's compared columns, or None and the reason there are none."""
     if not live_db.is_file():
@@ -151,7 +179,8 @@ def _previous_lgas(live_db: Path) -> tuple[list[tuple] | None, str]:
     con = duckdb.connect(str(live_db), read_only=True)
     try:
         present = {row[0] for row in con.execute(
-            "select column_name from information_schema.columns where table_name = 'lga_coverage_burden'"
+            "select column_name from information_schema.columns "
+            "where table_schema = 'main' and table_name = 'lga_coverage_burden'"
         ).fetchall()}
         if not set(COMPARED_COLUMNS) <= present:
             return None, "the previous register predates these comparisons, so only this summary is recorded"
