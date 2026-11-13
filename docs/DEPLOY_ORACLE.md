@@ -228,6 +228,32 @@ The job log shows each step. It starts the refresh but does not wait for it; fol
 
 The default security list already admits SSH from anywhere, which is what GitHub's hosted runners need. Keep password login disabled on the host (the Ubuntu image's default). To take the deploy key out of service, delete its line from `authorized_keys`.
 
+## Publishing the open data
+
+The register is built on the host, not in CI, so its open data release is exported there and attached to the GitHub release by hand. Do it after the release's deploy and its refresh have finished (Dagster UI, Runs). DATA_CONTRACT.md, "Open data release", describes the two archives.
+
+1. Export the live register on the host. This reads the register and writes the two archives into `build/open_data/` in the build volume:
+
+   ```bash
+   ssh nfr-oracle 'cd ~/nigeria-facility-register && docker compose exec -T daemon uv run python scripts/export_open_data.py --label v0.14.0'
+   ```
+
+   It refuses, writing nothing, when the register has a column it does not classify. Classify that column in `src/nfr/open_data.py` (open, non-commercial or excluded) in a release, then export again.
+
+2. Copy the archives to your machine:
+
+   ```bash
+   mkdir -p open_data && for set in cc-by non-commercial; do ssh nfr-oracle "cd ~/nigeria-facility-register && docker compose exec -T daemon cat /app/build/open_data/nfr-open-data-v0.14.0-$set.zip" > "open_data/nfr-open-data-v0.14.0-$set.zip"; done
+   ```
+
+3. Check that each archive opens and its `manifest.json` names the input fingerprint the dashboard's Data status tab shows. Then attach both archives to the release:
+
+   ```bash
+   gh release upload v0.14.0 open_data/nfr-open-data-v0.14.0-*.zip --repo Behordeun/nigeria-facility-register
+   ```
+
+Attaching the files publishes them. The non-commercial archive is published under ESPEN's terms, which allow redistribution for non-commercial use with the same licence.
+
 ## Backups
 
 The archived registers in `build/published/` and Superset's database share the instance's boot volume, so losing the instance loses them too. A nightly job, `scripts/backup_host.sh`, copies both to an OCI Object Storage bucket:

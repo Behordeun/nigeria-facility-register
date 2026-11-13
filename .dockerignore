@@ -16,6 +16,9 @@
 !dbt/
 !data/
 !scripts/
+# Bundled into each open data archive by scripts/export_open_data.py.
+!LICENSE-DATA
+!docs/DATA_CONTRACT.md
 
 # Re-excluded inside the directories above. dbt's target and logs are rebuilt
 # in the image (the Dockerfile parses the project); raw inputs are

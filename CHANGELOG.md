@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Added
+
+- An open data export. `scripts/export_open_data.py` writes the published register as two archives for a GitHub release. The CC BY 4.0 archive holds five tables as Parquet and CSV, plus the LGA boundaries as a GeoPackage. The non-commercial archive (CC BY-NC-SA 3.0 IGO) holds the ESPEN-derived columns, including the priority score. Each archive carries its terms, the data contract and a manifest of row counts and checksums. The export refuses a register with a column it has not classified by licence. See DATA_CONTRACT.md, "Open data release", and DEPLOY_ORACLE.md, "Publishing the open data".
+
 ### Changed
 
 - An automatic deploy now starts a refresh once both UIs answer, so the release's own code rebuilds the register without a manual launch. It skips this while a register is held after a rollback (DEPLOY_ORACLE.md, "Automatic deploys").
