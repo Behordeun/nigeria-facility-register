@@ -194,8 +194,9 @@ Otherwise it:
 4. Waits for Superset to report healthy.
 5. Runs `make dashboard`, and also `make public-viewer` when `SUPERSET_PUBLIC_VIEWER_PASSWORD` is set.
 6. Checks that both UIs answer.
+7. Starts a refresh, so the register is rebuilt by the release's own code. It skips this while a register is held after a rollback (`scripts/restore_register.py`).
 
-The job log shows each step. It does not wait for a refresh: when a release changes the models or the inputs, the sensor starts that refresh on its own. Moving the code back to an older release is done by hand.
+The job log shows each step. It starts the refresh but does not wait for it; follow it in the Dagster UI. The sensor alone would miss a release that changes only the orchestration code, since it watches the inputs and the dbt models. A refresh that was already queued or running is not a problem: runs go one at a time, and rebuilding the same inputs republishes the same figures. Moving the code back to an older release is done by hand.
 
 ### One-time setup
 

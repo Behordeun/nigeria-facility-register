@@ -13,14 +13,15 @@
 # tag's own copy of this script, so a release always deploys with its own steps.
 # The second rebuilds the images, restarts the stack, waits for Superset,
 # re-imports the dashboard (and the public-viewer role, when that account is
-# configured) and checks both UIs answer.
+# configured), checks both UIs answer and starts a refresh, so the release's
+# own code builds the register.
 #
 # It refuses, without changing anything, when the tag is not a release tag on
 # main, when tracked files on the host have local changes, when the checkout is
 # not on main, or when the host is already past the tag (rolling the code back
 # is a manual step). Volumes are untouched: the register, the archived
-# registers and Superset's records survive. The first refresh after a release
-# whose inputs or models changed is started by the sensor, not by this script.
+# registers and Superset's records survive. While a register is held after a
+# rollback, no refresh is started.
 set -euo pipefail
 
 APP_DIR="${NFR_APP_DIR:-$HOME/nigeria-facility-register}"
@@ -28,6 +29,8 @@ RELEASE_TAG_PATTERN='^v[0-9]+\.[0-9]+\.[0-9]+$'
 HEALTH_TIMEOUT_SECONDS=600
 SUPERSET_HEALTH_URL="http://127.0.0.1:8088/health"
 DAGSTER_HEALTH_URL="http://127.0.0.1:3000/server_info"
+# Inside the daemon container; written by scripts/restore_register.py.
+HOLD_FILE=/app/build/publish_hold.json
 
 log() { printf '%s deploy: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*"; }
 fail() { log "$*" >&2; exit 1; }
@@ -113,7 +116,22 @@ apply_release() {
         make public-viewer PY=python3
     fi
     wait_for_url "$DAGSTER_HEALTH_URL"
+    launch_refresh
     log "$tag deployed"
+}
+
+# The sensor only notices changed inputs or dbt models, so a release that
+# changes only the orchestration code would otherwise wait for the weekly
+# schedule. A refresh already queued or running needs no check: runs are
+# serialised, and rebuilding the same inputs republishes the same figures.
+launch_refresh() {
+    if docker compose exec -T daemon test -f "$HOLD_FILE"; then
+        log "a register is held after a rollback ($HOLD_FILE); not starting a refresh"
+        return
+    fi
+    log "starting a refresh"
+    docker compose exec -T daemon uv run dagster job launch \
+        -m nfr.orchestration.definitions -j refresh_register
 }
 
 main() {

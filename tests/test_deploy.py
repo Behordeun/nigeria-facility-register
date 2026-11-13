@@ -164,17 +164,25 @@ next_line() {
 }
 case "$1 $2" in
   "compose ps") next_line "$STATE/containers" ;;
-  "compose exec") exit 1 ;;
+  "compose exec")
+    case "$4 $5" in
+      "daemon test") [ -f "$STATE/hold" ] ;;
+      "daemon uv") exit 0 ;;
+      *) exit 1 ;;
+    esac ;;
   "inspect -f") next_line "$STATE/health.$4" ;;
 esac
 '''
 RECORDER = '#!/usr/bin/env bash\necho "$(basename "$0") $*" >> "$CALLS"\n'
 
 
-def _apply(tmp_path: Path, containers: list[str], health: list[str]) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+def _apply(tmp_path: Path, containers: list[str], health: list[str],
+           held: bool = False) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     app, bin_dir, state = tmp_path / "app", tmp_path / "bin", tmp_path / "state"
     for d in (app, bin_dir, state):
         d.mkdir()
+    if held:
+        (state / "hold").write_text("")
     (app / ".env").write_text("")
     (state / "containers").write_text("\n".join(containers) + "\n")
     for container in containers:
@@ -208,8 +216,25 @@ def test_apply_waits_for_superset_before_importing_and_checks_both_uis(tmp_path)
     assert steps[:2] == ["docker compose build", "docker compose up -d"]
     assert "8088/health" in steps[2], "Superset must answer before the dashboard is imported"
     assert steps[3] == "make dashboard PY=python3", "the dashboard import follows the Superset check"
-    assert "3000/server_info" in steps[-1], "the Dagster UI is checked last"
+    assert "3000/server_info" in steps[-1], "the Dagster UI is checked after the dashboard import"
     assert not any(c.startswith("make public-viewer") for c in calls), "no viewer password, no viewer step"
+
+
+LAUNCH = "docker compose exec -T daemon uv run dagster job launch -m nfr.orchestration.definitions -j refresh_register"
+
+
+def test_apply_starts_a_refresh_once_dagster_answers(tmp_path):
+    result, calls = _apply(tmp_path, ["c1"], ["c1=healthy"])
+    assert result.returncode == 0, result.stderr
+    assert calls[-1] == LAUNCH, "the refresh is the last step, after the Dagster UI answers"
+    assert "3000/server_info" in calls[-3], "the hold check and launch follow the Dagster check"
+
+
+def test_apply_does_not_refresh_a_held_register(tmp_path):
+    result, calls = _apply(tmp_path, ["c1"], ["c1=healthy"], held=True)
+    assert result.returncode == 0, result.stderr
+    assert LAUNCH not in calls, "a register held after a rollback must not be rebuilt by a deploy"
+    assert "held after a rollback" in result.stdout
 
 
 def test_apply_falls_back_to_the_url_check_without_a_healthcheck(tmp_path):
