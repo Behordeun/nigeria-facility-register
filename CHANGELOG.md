@@ -4,13 +4,21 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-13
+
 ### Added
 
 - History across releases. The publish step now carries each LGA's key figures forward in `lga_history`: facilities, facilities per 10,000 people, and the priority score and tier, one row per input vintage, stamped with the build time and input fingerprint. The live register's history is copied into each new build and the build's figures are appended; a republish of unchanged inputs adds nothing. The first publish under this release seeds the history with the replaced register's own figures. A restore brings back the history the restored register had, and gives a register archived before this table its own figures. The LGA profile tab gains "This LGA across releases", newest first, so a change since the last release reads off its top two rows. DATA_CONTRACT.md documents the table.
 
 ### Changed
 
+- The publish-time table lookups (`register_changes` and `lga_history`) look only in the register's main schema, and a restored register's `lga_history` is kept only when it has every published column; otherwise the register's own figures replace it.
 - A refresh that republishes the same inputs (the weekly refresh when nothing changed) keeps the live register's `register_changes` instead of rewriting it as "0 changes", so the record of what a vintage changed lasts until the inputs change again.
+
+### Notes
+
+- Every published table and column is unchanged. The register gains one table, `lga_history` (DATA_CONTRACT.md).
+- After deploying, launch one refresh. It seeds the history with the register live today as the first vintage plus the new one; until then the "This LGA across releases" chart on the LGA profile tab shows a missing-table error.
 
 ## [0.12.0] - 2026-11-12
 
@@ -276,7 +284,8 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 - First tagged release. While the version is 0.x, the published contract (docs/DATA_CONTRACT.md) may still change in a minor release; any breaking change is announced in this file before it ships.
 
-[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.12.0...development
+[Unreleased]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.13.0...development
+[0.13.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.12.0...v0.13.0
 [0.12.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.11.0...v0.12.0
 [0.11.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/Behordeun/nigeria-facility-register/compare/v0.9.0...v0.10.0
