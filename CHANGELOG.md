@@ -4,6 +4,10 @@ All notable changes to this project are recorded here. The format follows [Keep 
 
 ## [Unreleased]
 
+### Changed
+
+- The summary row of "Changes in this release" now shows when the two registers were built (`YYYY-MM-DD HH:MM`) in Before and Now, instead of their input fingerprints. The fingerprints move to two new `register_changes` columns, `previous_fingerprint` and `current_fingerprint`. A change record written by 0.14.0 or earlier lacks them, so the first publish after this release compares afresh instead of keeping it; the live record is a "0 changes" one, so nothing is lost. See DATA_CONTRACT.md, `register_changes`.
+
 ## [0.14.0] - 2026-11-13
 
 ### Added

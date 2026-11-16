@@ -321,10 +321,11 @@ What changed against the register this one replaced. It is not a dbt model: dbt 
 | `change` | varchar | no | one of `summary`, `priority tier`, `facility match`, `facilities` |
 | `lga_label` | varchar | yes | `'<canonical_lga>, <state>'`; null on the summary row |
 | `state`, `canonical_lga` | varchar | yes | the LGA's key in `lga_coverage_burden`; null on the summary row |
-| `previous` | varchar | yes | the value in the replaced register: its input fingerprint on the summary row (null on a first publish), the tier, `no facility` / `facilities matched`, or the facility count |
-| `current` | varchar | no | the same value in this register |
+| `previous` | varchar | yes | the value in the replaced register: its build time (`YYYY-MM-DD HH:MM`, from `register_summary.built_at`) on the summary row (null on a first publish or when unreadable), the tier, `no facility` / `facilities matched`, or the facility count |
+| `current` | varchar | no | the same value in this register; on the summary row its build time, or `unknown` if unreadable |
 | `facilities_change` | bigint | yes | this register's facility count minus the previous one, on `facility match` and `facilities` rows |
 | `detail` | varchar | yes | on the summary row: how many LGAs changed tier, match status and facility count, or why nothing was compared; null elsewhere |
+| `previous_fingerprint`, `current_fingerprint` | varchar | yes | the two registers' input fingerprints on the summary row (the previous one is null on a first publish); null elsewhere |
 
 Guarantees:
 
@@ -335,6 +336,7 @@ Guarantees:
 - On a first publish, or when the replaced register lacks the compared columns, only the summary row is written and its `detail` says why.
 - An LGA whose key is in only one of the two registers cannot be compared; the summary's `detail` counts them.
 - A register restored from an archive made before this table existed is given a summary-only record whose `detail` says so, and `previous` is null.
+- A record kept by an earlier version, without the two fingerprint columns, is not carried over: the next publish compares afresh.
 - The live register is only read. If this table cannot be written, the publish fails and the live register stays as it was.
 
 ## `lga_history`

@@ -1,5 +1,5 @@
 slice_name: Changes in this release
-description: What moved against the register this one replaced, read from register_changes.
+description: What moved against the register this one replaced, read from register_changes. The summary row's Before and Now are the two registers' build times.
 certified_by: null
 certification_details: null
 viz_type: table

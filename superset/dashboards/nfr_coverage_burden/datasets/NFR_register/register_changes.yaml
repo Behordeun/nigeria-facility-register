@@ -136,5 +136,29 @@ columns:
   description: null
   python_date_format: null
   extra: null
+- column_name: previous_fingerprint
+  verbose_name: Previous fingerprint
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
+- column_name: current_fingerprint
+  verbose_name: Current fingerprint
+  is_dttm: false
+  is_active: true
+  type: VARCHAR
+  advanced_data_type: null
+  groupby: true
+  filterable: true
+  expression: ''
+  description: null
+  python_date_format: null
+  extra: null
 version: 1.0.0
 database_uuid: 117b3c23-1fc4-537f-a53a-9bcc51057770
