@@ -17,8 +17,10 @@ _FULL = ("state varchar, canonical_lga varchar, lga_label varchar, priority_tier
          "facilities bigint, facility_status varchar")
 
 
-def _register(path: Path, rows: list[tuple], columns: str = _FULL) -> Path:
+def _register(path: Path, rows: list[tuple], columns: str = _FULL, built_at: str = "2026-01-01 06:00:00") -> Path:
     con = duckdb.connect(str(path))
+    con.execute("create table register_summary (built_at timestamp)")
+    con.execute("insert into register_summary values (?)", [built_at])
     con.execute(f"create table lga_coverage_burden ({columns})")
     if rows:
         con.executemany(f"insert into lga_coverage_burden values ({', '.join('?' * len(rows[0]))})", rows)
@@ -46,7 +48,8 @@ def test_a_first_publish_records_only_the_summary(tmp_path):
     rows = _changes(staging)
     assert len(rows) == 1, "with no previous register only the summary is written"
     assert rows[0]["change"] == "summary"
-    assert (rows[0]["previous"], rows[0]["current"]) == (None, "new-fp")
+    assert (rows[0]["previous"], rows[0]["current"]) == (None, "2026-01-01 06:00")
+    assert (rows[0]["previous_fingerprint"], rows[0]["current_fingerprint"]) == (None, "new-fp")
     assert "first publish" in rows[0]["detail"]
 
 
@@ -68,7 +71,9 @@ def test_tier_match_and_facility_changes_are_listed_in_order(tmp_path):
     changes.write_register_changes(staging, live, "new-fp", "old-fp")
     rows = _changes(staging)
     summary = rows[0]
-    assert (summary["change"], summary["previous"], summary["current"]) == ("summary", "old-fp", "new-fp")
+    assert (summary["change"], summary["previous"], summary["current"]) == (
+        "summary", "2026-01-01 06:00", "2026-01-01 06:00")
+    assert (summary["previous_fingerprint"], summary["current_fingerprint"]) == ("old-fp", "new-fp")
     assert summary["detail"].startswith("2 LGA(s) changed priority tier; 1 changed whether any facility matches; "
                                         "2 changed facility count")
     listed = [(r["change"], r["canonical_lga"], r["previous"], r["current"], r["facilities_change"])
@@ -154,12 +159,12 @@ def test_a_checked_build_carries_its_change_record(tmp_path, monkeypatch):
     monkeypatch.setattr(config, "DB", live)
     monkeypatch.setattr(gates, "enforce_carryover_gate", lambda _db: None)
     monkeypatch.setattr(gates.metrics, "collect_from_path", lambda _db: "metrics")
-    # This minimal build has no register_summary; the history is tested in test_lga_history.
+    # The history is tested in test_lga_history.
     monkeypatch.setattr(gates.history, "write_lga_history", lambda *_args: None)
     assert gates.check_staged_build(staging, "new-fp", tmp_path / "snapshot") == "metrics"
     rows = _changes(staging)
     assert [r["change"] for r in rows] == ["summary", "priority tier"]
-    assert (rows[0]["previous"], rows[0]["current"]) == ("live-fp", "new-fp"), (
+    assert (rows[0]["previous_fingerprint"], rows[0]["current_fingerprint"]) == ("live-fp", "new-fp"), (
         "the summary names the live register's fingerprint and the build's own"
     )
 
@@ -179,8 +184,8 @@ def test_ensure_record_adds_a_summary_only_once(tmp_path):
     assert changes.ensure_record(db, "restored") is True
     assert changes.ensure_record(db, "again") is False, "an existing record is kept"
     rows = _changes(db)
-    assert [(r["change"], r["previous"], r["current"], r["detail"]) for r in rows] == [
-        ("summary", None, "old-fp", "restored")]
+    assert [(r["change"], r["previous"], r["current"], r["detail"], r["current_fingerprint"]) for r in rows] == [
+        ("summary", None, "2026-01-01 06:00", "restored", "old-fp")]
 
 
 def test_restoring_an_archive_from_before_change_records_gives_it_one(tmp_path):
@@ -198,7 +203,7 @@ def test_restoring_an_archive_from_before_change_records_gives_it_one(tmp_path):
 
     rows = _changes(live)
     assert [r["change"] for r in rows] == ["summary"]
-    assert rows[0]["current"] == "old-fp"
+    assert rows[0]["current_fingerprint"] == "old-fp"
     assert "restored from an archive made before change records" in rows[0]["detail"]
     assert kept.read_bytes() == archived_bytes, "the archive itself is left as it was"
 
@@ -224,3 +229,29 @@ def test_a_republish_without_a_record_to_keep_compares_as_usual(tmp_path):
     rows = _changes(staging)
     assert [r["change"] for r in rows] == ["summary"]
     assert rows[0]["detail"].startswith("0 LGA(s) changed priority tier")
+
+
+def test_a_build_time_that_cannot_be_read_is_unknown(tmp_path):
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi")])
+    con = duckdb.connect(str(staging))
+    con.execute("drop table register_summary")
+    con.close()
+    changes.write_register_changes(staging, tmp_path / "absent.duckdb", "new-fp", None)
+    assert _changes(staging)[0]["current"] == "unknown"
+
+
+def test_a_live_record_in_the_old_format_is_compared_afresh(tmp_path):
+    # A record written before the fingerprint columns existed (0.14.0) cannot be
+    # kept as it is. It is a "0 changes" record, so comparing afresh loses nothing.
+    live = _register(tmp_path / "live.duckdb", [_lga("Ajingi")])
+    con = duckdb.connect(str(live))
+    con.execute("create table register_changes (change_order integer, change varchar, lga_label varchar, "
+                "state varchar, canonical_lga varchar, previous varchar, current varchar, "
+                "facilities_change bigint, detail varchar)")
+    con.execute("insert into register_changes values (0, 'summary', null, null, null, 'a', 'fp1', null, 'old')")
+    con.close()
+    staging = _register(tmp_path / "staging.duckdb", [_lga("Ajingi")])
+    changes.write_register_changes(staging, live, "fp1", "fp1")
+    summary = _changes(staging)[0]
+    assert summary["detail"].startswith("0 LGA(s) changed priority tier")
+    assert (summary["previous_fingerprint"], summary["current_fingerprint"]) == ("fp1", "fp1")

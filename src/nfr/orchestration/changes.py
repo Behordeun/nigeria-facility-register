@@ -10,8 +10,9 @@ and a restored register keeps its own record.
 
 One row per change, in display order:
 
-  - a summary row: the previous and the new input fingerprints, and how many
-    LGAs changed priority tier, facility count and match status;
+  - a summary row: when the previous and the new register were built, their
+    input fingerprints, and how many LGAs changed priority tier, facility count
+    and match status;
   - every LGA whose priority tier changed;
   - every LGA that newly matched a facility or no longer matches any;
   - the LGAs whose facility count changed most (FACILITY_CHANGES_LISTED of them).
@@ -53,18 +54,21 @@ COLUMNS = {
     "current": "VARCHAR",
     "facilities_change": "BIGINT",
     "detail": "VARCHAR",
+    "previous_fingerprint": "VARCHAR",
+    "current_fingerprint": "VARCHAR",
 }
 
 _CREATE = (
     'create or replace table "register_changes" ('
     "change_order integer not null, change varchar not null, lga_label varchar, state varchar, "
-    "canonical_lga varchar, previous varchar, current varchar, facilities_change bigint, detail varchar)"
+    "canonical_lga varchar, previous varchar, current varchar, facilities_change bigint, detail varchar, "
+    "previous_fingerprint varchar, current_fingerprint varchar)"
 )
 _CREATE_PREVIOUS = (
     "create temp table previous_lgas (state varchar, canonical_lga varchar, priority_tier varchar, "
     "facilities bigint, facility_status varchar)"
 )
-_INSERT_SUMMARY = 'insert into "register_changes" values (0, \'summary\', null, null, null, ?, ?, null, ?)'
+_INSERT_SUMMARY = 'insert into "register_changes" values (0, \'summary\', null, null, null, ?, ?, null, ?, ?, ?)'
 
 # The comparison, numbering rows so the dashboard shows them in a fixed order:
 # tier changes (to high first), then match changes, then the largest facility
@@ -109,7 +113,7 @@ listed as (
     union all select *, 3 from moved
 )
 select (row_number() over (order by section, rank_1, rank_2, lga_label))::integer,
-       change, lga_label, state, canonical_lga, previous, current, facilities_change, null
+       change, lga_label, state, canonical_lga, previous, current, facilities_change, null, null, null
 from listed
 """
 _COUNTS = """
@@ -120,10 +124,12 @@ select count(*) filter (where p.priority_tier is distinct from c.priority_tier),
        (select count(*) from previous_lgas p anti join lga_coverage_burden c using (state, canonical_lga))
 from lga_coverage_burden c join previous_lgas p using (state, canonical_lga)
 """
+_BUILT_AT = "select strftime(built_at, '%Y-%m-%d %H:%M') from register_summary"
 _TABLE_EXISTS = "select 1 from information_schema.tables where table_schema = 'main' and table_name = ?"
 _TABLE_COLUMNS = "select column_name from information_schema.columns where table_schema = 'main' and table_name = ?"
 _SELECT_RECORD = (
-    "select change_order, change, lga_label, state, canonical_lga, previous, current, facilities_change, detail "
+    "select change_order, change, lga_label, state, canonical_lga, previous, current, facilities_change, detail, "
+    "previous_fingerprint, current_fingerprint "
     'from "register_changes"'
 )
 
@@ -139,6 +145,7 @@ def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint:
     """
     kept = _kept_record(live_db) if current_fingerprint == previous_fingerprint else None
     previous_rows, reason = (None, "") if kept is not None else _previous_lgas(live_db)
+    previous_built_at = None if kept is not None or previous_rows is None else _live_built_at(live_db)
     con = duckdb.connect(str(staging_db))
     try:
         con.execute("begin")
@@ -148,12 +155,13 @@ def write_register_changes(staging_db: Path, live_db: Path, current_fingerprint:
             con.execute('insert into "register_changes" select * from kept_record')
             con.unregister("kept_record")
         elif previous_rows is None:
-            con.execute(_INSERT_SUMMARY, [previous_fingerprint, current_fingerprint, reason])
+            con.execute(_INSERT_SUMMARY, [None, _built_at(con), reason, previous_fingerprint, current_fingerprint])
         else:
             con.execute(_CREATE_PREVIOUS)
             con.executemany("insert into previous_lgas values (?, ?, ?, ?, ?)", previous_rows)
             counts = con.execute(_COUNTS).fetchone()
-            con.execute(_INSERT_SUMMARY, [previous_fingerprint, current_fingerprint, _summary(*counts)])
+            con.execute(_INSERT_SUMMARY, [previous_built_at, _built_at(con), _summary(*counts),
+                                          previous_fingerprint, current_fingerprint])
             con.execute(_INSERT_CHANGES, [FACILITY_CHANGES_LISTED])
         con.execute("commit")
     finally:
@@ -206,11 +214,30 @@ def ensure_record(db: Path, note: str) -> bool:
             return False
         con.execute("begin")
         con.execute(_CREATE)
-        con.execute(_INSERT_SUMMARY, [None, fingerprint or "unknown", note])
+        con.execute(_INSERT_SUMMARY, [None, _built_at(con), note, None, fingerprint or "unknown"])
         con.execute("commit")
     finally:
         con.close()
     return True
+
+
+def _built_at(con: duckdb.DuckDBPyConnection) -> str:
+    """The build time recorded in a register, as `YYYY-MM-DD HH:MM`, or "unknown" if it has none."""
+    try:
+        row = con.execute(_BUILT_AT).fetchone()
+    except duckdb.Error:
+        return "unknown"
+    return row[0] if row and row[0] else "unknown"
+
+
+def _live_built_at(live_db: Path) -> str | None:
+    """The live register's build time, or None when it cannot be read."""
+    con = duckdb.connect(str(live_db), read_only=True)
+    try:
+        built_at = _built_at(con)
+    finally:
+        con.close()
+    return None if built_at == "unknown" else built_at
 
 
 def _summary(tiers: int, matches: int, moves: int, only_current: int, only_previous: int) -> str:
