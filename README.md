@@ -94,7 +94,7 @@ The published marts carry a written, tested contract: column types are enforced 
 
 ## Business impact
 
-Who this register is for, what it changes about facility planning and claims validation, and where its limits are. See `docs/BUSINESS_IMPACT.md`.
+Who this register is for, what it changes about facility planning and claims validation, and where its limits are. See [`docs/BUSINESS_IMPACT.md`](docs/BUSINESS_IMPACT.md).
 
 ## Deployment
 
