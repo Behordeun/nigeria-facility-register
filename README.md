@@ -92,6 +92,10 @@ The raw geopackages are fetched, not committed. HDX serves them behind a challen
 
 The published marts carry a written, tested contract: column types are enforced by dbt model contracts, and the guarantees a type cannot express (grain, keys, "missing is not zero", value domains, freshness) are enforced by tests. See `docs/DATA_CONTRACT.md`.
 
+## Business impact
+
+Who this register is for, what it changes about facility planning and claims validation, and where its limits are. See `docs/BUSINESS_IMPACT.md`.
+
 ## Deployment
 
 The dev and CI loops need only `uv` and the lockfile. For an always-on deployment where the Dagster schedule and sensor keep refreshing the register, a `Dockerfile` and `docker-compose.yml` run the Dagster webserver and daemon from one image, sharing the instance and the built database. See `docs/DEPLOYMENT.md`.
